@@ -1,4 +1,7 @@
 const http = require('http');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 const DEFAULT_ROOM = 'cy-4371';
@@ -26,6 +29,192 @@ rooms[DEFAULT_ROOM]['игровая-комната'].push({
 const emailCodes = Object.create(null);
 let clients = [];
 
+// ---------- Постоянные данные: участники комнат, друзья, история ----------
+const users = Object.create(null);     // uid (секрет браузера) -> { pid, nick, friends:[pid], incoming:[pid], outgoing:[pid] }
+const pidToUid = Object.create(null);  // публичный id -> uid
+const members = Object.create(null);   // комната -> [uid]
+const MAX_MEMBERS = 500;
+const MAX_FRIENDS = 200;
+const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data.json');
+
+function pidOf(uid) { return crypto.createHash('sha256').update(uid).digest('hex').slice(0, 10); }
+function validUid(v) { return typeof v === 'string' && /^[a-f0-9]{32}$/.test(v); }
+function validPid(v) { return typeof v === 'string' && /^[a-f0-9]{10}$/.test(v); }
+function pidList(a) { return Array.isArray(a) ? a.filter(validPid).slice(0, MAX_FRIENDS) : []; }
+
+// Хранилище: Upstash Redis (если заданы переменные окружения), иначе локальный файл data.json
+const REDIS_URL = String(process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/+$/, '');
+const REDIS_TOKEN = String(process.env.UPSTASH_REDIS_REST_TOKEN || '');
+const USE_REDIS = !!(REDIS_URL && REDIS_TOKEN);
+const KEY = 'signal:';
+const dirtyRooms = new Set();
+let loaded = false;
+let saveTimer = null;
+let saving = false;
+let resave = false;
+
+async function redis(commands) {
+  const res = await fetch(REDIS_URL + '/pipeline', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + REDIS_TOKEN, 'Content-Type': 'application/json' },
+    body: JSON.stringify(commands),
+    signal: AbortSignal.timeout(8000)
+  });
+  if (!res.ok) throw new Error('Upstash ответил кодом ' + res.status);
+  const data = await res.json();
+  data.forEach(x => { if (x && x.error) throw new Error('Upstash: ' + x.error); });
+  return data.map(x => x.result);
+}
+
+function usersPart() {
+  const o = {};
+  Object.keys(users).forEach(uid => {
+    const u = users[uid];
+    o[uid] = { nick: u.nick, friends: u.friends, incoming: u.incoming, outgoing: u.outgoing };
+  });
+  return o;
+}
+
+function scheduleSave(room) {
+  if (room) dirtyRooms.add(room);
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => { saveTimer = null; saveNow(); }, USE_REDIS ? 2000 : 1000);
+}
+
+async function saveNow() {
+  if (!loaded) return; // пока данные не загружены, ничего не записываем, чтобы не затереть сохранённое
+  if (saving) { resave = true; return; }
+  saving = true;
+  try {
+    if (USE_REDIS) {
+      const rs = Array.from(dirtyRooms);
+      dirtyRooms.clear();
+      const cmds = [
+        ['SET', KEY + 'users', JSON.stringify(usersPart())],
+        ['SET', KEY + 'members', JSON.stringify(members)],
+        ['SET', KEY + 'rooms', JSON.stringify(Object.keys(rooms))]
+      ];
+      rs.forEach(r => { if (rooms[r]) cmds.push(['SET', KEY + 'msg:' + r, JSON.stringify(rooms[r])]); });
+      try {
+        await redis(cmds);
+      } catch (e) {
+        rs.forEach(r => dirtyRooms.add(r));
+        throw e;
+      }
+    } else {
+      const data = { users: usersPart(), members: {}, messages: {} };
+      Object.keys(members).forEach(r => { data.members[r] = members[r]; });
+      Object.keys(rooms).forEach(r => { data.messages[r] = rooms[r]; });
+      const tmp = DATA_FILE + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(data));
+      fs.renameSync(tmp, DATA_FILE);
+    }
+  } catch (e) {
+    console.log('⚠️ Не удалось сохранить данные: ' + e.message);
+  } finally {
+    saving = false;
+    if (resave) { resave = false; scheduleSave(); }
+  }
+}
+
+function applyData(d) {
+  Object.keys(d.users || {}).forEach(uid => {
+    if (!validUid(uid)) return;
+    const u = d.users[uid] || {};
+    users[uid] = { pid: pidOf(uid), nick: cleanNick(u.nick), friends: pidList(u.friends), incoming: pidList(u.incoming), outgoing: pidList(u.outgoing) };
+    pidToUid[users[uid].pid] = uid;
+  });
+  Object.keys(d.members || {}).forEach(r => {
+    if (safeRoom(r) !== r || !Array.isArray(d.members[r])) return;
+    members[r] = d.members[r].filter(validUid).slice(0, MAX_MEMBERS);
+  });
+  Object.keys(d.messages || {}).forEach(r => {
+    if (safeRoom(r) !== r || !d.messages[r]) return;
+    const room = getRoom(r);
+    CHANNELS.forEach(ch => {
+      const list = d.messages[r][ch];
+      if (!Array.isArray(list)) return;
+      room[ch] = list.slice(-MAX_HISTORY).map(m => ({
+        author: String(m.author || '').slice(0, 24),
+        time: String(m.time || '').slice(0, 5),
+        text: String(m.text || '').slice(0, 1000)
+      }));
+    });
+  });
+}
+
+async function loadData() {
+  if (USE_REDIS) {
+    const first = await redis([['GET', KEY + 'users'], ['GET', KEY + 'members'], ['GET', KEY + 'rooms']]);
+    const roomNames = (first[2] ? JSON.parse(first[2]) : []).filter(n => safeRoom(n) === n);
+    const msgs = roomNames.length ? await redis(roomNames.map(n => ['GET', KEY + 'msg:' + n])) : [];
+    const messages = {};
+    roomNames.forEach((n, i) => { if (msgs[i]) messages[n] = JSON.parse(msgs[i]); });
+    applyData({ users: first[0] ? JSON.parse(first[0]) : {}, members: first[1] ? JSON.parse(first[1]) : {}, messages });
+  } else if (fs.existsSync(DATA_FILE)) {
+    applyData(JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')));
+  }
+  loaded = true;
+  console.log('💾 Хранилище: ' + (USE_REDIS ? 'Upstash Redis' : 'файл ' + DATA_FILE) + ', пользователей: ' + Object.keys(users).length);
+}
+
+function ensureUser(uid, nick) {
+  let u = users[uid];
+  const n = cleanNick(nick);
+  if (!u) {
+    u = users[uid] = { pid: pidOf(uid), nick: n, friends: [], incoming: [], outgoing: [] };
+    pidToUid[u.pid] = uid;
+    scheduleSave();
+  } else if (nick && u.nick !== n) {
+    u.nick = n;
+    scheduleSave();
+  }
+  return u;
+}
+function addMember(room, uid) {
+  const arr = members[room] || (members[room] = []);
+  if (!arr.includes(uid) && arr.length < MAX_MEMBERS) {
+    arr.push(uid);
+    scheduleSave();
+  }
+}
+function isOnline(uid) { return clients.some(c => c.uid === uid); }
+
+function socialState(uid) {
+  const u = users[uid];
+  if (!u) return null;
+  const info = pid => {
+    const tu = pidToUid[pid];
+    return { pid, nick: tu && users[tu] ? users[tu].nick : '?', online: tu ? isOnline(tu) : false };
+  };
+  return { pid: u.pid, friends: u.friends.map(info), incoming: u.incoming.map(info), outgoing: u.outgoing.slice() };
+}
+function sendSocial(uid) {
+  const st = socialState(uid);
+  if (!st) return;
+  const data = 'data: ' + JSON.stringify({ type: 'social', payload: st }) + '\n\n';
+  clients.forEach(c => { if (c.uid === uid) c.res.write(data); });
+}
+function notifyFriendsOf(uid) {
+  const u = users[uid];
+  if (!u) return;
+  u.friends.forEach(pid => { const f = pidToUid[pid]; if (f) sendSocial(f); });
+}
+function memberList(room) {
+  const online = new Map();
+  clients.forEach(c => {
+    if (c.room !== room || !c.uid) return;
+    const prev = online.get(c.uid);
+    online.set(c.uid, { inVoice: !!(prev && prev.inVoice) || !!c.inVoice });
+  });
+  return (members[room] || []).map(uid => {
+    const u = users[uid];
+    const o = online.get(uid);
+    return { pid: u ? u.pid : pidOf(uid), nick: u ? u.nick : '?', online: !!o, inVoice: !!(o && o.inVoice) };
+  });
+}
+
+
 function safeRoom(v) {
   const s = String(v || '').trim();
   return /^[\p{L}\p{N}_-]{1,32}$/u.test(s) ? s : DEFAULT_ROOM;
@@ -50,10 +239,7 @@ function broadcast(room, eventType, payload) {
 }
 
 function broadcastUsers(room) {
-  const list = clients
-    .filter(c => c.room === room)
-    .map(c => ({ nick: c.nick, inVoice: c.inVoice, peerId: c.peerId }));
-  broadcast(room, 'users', list);
+  broadcast(room, 'users', memberList(room));
 }
 
 // Поддерживаем SSE-соединения живыми (туннель и прокси обрывают «тихие» соединения)
@@ -195,7 +381,11 @@ const HTML_PAGE = `<!DOCTYPE html>
   .right-panel { background: var(--bg-sidebar); border-left: 1px solid var(--border); padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
   .right-sec-title { font-size: 9px; text-transform: uppercase; color: var(--cyan-bright); font-weight: 700; }
   .online-user-item { display: flex; align-items: center; gap: 8px; font-size: 11px; padding: 5px 6px; background: rgba(255,255,255,0.02); border-radius: 6px; }
-  .online-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+  .online-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+  .online-dot.off { background: #475569; }
+  .mini-btn { background: transparent; border: 1px solid var(--cyan-border); color: var(--cyan-bright); padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; cursor: pointer; }
+  .mini-btn:hover { background: rgba(20, 184, 166, 0.12); }
+  .friend-tag { font-size: 9px; color: var(--text-muted); font-weight: 700; }
   .invite-banner-card { background: linear-gradient(135deg, rgba(219,39,119,0.12), rgba(13,148,136,0.06)); border: 1px solid var(--pink-border); border-radius: 10px; padding: 12px; margin-top: auto; }
   .invite-banner-card h5 { font-size: 11px; font-weight: 700; margin-bottom: 3px; }
   .invite-banner-card p { font-size: 10px; color: var(--text-dim); margin-bottom: 8px; }
@@ -368,6 +558,9 @@ const HTML_PAGE = `<!DOCTYPE html>
     <div class="right-panel">
       <div class="right-sec-title">НА ЧАСТОТЕ (<span id="online-count">1</span>)</div>
       <div id="online-users-box"></div>
+      <div class="right-sec-title" style="margin-top:6px;">ДРУЗЬЯ (<span id="friends-count">0</span>)</div>
+      <div id="requests-box"></div>
+      <div id="friends-box"></div>
       <div class="invite-banner-card">
         <h5>Зови друзей в канал</h5>
         <p>Отправьте другу публичную ссылку — он сразу появится в списке участников.</p>
@@ -406,7 +599,25 @@ const HTML_PAGE = `<!DOCTYPE html>
 <script>
   const CHANNEL_LIST = ['игровая-комната', 'общий', 'знакомства', 'музыка'];
   const params = new URLSearchParams(window.location.search);
-  const currentRoom = params.get('room') || 'cy-4371';
+  // Постоянная личность: секретный id браузера + последняя комната (чтобы не пропадать после выхода)
+  function makeUid() {
+    const a = new Uint8Array(16);
+    (window.crypto || window.msCrypto).getRandomValues(a);
+    return Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+  }
+  let myUid = null;
+  try { myUid = localStorage.getItem('cyber_uid'); } catch (e) {}
+  if (!myUid || !/^[a-f0-9]{32}$/.test(myUid)) {
+    myUid = makeUid();
+    try { localStorage.setItem('cyber_uid', myUid); } catch (e) {}
+  }
+  let currentRoom = params.get('room');
+  if (!currentRoom) { try { currentRoom = localStorage.getItem('cyber_last_room'); } catch (e) {} }
+  currentRoom = currentRoom || 'cy-4371';
+  try { localStorage.setItem('cyber_last_room', currentRoom); } catch (e) {}
+  if (!params.get('room')) {
+    try { history.replaceState(null, '', '/?room=' + encodeURIComponent(currentRoom)); } catch (e) {}
+  }
   let currentChannel = params.get('channel') || 'игровая-комната';
   if (CHANNEL_LIST.indexOf(currentChannel) === -1) currentChannel = CHANNEL_LIST[0];
   let myNick = 'Гость_932';
@@ -447,7 +658,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   document.getElementById('node-badge').textContent = 'Узел активен, ' + currentRoom;
   document.getElementById('room-code-label').innerHTML = 'Код комнаты: <b>' + escapeHtml(currentRoom) + '</b> НА СВЯЗИ';
 
-  const evtSource = new EventSource('/api/events?id=' + clientId + '&room=' + encodeURIComponent(currentRoom) + '&nick=' + encodeURIComponent(myNick));
+  const evtSource = new EventSource('/api/events?id=' + clientId + '&uid=' + myUid + '&room=' + encodeURIComponent(currentRoom) + '&nick=' + encodeURIComponent(myNick));
 
   evtSource.onmessage = (e) => {
     let data;
@@ -456,8 +667,11 @@ const HTML_PAGE = `<!DOCTYPE html>
       addMsgToDOM(data.payload.msg);
     } else if (data.type === 'users') {
       renderUsers(data.payload);
-    } else if (data.type === 'tunnel') {
-      if (document.getElementById('invite-modal').classList.contains('open')) refreshInviteLink();
+    } else if (data.type === 'social') {
+      myPid = data.payload.pid;
+      social = data.payload;
+      renderSocial();
+      renderUsers(lastMembers);
     } else if (data.type === 'voice-join') {
       if (inVoice && peer && localStream && myPeerId && data.payload.peerId !== myPeerId) {
         const pid = data.payload.peerId;
@@ -503,15 +717,92 @@ const HTML_PAGE = `<!DOCTYPE html>
     scrollArea.scrollTop = scrollArea.scrollHeight;
   }
 
-  function renderUsers(users) {
-    document.getElementById('online-count').textContent = users.length;
+  let myPid = null, lastMembers = [], social = { friends: [], incoming: [], outgoing: [] };
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function friendAction(action, pid) {
+    return fetch('/api/friend', { method: 'POST', body: JSON.stringify({ uid: myUid, action: action, target: pid }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d.error) alert(d.error); })
+      .catch(function () { alert('Ошибка соединения с сервером.'); });
+  }
+
+  function renderUsers(list) {
+    lastMembers = list || [];
+    const online = lastMembers.filter(function (u) { return u.online; });
+    document.getElementById('online-count').textContent = online.length;
     const box = document.getElementById('online-users-box');
     box.innerHTML = '';
-    users.forEach(u => {
-      const d = document.createElement('div');
-      d.className = 'online-user-item';
-      d.innerHTML = '<span class="online-dot"></span><span>' + escapeHtml(u.nick) + (u.inVoice ? ' 🔊' : '') + '</span>';
+    const sorted = online.concat(lastMembers.filter(function (u) { return !u.online; }));
+    const friendPids = social.friends.map(function (f) { return f.pid; });
+    sorted.forEach(function (u) {
+      const d = el('div', 'online-user-item');
+      if (!u.online) d.style.opacity = '0.5';
+      d.appendChild(el('span', 'online-dot' + (u.online ? '' : ' off')));
+      const name = el('span', '', u.nick + (u.pid === myPid ? ' (вы)' : '') + (u.inVoice ? ' 🔊' : ''));
+      name.style.flex = '1';
+      d.appendChild(name);
+      if (myPid && u.pid !== myPid) {
+        if (friendPids.indexOf(u.pid) >= 0) {
+          d.appendChild(el('span', 'friend-tag', 'друг'));
+        } else if (social.outgoing.indexOf(u.pid) >= 0) {
+          d.appendChild(el('span', 'friend-tag', 'заявка'));
+        } else if (social.incoming.some(function (i) { return i.pid === u.pid; })) {
+          const b = el('button', 'mini-btn', 'принять');
+          b.onclick = function () { friendAction('accept', u.pid); };
+          d.appendChild(b);
+        } else {
+          const b = el('button', 'mini-btn', '+ друг');
+          b.onclick = function () { friendAction('request', u.pid); };
+          d.appendChild(b);
+        }
+      }
       box.appendChild(d);
+    });
+  }
+
+  function renderSocial() {
+    document.getElementById('friends-count').textContent = social.friends.length;
+    const rq = document.getElementById('requests-box');
+    rq.innerHTML = '';
+    social.incoming.forEach(function (r) {
+      const d = el('div', 'online-user-item');
+      const name = el('span', '', r.nick + ' хочет в друзья');
+      name.style.flex = '1';
+      const ok = el('button', 'mini-btn', '✓');
+      ok.onclick = function () { friendAction('accept', r.pid); };
+      const no = el('button', 'mini-btn', '✕');
+      no.onclick = function () { friendAction('decline', r.pid); };
+      d.appendChild(name);
+      d.appendChild(ok);
+      d.appendChild(no);
+      rq.appendChild(d);
+    });
+    const fb = document.getElementById('friends-box');
+    fb.innerHTML = '';
+    if (social.friends.length === 0) {
+      const hint = el('div', '', 'Пока никого. Нажмите «+ друг» рядом с участником.');
+      hint.style.cssText = 'font-size:10px;color:var(--text-muted);';
+      fb.appendChild(hint);
+    }
+    social.friends.forEach(function (f) {
+      const d = el('div', 'online-user-item');
+      if (!f.online) d.style.opacity = '0.5';
+      d.appendChild(el('span', 'online-dot' + (f.online ? '' : ' off')));
+      const name = el('span', '', f.nick);
+      name.style.flex = '1';
+      d.appendChild(name);
+      const rmb = el('button', 'mini-btn', '✕');
+      rmb.title = 'Удалить из друзей';
+      rmb.onclick = function () { if (confirm('Удалить ' + f.nick + ' из друзей?')) friendAction('remove', f.pid); };
+      d.appendChild(rmb);
+      fb.appendChild(d);
     });
   }
 
@@ -740,6 +1031,8 @@ const server = http.createServer(async (req, res) => {
       const id = String(url.searchParams.get('id') || '').slice(0, 32);
       const room = safeRoom(url.searchParams.get('room'));
       const nick = cleanNick(url.searchParams.get('nick') || 'Гость_932');
+      const uid = url.searchParams.get('uid');
+      if (!validUid(uid)) { res.writeHead(400); return res.end(); }
 
       res.writeHead(200, {
         'Content-Type': 'text/event-stream; charset=utf-8',
@@ -750,14 +1043,19 @@ const server = http.createServer(async (req, res) => {
       res.write(': connected\n\n');
 
       getRoom(room);
+      const user = ensureUser(uid, nick);
+      addMember(room, uid);
 
-      const client = { id, room, nick, inVoice: false, peerId: null, res };
+      const client = { id, uid, room, nick: user.nick, inVoice: false, peerId: null, res };
       clients.push(client);
       broadcastUsers(room);
+      sendSocial(uid);
+      notifyFriendsOf(uid);
 
       req.on('close', () => {
         clients = clients.filter(c => c !== client);
         broadcastUsers(room);
+        notifyFriendsOf(uid);
       });
       return;
     }
@@ -791,6 +1089,7 @@ const server = http.createServer(async (req, res) => {
       const list = getRoom(room)[channel];
       list.push(msg);
       if (list.length > MAX_HISTORY) list.splice(0, list.length - MAX_HISTORY);
+      scheduleSave(room);
 
       broadcast(room, 'msg', { channel, msg });
       return sendJson(res, 200, { ok: true });
@@ -819,9 +1118,63 @@ const server = http.createServer(async (req, res) => {
       const nick = cleanNick(body.nick);
       const c = clients.find(x => x.id === body.id);
       if (c) {
-        c.nick = nick;
+        if (users[c.uid]) { users[c.uid].nick = nick; scheduleSave(); }
+        clients.forEach(x => { if (x.uid === c.uid) x.nick = nick; });
         broadcastUsers(c.room);
+        notifyFriendsOf(c.uid);
+        sendSocial(c.uid);
       }
+      return sendJson(res, 200, { ok: true });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/friend') {
+      const body = await readBody(req);
+      const uid = body.uid;
+      if (!validUid(uid) || !users[uid]) return sendJson(res, 400, { error: 'Неизвестный пользователь. Обновите страницу.' });
+      const me = users[uid];
+      const targetUid = validPid(body.target) ? pidToUid[body.target] : null;
+      const target = targetUid ? users[targetUid] : null;
+      if (!target || targetUid === uid) return sendJson(res, 400, { error: 'Пользователь не найден' });
+
+      const rm = (a, x) => { const i = a.indexOf(x); if (i >= 0) a.splice(i, 1); };
+      let act = String(body.action || '');
+      if (act === 'request' && me.incoming.includes(target.pid)) act = 'accept'; // встречная заявка = дружба
+
+      if (act === 'request') {
+        if (me.friends.includes(target.pid) || me.outgoing.includes(target.pid)) {
+          // уже друзья или заявка уже отправлена
+        } else if (me.outgoing.length >= MAX_FRIENDS || target.incoming.length >= MAX_FRIENDS) {
+          return sendJson(res, 400, { error: 'Слишком много заявок' });
+        } else {
+          me.outgoing.push(target.pid);
+          target.incoming.push(me.pid);
+        }
+      } else if (act === 'accept') {
+        if (me.incoming.includes(target.pid)) {
+          if (me.friends.length >= MAX_FRIENDS || target.friends.length >= MAX_FRIENDS) {
+            return sendJson(res, 400, { error: 'Список друзей переполнен' });
+          }
+          rm(me.incoming, target.pid);
+          rm(target.outgoing, me.pid);
+          if (!me.friends.includes(target.pid)) me.friends.push(target.pid);
+          if (!target.friends.includes(me.pid)) target.friends.push(me.pid);
+        }
+      } else if (act === 'decline') {
+        rm(me.incoming, target.pid);
+        rm(target.outgoing, me.pid);
+      } else if (act === 'cancel') {
+        rm(me.outgoing, target.pid);
+        rm(target.incoming, me.pid);
+      } else if (act === 'remove') {
+        rm(me.friends, target.pid);
+        rm(target.friends, me.pid);
+      } else {
+        return sendJson(res, 400, { error: 'Неизвестное действие' });
+      }
+
+      scheduleSave();
+      sendSocial(uid);
+      sendSocial(targetUid);
       return sendJson(res, 200, { ok: true });
     }
 
@@ -855,8 +1208,34 @@ server.on('error', (err) => {
   process.exit(1);
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log('====================================================');
-  console.log('⚡ СЕРВЕР ЗАПУЩЕН, порт ' + PORT);
-  console.log('====================================================');
-});
+async function boot() {
+  for (let i = 1; ; i++) {
+    try {
+      await loadData();
+      break;
+    } catch (e) {
+      console.log('⚠️ Не удалось загрузить данные (' + i + '/5): ' + e.message);
+      if (i >= 5) {
+        console.log('❌ Хранилище недоступно. Останавливаемся, чтобы не затереть сохранённые данные.');
+        process.exit(1);
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log('====================================================');
+    console.log('⚡ СЕРВЕР ЗАПУЩЕН, порт ' + PORT);
+    console.log('====================================================');
+  });
+}
+boot();
+
+// Сохраняем данные при остановке сервера
+async function shutdown() {
+  setTimeout(() => process.exit(0), 5000).unref();
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  for (let i = 0; i < 30 && saving; i++) await new Promise(r => setTimeout(r, 100));
+  await saveNow();
+  process.exit(0);
+}
+['SIGTERM', 'SIGINT'].forEach(sig => { process.on(sig, shutdown); });
