@@ -2650,3 +2650,944 @@ const HTML_PAGE = `<!DOCTYPE html>
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const dst = ctx.createMediaStreamDestination();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
+      gain.connect(dst);
+      osc.start();
+      return dst.stream;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function resetVoiceUI() {
+    document.getElementById('connect-voice-btn').textContent = 'ПОДКЛЮЧИТЬСЯ';
+    document.getElementById('connect-voice-btn').className = 'btn-cyan';
+    document.getElementById('mute-btn').style.display = 'none';
+    document.getElementById('deafen-btn').style.display = 'none';
+    document.getElementById('mute-btn').textContent = '🎤 Микр. вкл';
+    document.getElementById('deafen-btn').textContent = '🎧 Звук вкл';
+    document.getElementById('screen-btn').textContent = '🖥️ Экран';
+    document.getElementById('screen-btn').classList.remove('active-screen');
+    document.getElementById('cam-btn').textContent = '📷 Камера';
+    document.getElementById('cam-btn').classList.remove('active-cam');
+    document.getElementById('voice-active-area').classList.remove('show');
+    document.getElementById('audio-box').innerHTML = '';
+    document.getElementById('screen-grid').innerHTML = '';
+    renderServerChannels();
+  }
+
+  async function ensureVoiceConnected() {
+    if (!myVerified) {
+      openAuthModal(true);
+      return false;
+    }
+    if (inVoice && peer && myPeerId) return true;
+    try {
+      rawMicStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId: appSettings.micDeviceId ? { ideal: appSettings.micDeviceId } : undefined,
+          noiseSuppression: appSettings.noiseSuppression !== false,
+          echoCancellation: appSettings.echoCancellation !== false,
+          autoGainControl: appSettings.autoGainControl !== false
+        }
+      });
+      localStream = createProcessedAudioStream(rawMicStream);
+      isMuted = false;
+    } catch (e) {
+      localStream = createSilentAudioStream();
+      isMuted = true;
+    }
+    inVoice = true;
+    if (appSettings.soundVoice) playUiBeep(720, 0.09);
+    document.getElementById('connect-voice-btn').textContent = 'ОТКЛЮЧИТЬСЯ';
+    document.getElementById('connect-voice-btn').className = 'btn-danger';
+    document.getElementById('mute-btn').style.display = 'inline-block';
+    document.getElementById('deafen-btn').style.display = 'inline-block';
+    document.getElementById('mute-btn').textContent = isMuted ? '🔇 Без микр.' : '🎤 Микр. вкл';
+    document.getElementById('voice-active-area').classList.add('show');
+    renderServerChannels();
+
+    return new Promise(function (resolve) {
+      peer = new Peer();
+      peer.on('open', function (id) {
+        myPeerId = id;
+        postVoiceState({
+          inVoice: true,
+          inScreen: inScreen,
+          inCam: inWebcam,
+          peerId: id,
+          voiceChannel: currentVoiceChannel
+        }).then(function () { resolve(true); });
+      });
+      peer.on('call', function (call) {
+        const kind = (call.metadata && call.metadata.kind) || 'audio';
+        const callerNick = (call.metadata && call.metadata.nick) || 'Участник';
+        if (kind === 'screen') {
+          call.answer();
+          call.on('stream', function (remoteScreenStream) {
+            renderMediaTile('screen-' + call.peer, remoteScreenStream, callerNick + ' (Экран)', false, 'screen');
+          });
+          call.on('close', function () { removeMediaTile('screen-' + call.peer); });
+          call.on('error', function () { removeMediaTile('screen-' + call.peer); });
+        } else if (kind === 'cam') {
+          call.answer();
+          call.on('stream', function (remoteCamStream) {
+            renderMediaTile('cam-' + call.peer, remoteCamStream, callerNick + ' (Камера)', false, 'cam');
+          });
+          call.on('close', function () { removeMediaTile('cam-' + call.peer); });
+          call.on('error', function () { removeMediaTile('cam-' + call.peer); });
+        } else {
+          call.answer(localStream || undefined);
+          call.on('stream', function (remoteStream) { playStream(call.peer, remoteStream); });
+          call.on('close', function () { removeAudio(call.peer); });
+          call.on('error', function () { removeAudio(call.peer); });
+        }
+      });
+      peer.on('error', function () { resolve(false); });
+    });
+  }
+
+  async function toggleVoiceCall() {
+    if (inVoice) {
+      if (inScreen) stopScreenShare(true);
+      if (inWebcam) stopWebcam(true);
+      if (rawMicStream) rawMicStream.getTracks().forEach(function (t) { t.stop(); });
+      if (localStream) localStream.getTracks().forEach(function (t) { t.stop(); });
+      if (peer) peer.destroy();
+      rawMicStream = null;
+      localStream = null;
+      peer = null;
+      myPeerId = null;
+      inVoice = false;
+      isMuted = false;
+      isDeafened = false;
+      if (appSettings.soundVoice) playUiBeep(420, 0.09);
+      resetVoiceUI();
+      postVoiceState({ inVoice: false, inScreen: false, inCam: false });
+      return;
+    }
+    await ensureVoiceConnected();
+  }
+
+  // ---------- Веб-камера при разговоре ----------
+  function callPeerWithWebcam(remotePid) {
+    if (!peer || !webcamStream || !remotePid || remotePid === myPeerId) return;
+    if (camCalls[remotePid]) {
+      try { camCalls[remotePid].close(); } catch (e) {}
+    }
+    const call = peer.call(remotePid, webcamStream, {
+      metadata: { kind: 'cam', nick: myNick, voiceChannel: currentVoiceChannel }
+    });
+    if (call) {
+      camCalls[remotePid] = call;
+      call.on('close', function () { delete camCalls[remotePid]; });
+      call.on('error', function () { delete camCalls[remotePid]; });
+    }
+  }
+
+  async function toggleWebcam() {
+    if (!myVerified) return openAuthModal(true);
+    if (inWebcam) {
+      stopWebcam(false);
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('Ваш браузер не поддерживает веб-камеру.');
+      return;
+    }
+    const isHD = (appSettings.camRes || '720') === '720';
+    let camStream;
+    try {
+      camStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          deviceId: appSettings.camDeviceId ? { ideal: appSettings.camDeviceId } : undefined,
+          width: { ideal: isHD ? 1280 : 854 },
+          height: { ideal: isHD ? 720 : 480 },
+          frameRate: { ideal: 30 }
+        },
+        audio: false
+      });
+    } catch (e) {
+      alert('Разрешите доступ к веб-камере в браузере!');
+      return;
+    }
+
+    const ok = await ensureVoiceConnected();
+    if (!ok) {
+      camStream.getTracks().forEach(function (t) { t.stop(); });
+      return;
+    }
+
+    webcamStream = camStream;
+    inWebcam = true;
+    document.getElementById('cam-btn').textContent = '🛑 Выкл камеру';
+    document.getElementById('cam-btn').classList.add('active-cam');
+    document.getElementById('voice-active-area').classList.add('show');
+
+    const vTrack = webcamStream.getVideoTracks()[0];
+    if (vTrack) {
+      vTrack.onended = function () { stopWebcam(false); };
+    }
+
+    renderMediaTile('cam-local', webcamStream, myNick + ' (Ваша камера)', true, 'cam');
+
+    const data = await postVoiceState({
+      inVoice: true,
+      inScreen: inScreen,
+      inCam: true,
+      peerId: myPeerId,
+      voiceChannel: currentVoiceChannel
+    });
+
+    if (data && Array.isArray(data.peers)) {
+      data.peers.forEach(function (remotePid) {
+        callPeerWithWebcam(remotePid);
+      });
+    }
+  }
+
+  function stopWebcam(silent) {
+    if (webcamStream) {
+      webcamStream.getTracks().forEach(function (t) { t.stop(); });
+      webcamStream = null;
+    }
+    Object.keys(camCalls).forEach(function (pid) {
+      try { camCalls[pid].close(); } catch (e) {}
+    });
+    camCalls = {};
+    inWebcam = false;
+    document.getElementById('cam-btn').textContent = '📷 Камера';
+    document.getElementById('cam-btn').classList.remove('active-cam');
+    removeMediaTile('cam-local');
+    if (!silent && inVoice) {
+      postVoiceState({
+        inVoice: true,
+        inScreen: inScreen,
+        inCam: false,
+        peerId: myPeerId,
+        voiceChannel: currentVoiceChannel
+      });
+    }
+  }
+
+  // ---------- Демонстрация экрана и отдельных окон ----------
+  function callPeerWithScreen(remotePid) {
+    if (!peer || !screenStream || !remotePid || remotePid === myPeerId) return;
+    if (screenCalls[remotePid]) {
+      try { screenCalls[remotePid].close(); } catch (e) {}
+    }
+    const call = peer.call(remotePid, screenStream, {
+      metadata: { kind: 'screen', nick: myNick, voiceChannel: currentVoiceChannel }
+    });
+    if (call) {
+      screenCalls[remotePid] = call;
+      call.on('close', function () { delete screenCalls[remotePid]; });
+      call.on('error', function () { delete screenCalls[remotePid]; });
+    }
+  }
+
+  async function toggleScreenShare() {
+    if (!myVerified) return openAuthModal(true);
+    if (inScreen) {
+      stopScreenShare(false);
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      alert('Ваш браузер не поддерживает трансляцию экрана.');
+      return;
+    }
+    let displayStream;
+    try {
+      displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { cursor: 'always', frameRate: { ideal: 30, max: 60 } },
+        audio: true
+      });
+    } catch (e) {
+      return;
+    }
+
+    const ok = await ensureVoiceConnected();
+    if (!ok) {
+      displayStream.getTracks().forEach(function (t) { t.stop(); });
+      return;
+    }
+
+    screenStream = displayStream;
+    inScreen = true;
+    document.getElementById('screen-btn').textContent = '🛑 Стоп экран';
+    document.getElementById('screen-btn').classList.add('active-screen');
+    document.getElementById('voice-active-area').classList.add('show');
+
+    const videoTrack = screenStream.getVideoTracks()[0];
+    if (videoTrack) {
+      videoTrack.onended = function () {
+        stopScreenShare(false);
+      };
+    }
+
+    renderMediaTile('screen-local', screenStream, myNick + ' (Ваш экран / окно)', true, 'screen');
+
+    const data = await postVoiceState({
+      inVoice: true,
+      inScreen: true,
+      inCam: inWebcam,
+      peerId: myPeerId,
+      voiceChannel: currentVoiceChannel
+    });
+
+    if (data && Array.isArray(data.peers)) {
+      data.peers.forEach(function (remotePid) {
+        callPeerWithScreen(remotePid);
+      });
+    }
+  }
+
+  function stopScreenShare(silent) {
+    if (screenStream) {
+      screenStream.getTracks().forEach(function (t) { t.stop(); });
+      screenStream = null;
+    }
+    Object.keys(screenCalls).forEach(function (pid) {
+      try { screenCalls[pid].close(); } catch (e) {}
+    });
+    screenCalls = {};
+    inScreen = false;
+    document.getElementById('screen-btn').textContent = '🖥️ Экран';
+    document.getElementById('screen-btn').classList.remove('active-screen');
+    removeMediaTile('screen-local');
+    if (!silent && inVoice) {
+      postVoiceState({
+        inVoice: true,
+        inScreen: false,
+        inCam: inWebcam,
+        peerId: myPeerId,
+        voiceChannel: currentVoiceChannel
+      });
+    }
+  }
+
+  function renderMediaTile(id, stream, title, isLocal, kind) {
+    const grid = document.getElementById('screen-grid');
+    let card = document.getElementById('media-tile-' + id);
+    const icon = kind === 'cam' ? '📷 ' : '🖥️ ';
+    if (!card) {
+      card = el('div', 'screen-card');
+      card.id = 'media-tile-' + id;
+
+      const head = el('div', 'screen-card-head');
+      const left = el('div', '');
+      const nameSpan = el('span', 'screen-title-text', icon + title);
+      const pill = el('span', 'screen-live-pill' + (kind === 'cam' ? ' cam' : ''), kind === 'cam' ? 'КАМЕРА' : 'СТРИМ');
+      left.appendChild(nameSpan);
+      left.appendChild(pill);
+
+      const right = el('div', '');
+      right.style.cssText = 'display:flex;gap:6px;align-items:center;';
+
+      const fsBtn = el('button', 'btn-fs', '⛶ На весь экран');
+      fsBtn.onclick = function () {
+        const vid = card.querySelector('video');
+        if (!vid) return;
+        if (vid.requestFullscreen) vid.requestFullscreen();
+        else if (vid.webkitRequestFullscreen) vid.webkitRequestFullscreen();
+      };
+      right.appendChild(fsBtn);
+
+      if (isLocal) {
+        const stopBtn = el('button', 'btn-fs', '✕ Выкл');
+        stopBtn.style.borderColor = '#f43f5e';
+        stopBtn.style.color = '#fda4af';
+        stopBtn.onclick = function () {
+          if (kind === 'cam') stopWebcam(false);
+          else stopScreenShare(false);
+        };
+        right.appendChild(stopBtn);
+      }
+
+      head.appendChild(left);
+      head.appendChild(right);
+
+      const wrap = el('div', 'screen-video-wrap');
+      const video = document.createElement('video');
+      video.autoplay = true;
+      video.playsInline = true;
+      if (isLocal) video.muted = true;
+      wrap.appendChild(video);
+
+      card.appendChild(head);
+      card.appendChild(wrap);
+      grid.appendChild(card);
+    } else {
+      const t = card.querySelector('.screen-title-text');
+      if (t) t.textContent = icon + title;
+    }
+    const videoEl = card.querySelector('video');
+    if (videoEl && videoEl.srcObject !== stream) {
+      videoEl.srcObject = stream;
+      videoEl.play().catch(function () {});
+    }
+  }
+
+  function removeMediaTile(id) {
+    const card = document.getElementById('media-tile-' + id);
+    if (card) card.remove();
+  }
+
+  function toggleMute() {
+    if (!localStream) return;
+    isMuted = !isMuted;
+    localStream.getAudioTracks().forEach(function (t) { t.enabled = !isMuted; });
+    if (rawMicStream) rawMicStream.getAudioTracks().forEach(function (t) { t.enabled = !isMuted; });
+    document.getElementById('mute-btn').textContent = isMuted ? '🔇 Микр. выкл' : '🎤 Микр. вкл';
+  }
+
+  function toggleDeafen() {
+    isDeafened = !isDeafened;
+    document.getElementById('deafen-btn').textContent = isDeafened ? '🔇 Звук выкл' : '🎧 Звук вкл';
+    applyOutputVolumeToAll();
+  }
+
+  function playStream(id, stream) {
+    if (document.getElementById('aud-' + id)) return;
+    const audio = document.createElement('audio');
+    audio.id = 'aud-' + id;
+    audio.srcObject = stream;
+    audio.autoplay = true;
+    document.getElementById('audio-box').appendChild(audio);
+    applyOutputVolumeToAll();
+  }
+
+  function removeAudio(id) {
+    const el = document.getElementById('aud-' + id);
+    if (el) el.remove();
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      closeSettingsModal();
+      closeViewProfileModal();
+      closeInviteModal();
+    }
+  });
+</script>
+</body>
+</html>`;
+
+function readBody(req) {
+  return new Promise((resolve) => {
+    let body = '';
+    let tooBig = false;
+    req.on('data', chunk => {
+      if (tooBig) return;
+      body += chunk;
+      if (body.length > MAX_BODY) {
+        tooBig = true;
+        body = '';
+      }
+    });
+    req.on('end', () => {
+      if (tooBig) return resolve({});
+      try {
+        const parsed = JSON.parse(body || '{}');
+        resolve(parsed && typeof parsed === 'object' ? parsed : {});
+      } catch (e) { resolve({}); }
+    });
+    req.on('error', () => resolve({}));
+  });
+}
+
+function sendJson(res, status, obj) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(obj));
+}
+
+const server = http.createServer(async (req, res) => {
+  try {
+    const url = new URL(req.url, 'http://localhost:' + PORT);
+
+    if (req.method === 'GET' && url.pathname === '/') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(HTML_PAGE);
+    }
+
+    if (req.method === 'GET' && url.pathname === '/healthz') {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      return res.end('ok');
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/tg-init') {
+      const token = crypto.randomBytes(12).toString('hex');
+      pendingTgTokens[token] = {
+        expires: Date.now() + CODE_TTL_MS,
+        completed: null
+      };
+      return sendJson(res, 200, {
+        enabled: !!telegramBotUsername,
+        botUsername: telegramBotUsername,
+        token: token
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/tg-check') {
+      const body = await readBody(req);
+      const token = String(body.token || '').trim();
+      const entry = pendingTgTokens[token];
+      if (!entry || entry.expires < Date.now() || !entry.completed) {
+        return sendJson(res, 200, { ok: true, verified: false });
+      }
+      const tgInfo = entry.completed;
+      delete pendingTgTokens[token];
+
+      const room = safeRoom(body.room);
+      const prevUid = validUid(body.uid) ? body.uid : null;
+      const finalUid = tgIdToUid[tgInfo.tgId] || uidFromTgId(tgInfo.tgId);
+      const existingNick = users[finalUid] && users[finalUid].verified ? users[finalUid].nick : '';
+      const chosenNick = cleanNick(body.nick || existingNick || tgInfo.firstName || tgInfo.username || 'Странник');
+
+      const u = mergeAccount(prevUid, finalUid, chosenNick, tgInfo.tgId, tgInfo.username, '');
+      addMember(room, finalUid);
+
+      clients.forEach(x => {
+        if (x.id === body.id || x.uid === prevUid || x.uid === finalUid) {
+          x.uid = finalUid;
+          x.nick = u.nick;
+        }
+      });
+
+      scheduleSave(room);
+      notifyAllRoomsOfUser(finalUid);
+      notifyFriendsOf(finalUid);
+      sendSocial(finalUid);
+
+      return sendJson(res, 200, { ok: true, verified: true, uid: finalUid, pid: u.pid, nick: u.nick });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/tg-verify-code') {
+      const body = await readBody(req);
+      const code = String(body.code || '').trim();
+      const entry = tgCodes[code];
+      if (!entry || entry.expires < Date.now()) {
+        return sendJson(res, 400, { error: 'Неверный или просроченный код! Нажмите /start в Telegram-боте.' });
+      }
+      delete tgCodes[code];
+
+      const room = safeRoom(body.room);
+      const prevUid = validUid(body.uid) ? body.uid : null;
+      const finalUid = tgIdToUid[entry.tgId] || uidFromTgId(entry.tgId);
+      const existingNick = users[finalUid] && users[finalUid].verified ? users[finalUid].nick : '';
+      const chosenNick = cleanNick(body.nick || existingNick || entry.firstName || entry.username || 'Странник');
+
+      const u = mergeAccount(prevUid, finalUid, chosenNick, entry.tgId, entry.username, '');
+      addMember(room, finalUid);
+
+      clients.forEach(x => {
+        if (x.id === body.id || x.uid === prevUid || x.uid === finalUid) {
+          x.uid = finalUid;
+          x.nick = u.nick;
+        }
+      });
+
+      scheduleSave(room);
+      notifyAllRoomsOfUser(finalUid);
+      notifyFriendsOf(finalUid);
+      sendSocial(finalUid);
+
+      return sendJson(res, 200, { ok: true, verified: true, uid: finalUid, pid: u.pid, nick: u.nick });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/events') {
+      const id = String(url.searchParams.get('id') || '').slice(0, 32);
+      const room = safeRoom(url.searchParams.get('room'));
+      const nick = cleanNick(url.searchParams.get('nick') || 'Гость');
+      const uid = url.searchParams.get('uid');
+      const clientVerified = url.searchParams.get('verified') === '1';
+      if (!validUid(uid)) {
+        res.writeHead(400);
+        return res.end();
+      }
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+      });
+      res.write(': connected\n\n');
+
+      const meta = ensureServer(room);
+      const user = ensureUser(uid, nick, clientVerified);
+      addMember(room, uid);
+
+      const client = { id, uid, room, nick: user.nick, inVoice: false, inScreen: false, inCam: false, peerId: null, voiceChannel: null, res };
+      clients.push(client);
+
+      res.write('data: ' + JSON.stringify({
+        type: 'server-meta',
+        payload: { current: meta, list: Object.values(serversMeta) }
+      }) + '\n\n');
+
+      notifyAllRoomsOfUser(uid);
+      sendSocial(uid);
+      notifyFriendsOf(uid);
+
+      req.on('close', () => {
+        const oldPeerId = client.peerId;
+        const wasScreen = client.inScreen;
+        const wasCam = client.inCam;
+        clients = clients.filter(c => c !== client);
+        if (wasScreen && oldPeerId) {
+          broadcast(room, 'screen-stop', { peerId: oldPeerId });
+        }
+        if (wasCam && oldPeerId) {
+          broadcast(room, 'cam-stop', { peerId: oldPeerId });
+        }
+        notifyAllRoomsOfUser(uid);
+        notifyFriendsOf(uid);
+      });
+      return;
+    }
+
+    // Сохранение расширенного профиля (о себе, интересы, кастомный статус, цвета)
+    if (req.method === 'POST' && url.pathname === '/api/profile') {
+      const body = await readBody(req);
+      const uid = body.uid;
+      if (!validUid(uid)) return sendJson(res, 400, { error: 'Некорректный ID' });
+      const u = ensureUser(uid, body.nick, true);
+      if (body.nick) {
+        const cleanN = cleanNick(body.nick);
+        u.nick = cleanN;
+        nickToUid[cleanN.toLowerCase()] = uid;
+        clients.forEach(c => { if (c.uid === uid) c.nick = cleanN; });
+      }
+      if (body.bio !== undefined) u.bio = cleanText(body.bio, 220);
+      if (body.interests !== undefined) u.interests = cleanText(body.interests, 160);
+      if (body.customStatus !== undefined) u.customStatus = cleanText(body.customStatus, 60);
+      if (body.presence !== undefined) u.presence = cleanPresence(body.presence);
+      if (body.bannerColor !== undefined) u.bannerColor = cleanColor(body.bannerColor, '#0d9488');
+      if (body.avatarColor !== undefined) u.avatarColor = cleanColor(body.avatarColor, '#e11d48');
+
+      scheduleSave();
+      notifyAllRoomsOfUser(uid);
+      notifyFriendsOf(uid);
+      sendSocial(uid);
+      return sendJson(res, 200, { ok: true });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/history') {
+      const room = safeRoom(url.searchParams.get('room'));
+      const channel = safeChannel(room, url.searchParams.get('channel'));
+      const list = (rooms[room] && rooms[room][channel]) ? rooms[room][channel] : [];
+      return sendJson(res, 200, list);
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/invite-info') {
+      return sendJson(res, 200, { publicUrl: null });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/auth-password') {
+      const body = await readBody(req);
+      const nick = cleanNick(body.nick);
+      const pass = String(body.password || '');
+      const room = safeRoom(body.room);
+      const prevUid = validUid(body.uid) ? body.uid : null;
+
+      if (!nick || nick.length < 2) {
+        return sendJson(res, 400, { error: 'Введите корректный позывной!' });
+      }
+
+      if (prevUid && users[prevUid] && users[prevUid].verified && !pass) {
+        const key = nick.toLowerCase();
+        if (nickToUid[key] && nickToUid[key] !== prevUid) {
+          return sendJson(res, 400, { error: 'Этот позывной уже занят!' });
+        }
+        users[prevUid].nick = nick;
+        nickToUid[key] = prevUid;
+        clients.forEach(x => {
+          if (x.uid === prevUid) x.nick = nick;
+        });
+        scheduleSave(room);
+        notifyAllRoomsOfUser(prevUid);
+        notifyFriendsOf(prevUid);
+        sendSocial(prevUid);
+        return sendJson(res, 200, { ok: true, uid: prevUid, pid: users[prevUid].pid, nick: nick });
+      }
+
+      if (pass.length < 4) {
+        return sendJson(res, 400, { error: 'Пароль должен содержать минимум 4 символа!' });
+      }
+
+      const key = nick.toLowerCase();
+      const existingUid = nickToUid[key];
+
+      if (existingUid && users[existingUid] && users[existingUid].passHash) {
+        if (!verifyPassword(pass, users[existingUid].passHash)) {
+          return sendJson(res, 400, { error: 'Этот позывной уже занят или введён неверный пароль!' });
+        }
+        const u = mergeAccount(prevUid, existingUid, nick, '', '', '');
+        u.nick = nick;
+        addMember(room, existingUid);
+        clients.forEach(x => {
+          if (x.id === body.id || x.uid === prevUid || x.uid === existingUid) {
+            x.uid = existingUid;
+            x.nick = u.nick;
+          }
+        });
+        scheduleSave(room);
+        notifyAllRoomsOfUser(existingUid);
+        notifyFriendsOf(existingUid);
+        sendSocial(existingUid);
+        return sendJson(res, 200, { ok: true, uid: existingUid, pid: u.pid, nick: u.nick });
+      }
+
+      const finalUid = existingUid || (prevUid && (!users[prevUid] || !users[prevUid].verified) ? prevUid : crypto.randomBytes(16).toString('hex'));
+      const passHash = hashPassword(pass);
+      const u = mergeAccount(prevUid, finalUid, nick, '', '', passHash);
+      u.nick = nick;
+      addMember(room, finalUid);
+
+      clients.forEach(x => {
+        if (x.id === body.id || x.uid === prevUid || x.uid === finalUid) {
+          x.uid = finalUid;
+          x.nick = u.nick;
+        }
+      });
+
+      scheduleSave(room);
+      notifyAllRoomsOfUser(finalUid);
+      notifyFriendsOf(finalUid);
+      sendSocial(finalUid);
+
+      return sendJson(res, 200, { ok: true, uid: finalUid, pid: u.pid, nick: u.nick });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/server/create') {
+      const body = await readBody(req);
+      const uid = body.uid;
+      if (!validUid(uid) || !users[uid] || !users[uid].verified) {
+        return sendJson(res, 400, { error: 'Сначала войдите в аккаунт!' });
+      }
+      if (Object.keys(serversMeta).length >= MAX_SERVERS) {
+        return sendJson(res, 400, { error: 'Достигнут лимит серверов' });
+      }
+      const name = String(body.name || '').trim().slice(0, 28);
+      const desc = String(body.desc || '').trim().slice(0, 80);
+      if (!name) return sendJson(res, 400, { error: 'Введите название сервера!' });
+
+      const newId = 'cy-' + crypto.randomBytes(2).toString('hex');
+      ensureServer(newId, name, desc);
+      addMember(newId, uid);
+      rooms[newId]['игровая-комната'].push({
+        author: 'СИСТЕМА СИГНАЛ',
+        time: '00:00',
+        text: 'Сервер «' + name + '» создан участником ' + users[uid].nick + '! Приглашайте друзей по прямой ссылке.'
+      });
+      scheduleSave(newId);
+      broadcastServers();
+      return sendJson(res, 200, { ok: true, serverId: newId });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/channel/create') {
+      const body = await readBody(req);
+      const uid = body.uid;
+      if (!validUid(uid) || !users[uid] || !users[uid].verified) {
+        return sendJson(res, 400, { error: 'Сначала войдите в аккаунт!' });
+      }
+      const room = safeRoom(body.room);
+      const meta = ensureServer(room);
+      const type = body.type === 'voice' ? 'voice' : 'text';
+
+      if (type === 'text') {
+        const ch = cleanChannelName(body.name).toLowerCase();
+        if (!ch) return sendJson(res, 400, { error: 'Используйте буквы, цифры или дефис!' });
+        if (meta.textChannels.length >= MAX_CHANNELS) return sendJson(res, 400, { error: 'Лимит каналов достигнут' });
+        if (!meta.textChannels.includes(ch)) meta.textChannels.push(ch);
+        if (!rooms[room][ch]) rooms[room][ch] = [];
+        scheduleSave(room);
+        broadcastServers();
+        return sendJson(res, 200, { ok: true, channel: ch });
+      } else {
+        const vch = String(body.name || '').trim().slice(0, 28);
+        if (!vch) return sendJson(res, 400, { error: 'Введите название голосового канала!' });
+        if (meta.voiceChannels.length >= MAX_CHANNELS) return sendJson(res, 400, { error: 'Лимит каналов достигнут' });
+        if (!meta.voiceChannels.includes(vch)) meta.voiceChannels.push(vch);
+        scheduleSave(room);
+        broadcastServers();
+        return sendJson(res, 200, { ok: true, channel: vch });
+      }
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/message') {
+      const body = await readBody(req);
+      const room = safeRoom(body.room);
+      const channel = safeChannel(room, body.channel);
+      const text = String(body.text || '').trim().slice(0, 1000);
+      if (!text) return sendJson(res, 400, { error: 'Пустое сообщение' });
+
+      const c = clients.find(x => x.id === body.id);
+      const uid = c ? c.uid : body.uid;
+      if (!validUid(uid) || !users[uid] || !users[uid].verified) {
+        return sendJson(res, 403, { error: 'Войдите в аккаунт для отправки сообщений' });
+      }
+      const author = users[uid].nick;
+
+      const now = new Date();
+      const time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+      const msg = { author, time, text };
+
+      const rObj = getRoom(room);
+      if (!rObj[channel]) rObj[channel] = [];
+      const list = rObj[channel];
+      list.push(msg);
+      if (list.length > MAX_HISTORY) list.splice(0, list.length - MAX_HISTORY);
+      scheduleSave(room);
+
+      broadcast(room, 'msg', { channel, msg });
+      return sendJson(res, 200, { ok: true });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/friend') {
+      const body = await readBody(req);
+      const uid = body.uid;
+      if (!validUid(uid) || !users[uid] || !users[uid].verified) {
+        return sendJson(res, 400, { error: 'Сначала войдите в аккаунт!' });
+      }
+      const me = users[uid];
+      const targetUid = validPid(body.target) ? pidToUid[body.target] : null;
+      const target = targetUid ? users[targetUid] : null;
+      if (!target || targetUid === uid) return sendJson(res, 400, { error: 'Пользователь не найден' });
+
+      const rm = (a, x) => {
+        const i = a.indexOf(x);
+        if (i >= 0) a.splice(i, 1);
+      };
+      let act = String(body.action || '');
+      if (act === 'request' && me.incoming.includes(target.pid)) act = 'accept';
+
+      if (act === 'request') {
+        if (me.friends.includes(target.pid) || me.outgoing.includes(target.pid)) {
+          // уже друзья или заявка отправлена
+        } else if (me.outgoing.length >= MAX_FRIENDS || target.incoming.length >= MAX_FRIENDS) {
+          return sendJson(res, 400, { error: 'Слишком много заявок' });
+        } else {
+          me.outgoing.push(target.pid);
+          target.incoming.push(me.pid);
+        }
+      } else if (act === 'accept') {
+        if (me.incoming.includes(target.pid)) {
+          if (me.friends.length >= MAX_FRIENDS || target.friends.length >= MAX_FRIENDS) {
+            return sendJson(res, 400, { error: 'Список друзей переполнен' });
+          }
+          rm(me.incoming, target.pid);
+          rm(target.outgoing, me.pid);
+          if (!me.friends.includes(target.pid)) me.friends.push(target.pid);
+          if (!target.friends.includes(me.pid)) target.friends.push(me.pid);
+        }
+      } else if (act === 'decline') {
+        rm(me.incoming, target.pid);
+        rm(target.outgoing, me.pid);
+      } else if (act === 'cancel') {
+        rm(me.outgoing, target.pid);
+        rm(target.incoming, me.pid);
+      } else if (act === 'remove') {
+        rm(me.friends, target.pid);
+        rm(target.friends, me.pid);
+      } else {
+        return sendJson(res, 400, { error: 'Неизвестное действие' });
+      }
+
+      scheduleSave();
+      sendSocial(uid);
+      sendSocial(targetUid);
+      notifyAllRoomsOfUser(uid);
+      return sendJson(res, 200, { ok: true });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/voice') {
+      const body = await readBody(req);
+      const c = clients.find(x => x.id === body.id);
+      let peers = [];
+      if (c) {
+        const wasScreen = c.inScreen;
+        const wasCam = c.inCam;
+        const oldPeerId = c.peerId;
+        c.inVoice = !!body.inVoice;
+        c.inScreen = !!(c.inVoice && body.inScreen);
+        c.inCam = !!(c.inVoice && body.inCam);
+        c.peerId = body.peerId ? String(body.peerId).slice(0, 64) : null;
+        c.voiceChannel = c.inVoice ? safeVoiceChannel(c.room, body.voiceChannel) : null;
+
+        if (wasScreen && !c.inScreen && (c.peerId || oldPeerId)) {
+          broadcast(c.room, 'screen-stop', { peerId: c.peerId || oldPeerId });
+        }
+        if (wasCam && !c.inCam && (c.peerId || oldPeerId)) {
+          broadcast(c.room, 'cam-stop', { peerId: c.peerId || oldPeerId });
+        }
+
+        broadcastUsers(c.room);
+        if (c.inVoice && c.peerId) {
+          broadcast(c.room, 'voice-join', { peerId: c.peerId, voiceChannel: c.voiceChannel });
+          peers = clients
+            .filter(x => x.room === c.room && x.inVoice && x.peerId && x.peerId !== c.peerId && x.voiceChannel === c.voiceChannel)
+            .map(x => x.peerId);
+        }
+      }
+      return sendJson(res, 200, { ok: true, peers });
+    }
+
+    res.writeHead(404);
+    res.end();
+  } catch (err) {
+    console.log('Ошибка обработки запроса:', err && err.message ? err.message : err);
+    if (!res.headersSent) res.writeHead(500);
+    res.end();
+  }
+});
+
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.log('❌ Порт ' + PORT + ' уже занят.');
+  } else {
+    console.log('❌ Ошибка сервера:', err && err.message ? err.message : err);
+  }
+  process.exit(1);
+});
+
+async function boot() {
+  for (let i = 1; ; i++) {
+    try {
+      await loadData();
+      break;
+    } catch (e) {
+      console.log('⚠️ Не удалось загрузить данные (' + i + '/5): ' + e.message);
+      if (i >= 5) {
+        console.log('❌ Хранилище недоступно. Останавливаемся, чтобы не затереть сохранённые данные.');
+        process.exit(1);
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log('====================================================');
+    console.log('⚡ СЕРВЕР ЗАПУЩЕН, порт ' + PORT);
+    console.log('====================================================');
+    startTelegramBotPolling();
+  });
+}
+boot();
+
+async function shutdown() {
+  setTimeout(() => process.exit(0), 5000).unref();
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  for (let i = 0; i < 30 && saving; i++) {
+    await new Promise(r => setTimeout(r, 100));
+  }
+  await saveNow();
+  process.exit(0);
+}
+['SIGTERM', 'SIGINT'].forEach(sig => { process.on(sig, shutdown); });
