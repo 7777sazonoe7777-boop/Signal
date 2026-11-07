@@ -13,20 +13,31 @@ const MAX_SERVERS = 100;
 const MAX_BODY = 1024 * 1024;
 const CODE_TTL_MS = 10 * 60 * 1000;
 
+// Токен Telegram-бота от @BotFather (задаётся в Render -> Environment -> TELEGRAM_BOT_TOKEN)
+const TELEGRAM_BOT_TOKEN = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
+let telegramBotUsername = '';
+let tgUpdateOffset = 0;
+
 const serversMeta = Object.create(null);
 const rooms = Object.create(null);
-const emailCodes = Object.create(null);
+const tgCodes = Object.create(null);        // code -> { tgId, firstName, username, expires }
+const pendingTgTokens = Object.create(null); // token -> { expires, completed: null | { tgId, firstName, username, code } }
 let clients = [];
 
-const users = Object.create(null);
-const pidToUid = Object.create(null);
-const members = Object.create(null);
+const users = Object.create(null);      // uid -> { pid, nick, tgId, tgUsername, passHash, verified, friends:[pid], incoming:[pid], outgoing:[pid], servers:[room] }
+const pidToUid = Object.create(null);   // pid -> uid
+const tgIdToUid = Object.create(null);  // String(tgId) -> uid
+const nickToUid = Object.create(null);  // nick.toLowerCase() -> uid
+const members = Object.create(null);    // room -> [uid]
 const MAX_MEMBERS = 500;
 const MAX_FRIENDS = 200;
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data.json');
 
 function pidOf(uid) {
   return crypto.createHash('sha256').update(uid).digest('hex').slice(0, 10);
+}
+function uidFromTgId(tgId) {
+  return crypto.createHash('sha256').update('signal-tg:' + String(tgId)).digest('hex').slice(0, 32);
 }
 function validUid(v) {
   return typeof v === 'string' && /^[a-f0-9]{32}$/.test(v);
@@ -36,6 +47,23 @@ function validPid(v) {
 }
 function pidList(a) {
   return Array.isArray(a) ? a.filter(validPid).slice(0, MAX_FRIENDS) : [];
+}
+function roomList(a) {
+  return Array.isArray(a) ? a.filter(r => safeRoom(r) === r).slice(0, MAX_SERVERS) : [];
+}
+
+function hashPassword(password, salt) {
+  const s = salt || crypto.randomBytes(16).toString('hex');
+  const h = crypto.scryptSync(String(password), s, 32).toString('hex');
+  return s + ':' + h;
+}
+function verifyPassword(password, stored) {
+  if (!stored || typeof stored !== 'string' || !stored.includes(':')) return false;
+  const parts = stored.split(':');
+  const salt = parts[0];
+  const origHash = parts[1];
+  const testHash = crypto.scryptSync(String(password), salt, 32).toString('hex');
+  return crypto.timingSafeEqual(Buffer.from(origHash, 'hex'), Buffer.from(testHash, 'hex'));
 }
 
 function safeRoom(v) {
@@ -81,7 +109,7 @@ function initDefaultServers() {
     rooms[DEFAULT_ROOM]['игровая-комната'].push({
       author: 'СИСТЕМА СИГНАЛ',
       time: '00:00',
-      text: 'Добро пожаловать в «Ночной клуб»! Создавайте свои серверы и каналы, включайте трансляцию экрана или отдельных окон и приглашайте друзей.'
+      text: 'Добро пожаловать в «Ночной клуб»! Авторизация работает через Telegram. Участники остаются на сервере навсегда и могут добавлять друг друга в друзья кнопкой «+ друг».'
     });
   }
 }
@@ -102,6 +130,124 @@ function safeVoiceChannel(room, ch) {
 function getRoom(room) {
   ensureServer(room);
   return rooms[room];
+}
+
+// ---------- Интеграция с Telegram Bot API ----------
+async function tgApi(method, bodyObj) {
+  if (!TELEGRAM_BOT_TOKEN) return null;
+  const res = await fetch('https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/' + method, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(bodyObj || {}),
+    signal: AbortSignal.timeout(35000)
+  });
+  return await res.json();
+}
+
+function generateTgCode(tgId, firstName, username) {
+  // Удаляем старые коды этого пользователя
+  Object.keys(tgCodes).forEach(k => {
+    if (tgCodes[k].tgId === String(tgId) || tgCodes[k].expires < Date.now()) {
+      delete tgCodes[k];
+    }
+  });
+  let code = '';
+  for (let i = 0; i < 20; i++) {
+    const candidate = Math.floor(1000 + Math.random() * 9000).toString();
+    if (!tgCodes[candidate]) {
+      code = candidate;
+      break;
+    }
+  }
+  if (!code) code = Math.floor(1000 + Math.random() * 9000).toString();
+  tgCodes[code] = {
+    tgId: String(tgId),
+    firstName: String(firstName || '').trim(),
+    username: String(username || '').trim(),
+    expires: Date.now() + CODE_TTL_MS
+  };
+  return code;
+}
+
+async function handleTelegramMessage(msg) {
+  if (!msg || !msg.from || !msg.chat) return;
+  const chatId = msg.chat.id;
+  const tgId = String(msg.from.id);
+  const firstName = String(msg.from.first_name || msg.from.username || 'Странник').trim();
+  const username = String(msg.from.username || '').trim();
+  const text = String(msg.text || '').trim();
+
+  const code = generateTgCode(tgId, firstName, username);
+
+  // Проверяем, перешёл ли пользователь по прямой ссылке с сайта (?start=auth_...)
+  if (text.startsWith('/start')) {
+    const parts = text.split(/\s+/);
+    const param = parts[1] || '';
+    if (param.startsWith('auth_')) {
+      const token = param.slice(5);
+      const pending = pendingTgTokens[token];
+      if (pending && pending.expires > Date.now()) {
+        pending.completed = { tgId, firstName, username, code };
+      }
+    }
+  }
+
+  const replyText =
+    '⚡ *СИГНАЛ // CYBER.NET*\n\n' +
+    '✅ Ваш аккаунт Telegram подтверждён!\n' +
+    '🔑 Ваш код для входа: *' + code + '*\n\n' +
+    'Вернитесь в браузер — вход выполнится автоматически (или введите эти 4 цифры в окне на сайте).';
+
+  try {
+    await tgApi('sendMessage', {
+      chat_id: chatId,
+      text: replyText,
+      parse_mode: 'Markdown'
+    });
+  } catch (e) {}
+}
+
+async function startTelegramBotPolling() {
+  if (!TELEGRAM_BOT_TOKEN) {
+    console.log('ℹ️ TELEGRAM_BOT_TOKEN не задан. Задайте его в Render -> Environment для входа через Telegram.');
+    return;
+  }
+  try {
+    await tgApi('deleteWebhook', { drop_pending_updates: false });
+    const me = await tgApi('getMe', {});
+    if (me && me.ok && me.result && me.result.username) {
+      telegramBotUsername = me.result.username;
+      console.log('🤖 Telegram-бот авторизации активен: @' + telegramBotUsername);
+    } else {
+      console.log('⚠️ Не удалось получить имя Telegram-бота. Проверьте TELEGRAM_BOT_TOKEN.');
+      return;
+    }
+  } catch (e) {
+    console.log('⚠️ Ошибка инициализации Telegram-бота: ' + e.message);
+    return;
+  }
+
+  (async function pollLoop() {
+    while (true) {
+      try {
+        const data = await tgApi('getUpdates', {
+          offset: tgUpdateOffset,
+          timeout: 25,
+          allowed_updates: ['message']
+        });
+        if (data && data.ok && Array.isArray(data.result)) {
+          for (const upd of data.result) {
+            tgUpdateOffset = upd.update_id + 1;
+            if (upd.message) {
+              await handleTelegramMessage(upd.message);
+            }
+          }
+        }
+      } catch (e) {
+        await new Promise(r => setTimeout(r, 3000));
+      }
+    }
+  })();
 }
 
 // ---------- Хранилище: Upstash Redis или локальный data.json ----------
@@ -139,9 +285,14 @@ function usersPart() {
     const u = users[uid];
     o[uid] = {
       nick: u.nick,
+      tgId: u.tgId || '',
+      tgUsername: u.tgUsername || '',
+      passHash: u.passHash || '',
+      verified: !!u.verified,
       friends: u.friends,
       incoming: u.incoming,
-      outgoing: u.outgoing
+      outgoing: u.outgoing,
+      servers: u.servers || []
     };
   });
   return o;
@@ -228,19 +379,36 @@ function applyData(d) {
   Object.keys(d.users || {}).forEach(uid => {
     if (!validUid(uid)) return;
     const u = d.users[uid] || {};
+    const tgId = String(u.tgId || '').trim();
+    const tgUsername = String(u.tgUsername || '').trim();
+    const nick = cleanNick(u.nick);
+    const passHash = String(u.passHash || '');
+    const verified = !!u.verified || !!tgId || !!passHash;
     users[uid] = {
       pid: pidOf(uid),
-      nick: cleanNick(u.nick),
+      nick: nick,
+      tgId: tgId,
+      tgUsername: tgUsername,
+      passHash: passHash,
+      verified: verified,
       friends: pidList(u.friends),
       incoming: pidList(u.incoming),
-      outgoing: pidList(u.outgoing)
+      outgoing: pidList(u.outgoing),
+      servers: roomList(u.servers)
     };
     pidToUid[users[uid].pid] = uid;
+    if (tgId) tgIdToUid[tgId] = uid;
+    if (verified && nick) nickToUid[nick.toLowerCase()] = uid;
   });
   Object.keys(d.members || {}).forEach(r => {
     if (safeRoom(r) !== r || !Array.isArray(d.members[r])) return;
     ensureServer(r);
     members[r] = d.members[r].filter(validUid).slice(0, MAX_MEMBERS);
+    members[r].forEach(uid => {
+      if (users[uid] && !users[uid].servers.includes(r)) {
+        users[uid].servers.push(r);
+      }
+    });
   });
   Object.keys(d.messages || {}).forEach(r => {
     if (safeRoom(r) !== r || !d.messages[r]) return;
@@ -294,10 +462,21 @@ function ensureUser(uid, nick) {
   let u = users[uid];
   const n = cleanNick(nick);
   if (!u) {
-    u = users[uid] = { pid: pidOf(uid), nick: n, friends: [], incoming: [], outgoing: [] };
+    u = users[uid] = {
+      pid: pidOf(uid),
+      nick: n,
+      tgId: '',
+      tgUsername: '',
+      passHash: '',
+      verified: false,
+      friends: [],
+      incoming: [],
+      outgoing: [],
+      servers: []
+    };
     pidToUid[u.pid] = uid;
     scheduleSave();
-  } else if (nick && u.nick !== n) {
+  } else if (nick && !u.verified && u.nick !== n) {
     u.nick = n;
     scheduleSave();
   }
@@ -305,11 +484,78 @@ function ensureUser(uid, nick) {
 }
 
 function addMember(room, uid) {
-  const arr = members[room] || (members[room] = []);
+  const r = safeRoom(room);
+  const arr = members[r] || (members[r] = []);
+  let changed = false;
   if (!arr.includes(uid) && arr.length < MAX_MEMBERS) {
     arr.push(uid);
-    scheduleSave();
+    changed = true;
   }
+  if (users[uid] && !users[uid].servers.includes(r)) {
+    users[uid].servers.push(r);
+    changed = true;
+  }
+  if (changed) scheduleSave();
+}
+
+function mergeAccount(prevUid, finalUid, nick, tgId, tgUsername, passHash) {
+  let u = users[finalUid];
+  const cleanN = cleanNick(nick);
+  if (!u) {
+    if (prevUid && users[prevUid] && !users[prevUid].verified) {
+      const oldUser = users[prevUid];
+      u = users[finalUid] = {
+        pid: pidOf(finalUid),
+        nick: cleanN,
+        tgId: tgId || oldUser.tgId || '',
+        tgUsername: tgUsername || oldUser.tgUsername || '',
+        passHash: passHash || oldUser.passHash || '',
+        verified: true,
+        friends: oldUser.friends || [],
+        incoming: oldUser.incoming || [],
+        outgoing: oldUser.outgoing || [],
+        servers: oldUser.servers || []
+      };
+      delete users[prevUid];
+      Object.keys(members).forEach(r => {
+        const idx = members[r].indexOf(prevUid);
+        if (idx >= 0) {
+          if (!members[r].includes(finalUid)) members[r][idx] = finalUid;
+          else members[r].splice(idx, 1);
+        }
+      });
+    } else {
+      u = users[finalUid] = {
+        pid: pidOf(finalUid),
+        nick: cleanN,
+        tgId: tgId || '',
+        tgUsername: tgUsername || '',
+        passHash: passHash || '',
+        verified: true,
+        friends: [],
+        incoming: [],
+        outgoing: [],
+        servers: []
+      };
+    }
+  } else {
+    if (nick && (!u.verified || nick !== 'Гость')) u.nick = cleanN;
+    if (tgId) u.tgId = tgId;
+    if (tgUsername) u.tgUsername = tgUsername;
+    if (passHash) u.passHash = passHash;
+    u.verified = true;
+    if (prevUid && prevUid !== finalUid) {
+      Object.keys(members).forEach(r => {
+        const idx = members[r].indexOf(prevUid);
+        if (idx >= 0) members[r].splice(idx, 1);
+      });
+      if (users[prevUid] && !users[prevUid].verified) delete users[prevUid];
+    }
+  }
+  pidToUid[u.pid] = finalUid;
+  if (u.tgId) tgIdToUid[u.tgId] = finalUid;
+  if (u.nick) nickToUid[u.nick.toLowerCase()] = finalUid;
+  return u;
 }
 
 function isOnline(uid) {
@@ -329,6 +575,10 @@ function socialState(uid) {
   };
   return {
     pid: u.pid,
+    nick: u.nick,
+    tgUsername: u.tgUsername || '',
+    verified: !!u.verified,
+    servers: u.servers || [],
     friends: u.friends.map(info),
     incoming: u.incoming.map(info),
     outgoing: u.outgoing.slice()
@@ -353,15 +603,25 @@ function notifyFriendsOf(uid) {
   });
 }
 
+function notifyAllRoomsOfUser(uid) {
+  Object.keys(members).forEach(r => {
+    if (members[r] && members[r].includes(uid)) {
+      broadcastUsers(r);
+    }
+  });
+}
+
 function memberList(room) {
   const online = new Map();
   clients.forEach(c => {
-    if (c.room !== room || !c.uid) return;
+    if (!c.uid) return;
     const prev = online.get(c.uid);
+    const inThisRoom = c.room === room;
     online.set(c.uid, {
-      inVoice: !!(prev && prev.inVoice) || !!c.inVoice,
-      inScreen: !!(prev && prev.inScreen) || !!c.inScreen,
-      voiceChannel: c.inVoice ? c.voiceChannel : (prev ? prev.voiceChannel : null)
+      inRoom: !!(prev && prev.inRoom) || inThisRoom,
+      inVoice: !!(prev && prev.inVoice) || (inThisRoom && !!c.inVoice),
+      inScreen: !!(prev && prev.inScreen) || (inThisRoom && !!c.inScreen),
+      voiceChannel: (inThisRoom && c.inVoice) ? c.voiceChannel : (prev ? prev.voiceChannel : null)
     });
   });
   return (members[room] || []).map(uid => {
@@ -370,6 +630,7 @@ function memberList(room) {
     return {
       pid: u ? u.pid : pidOf(uid),
       nick: u ? u.nick : '?',
+      verified: !!(u && u.verified),
       online: !!o,
       inVoice: !!(o && o.inVoice),
       inScreen: !!(o && o.inScreen),
@@ -448,7 +709,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   .btn-top-invite:hover { background: #be185d; }
 
   .demo-notice { height: 30px; background: #070c14; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 11px; color: var(--text-dim); }
-  .workspace { flex: 1; display: grid; grid-template-columns: 68px 250px 1fr 240px; overflow: hidden; }
+  .workspace { flex: 1; display: grid; grid-template-columns: 68px 250px 1fr 255px; overflow: hidden; }
 
   .servers-rail { background: #030508; border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 10px; overflow-y: auto; }
   .bolt-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--cyan-bright); font-size: 18px; margin-bottom: 4px; flex-shrink: 0; }
@@ -497,11 +758,11 @@ const HTML_PAGE = `<!DOCTYPE html>
   .btn-copy-mini { background: transparent; border: 1px solid var(--pink-border); color: #f43f5e; padding: 6px; border-radius: 6px; font-size: 10px; font-weight: 700; text-align: center; cursor: pointer; }
 
   .user-bar { padding: 8px 10px; background: #030508; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .user-info { display: flex; align-items: center; gap: 8px; }
-  .user-ava { width: 28px; height: 28px; border-radius: 6px; background: #e11d48; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
-  .user-name { font-size: 11px; font-weight: 700; }
-  .user-sub { font-size: 9px; color: var(--text-muted); }
-  .btn-login-mini { background: transparent; border: 1px solid var(--border); color: var(--cyan-bright); padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer; }
+  .user-info { display: flex; align-items: center; gap: 8px; overflow: hidden; }
+  .user-ava { width: 28px; height: 28px; border-radius: 6px; background: #e11d48; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+  .user-name { font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-sub { font-size: 9px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .btn-login-mini { background: transparent; border: 1px solid var(--border); color: var(--cyan-bright); padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer; flex-shrink: 0; }
 
   .main-chat { background: var(--bg-main); display: flex; flex-direction: column; overflow: hidden; }
   .chat-topbar { height: 48px; padding: 0 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
@@ -540,7 +801,6 @@ const HTML_PAGE = `<!DOCTYPE html>
   .voice-user-card { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); width: fit-content; }
   .vu-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
 
-  /* Сетка трансляций экрана и отдельных окон */
   .screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; width: 100%; }
   .screen-grid:empty { display: none; }
   .screen-card { background: #05080d; border: 1px solid var(--cyan-border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
@@ -557,14 +817,18 @@ const HTML_PAGE = `<!DOCTYPE html>
   .chat-inp { flex: 1; background: var(--bg-input); border: 1px solid var(--border); padding: 9px 12px; border-radius: 6px; color: #fff; font-size: 12px; outline: none; }
   .bottom-hint { font-size: 9px; color: var(--text-muted); }
 
-  .right-panel { background: var(--bg-sidebar); border-left: 1px solid var(--border); padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
-  .right-sec-title { font-size: 9px; text-transform: uppercase; color: var(--cyan-bright); font-weight: 700; }
-  .online-user-item { display: flex; align-items: center; gap: 8px; font-size: 11px; padding: 5px 6px; background: rgba(255,255,255,0.02); border-radius: 6px; }
-  .online-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
-  .online-dot.off { background: #475569; }
-  .mini-btn { background: transparent; border: 1px solid var(--cyan-border); color: var(--cyan-bright); padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; cursor: pointer; }
-  .mini-btn:hover { background: rgba(20, 184, 166, 0.12); }
-  .friend-tag { font-size: 9px; color: var(--text-muted); font-weight: 700; }
+  .right-panel { background: var(--bg-sidebar); border-left: 1px solid var(--border); padding: 14px 12px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+  .right-sec-title { font-size: 9px; text-transform: uppercase; color: var(--cyan-bright); font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+  .online-user-item { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 6px 7px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid transparent; }
+  .online-user-item.is-online { border-color: rgba(34, 197, 94, 0.15); }
+  .online-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 6px #22c55e; flex-shrink: 0; }
+  .online-dot.off { background: #475569; box-shadow: none; }
+  .status-pill { font-size: 8px; padding: 1px 5px; border-radius: 4px; font-weight: 700; text-transform: uppercase; flex-shrink: 0; }
+  .status-pill.on { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+  .status-pill.off { background: rgba(255, 255, 255, 0.05); color: #64748b; }
+  .mini-btn { background: transparent; border: 1px solid var(--cyan-border); color: var(--cyan-bright); padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
+  .mini-btn:hover { background: rgba(20, 184, 166, 0.15); color: #fff; }
+  .friend-tag { font-size: 9px; color: var(--cyan-bright); font-weight: 700; flex-shrink: 0; }
   .invite-banner-card { background: linear-gradient(135deg, rgba(219,39,119,0.12), rgba(13,148,136,0.06)); border: 1px solid var(--pink-border); border-radius: 10px; padding: 12px; margin-top: auto; }
   .invite-banner-card h5 { font-size: 11px; font-weight: 700; margin-bottom: 3px; }
   .invite-banner-card p { font-size: 10px; color: var(--text-dim); margin-bottom: 8px; }
@@ -574,13 +838,19 @@ const HTML_PAGE = `<!DOCTYPE html>
   .btn-mute { background: #1e293b; color: #fff; border: 1px solid var(--border); padding: 7px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; }
   .btn-mute.active-screen { background: rgba(219, 39, 119, 0.2); border-color: #f43f5e; color: #fda4af; }
   .btn-pink-card { background: #9d174d; color: #fff; border: none; width: 100%; padding: 7px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
+  .btn-tg { background: #229ED9; color: #fff; border: none; width: 100%; padding: 10px 14px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; margin-bottom: 10px; }
+  .btn-tg:hover { background: #1d8ec4; box-shadow: 0 0 14px rgba(34, 158, 217, 0.45); }
 
-  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 999; }
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(2, 4, 8, 0.86); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 999; }
   .modal-backdrop.open { display: flex; }
-  .modal-box { background: var(--bg-card); border: 1px solid var(--cyan-border); border-radius: 12px; padding: 20px; width: 360px; }
-  .modal-box input { width: 100%; padding: 8px 10px; background: #04060a; border: 1px solid var(--border); border-radius: 6px; color: #fff; margin-bottom: 10px; font-size: 12px; outline: none; user-select: text; }
+  .modal-box { background: var(--bg-card); border: 1px solid var(--cyan-border); border-radius: 12px; padding: 22px; width: 390px; max-width: 92vw; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
+  .modal-box input[type="text"], .modal-box input[type="password"] { width: 100%; padding: 9px 11px; background: #04060a; border: 1px solid var(--border); border-radius: 6px; color: #fff; margin-bottom: 10px; font-size: 12px; outline: none; user-select: text; }
+  .modal-box input:focus { border-color: var(--cyan-bright); }
   .link-box { background: #030508; border: 1px dashed var(--cyan-bright); padding: 8px; color: var(--cyan-bright); font-size: 11px; word-break: break-all; margin-bottom: 10px; border-radius: 6px; display: block; text-decoration: none; text-align: center; user-select: text; }
   .link-box:hover { background: rgba(20, 184, 166, 0.1); }
+  .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; background: #06090f; padding: 4px; border-radius: 8px; border: 1px solid var(--border); }
+  .auth-tab { padding: 6px 8px; font-size: 11px; font-weight: 700; text-align: center; border-radius: 6px; cursor: pointer; color: var(--text-dim); }
+  .auth-tab.active { background: rgba(34, 158, 217, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
 </style>
 </head>
 <body>
@@ -595,7 +865,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   </div>
 
   <div class="demo-notice">
-    <span><b>РЕАЛЬНАЯ СЕТЬ:</b> Создавайте серверы, каналы, включайте трансляцию экрана или отдельных окон и приглашайте друзей</span>
+    <span><b>РЕАЛЬНАЯ СЕТЬ:</b> Авторизация через Telegram — участники остаются на сервере навсегда и могут добавлять друзей</span>
     <span style="font-weight:700;color:var(--cyan-bright);" id="room-code-label">Код комнаты: <b>cy-4371</b> НА СВЯЗИ</span>
   </div>
 
@@ -650,12 +920,12 @@ const HTML_PAGE = `<!DOCTYPE html>
       <div class="user-bar">
         <div class="user-info">
           <div class="user-ava" id="user-ava">ГО</div>
-          <div>
-            <div class="user-name" id="user-name-label">Гость_932</div>
-            <div class="user-sub">Рады вас видеть</div>
+          <div style="overflow:hidden;">
+            <div class="user-name" id="user-name-label">Гость</div>
+            <div class="user-sub" id="user-email-label">Ожидание входа...</div>
           </div>
         </div>
-        <button class="btn-login-mini" onclick="openAuthModal()">ВОЙТИ</button>
+        <button class="btn-login-mini" id="user-bar-auth-btn" onclick="openAuthModal(false)">ПРОФИЛЬ</button>
       </div>
     </div>
 
@@ -711,7 +981,7 @@ const HTML_PAGE = `<!DOCTYPE html>
           <div class="voice-active-area" id="voice-active-area">
             <div class="voice-user-card">
               <span class="vu-dot"></span>
-              <span id="voice-my-name" style="font-size:11px;font-weight:700;">Гость_932 (Вы)</span>
+              <span id="voice-my-name" style="font-size:11px;font-weight:700;">Гость (Вы)</span>
             </div>
             <div class="screen-grid" id="screen-grid"></div>
             <div id="audio-box"></div>
@@ -721,26 +991,34 @@ const HTML_PAGE = `<!DOCTYPE html>
 
       <div class="chat-bottom">
         <div class="auth-prompt-bar">
-          <span id="auth-bar-text">Вы в сети как <b>Гость_932</b> — сообщения мгновенно доставляются всем подключенным друзьям</span>
-          <button class="btn-login-mini" onclick="openAuthModal()">Регистрация по коду</button>
+          <span id="auth-bar-text">Войдите через Telegram, чтобы закрепиться на сервере и добавлять друзей</span>
+          <button class="btn-login-mini" onclick="openAuthModal(false)">✈️ Telegram / Профиль</button>
         </div>
         <form class="input-row" onsubmit="sendChatMessage(event)">
           <input type="text" id="chat-input" class="chat-inp" placeholder="Написать сообщение..." autocomplete="off" maxlength="1000">
           <button type="submit" class="btn-cyan">ОТПРАВИТЬ</button>
         </form>
-        <div class="bottom-hint">ENTER — ОТПРАВИТЬ • ГОЛОС И ТРАНСЛЯЦИЯ ЭКРАНА / ОКОН РАБОТАЮТ НАПРЯМУЮ МЕЖДУ БРАУЗЕРАМИ</div>
+        <div class="bottom-hint">ENTER — ОТПРАВИТЬ • УЧАСТНИКИ И ДРУЗЬЯ СОХРАНЯЮТСЯ НА СЕРВЕРЕ НАВСЕГДА</div>
       </div>
     </div>
 
     <div class="right-panel">
-      <div class="right-sec-title">НА ЧАСТОТЕ (<span id="online-count">1</span>)</div>
+      <div class="right-sec-title">
+        <span>УЧАСТНИКИ СЕРВЕРА</span>
+        <span>В СЕТИ: <b id="online-count">1</b> / <span id="total-members-count">1</span></span>
+      </div>
       <div id="online-users-box"></div>
-      <div class="right-sec-title" style="margin-top:6px;">ДРУЗЬЯ (<span id="friends-count">0</span>)</div>
+
+      <div class="right-sec-title" style="margin-top:8px;">
+        <span>ДРУЗЬЯ</span>
+        <span><b id="friends-count">0</b></span>
+      </div>
       <div id="requests-box"></div>
       <div id="friends-box"></div>
+
       <div class="invite-banner-card">
         <h5>Зови друзей в канал</h5>
-        <p>Отправьте другу прямую ссылку или код комнаты — он сразу появится в этом списке, и вы сможете общаться текстом, голосом и смотреть экран.</p>
+        <p>Отправьте другу ссылку на сервер — он подтвердит вход через Telegram, останется в списке участников навсегда, и вы сможете добавить его в друзья кнопкой «+ друг».</p>
         <button class="btn-pink-card" onclick="openInviteModal()">🔗 СОЗДАТЬ ПРИГЛАШЕНИЕ</button>
       </div>
     </div>
@@ -749,28 +1027,52 @@ const HTML_PAGE = `<!DOCTYPE html>
   <!-- Модальное окно приглашения -->
   <div class="modal-backdrop" id="invite-modal" onclick="if(event.target===this)closeInviteModal()">
     <div class="modal-box">
-      <h3 style="color:var(--cyan-bright);font-size:16px;margin-bottom:6px;">Публичная ссылка для друга</h3>
-      <p style="font-size:11px;color:var(--text-dim);margin-bottom:10px;">Нажмите на ссылку, чтобы открыть её, или скопируйте для отправки другу:</p>
+      <h3 style="color:var(--cyan-bright);font-size:16px;margin-bottom:6px;">Ссылка-приглашение на сервер</h3>
+      <p style="font-size:11px;color:var(--text-dim);margin-bottom:10px;">Нажмите на ссылку или скопируйте её для отправки другу:</p>
       <a class="link-box" id="public-invite-url" href="#" target="_blank" rel="noopener">Генерация публичного адреса...</a>
       <button class="btn-cyan" style="width:100%;margin-bottom:6px;" onclick="copyInviteLink()">Скопировать ссылку</button>
       <button class="btn-login-mini" style="width:100%;text-align:center;" onclick="closeInviteModal()">Закрыть</button>
     </div>
   </div>
 
-  <!-- Модальное окно верификации по почте -->
-  <div class="modal-backdrop" id="auth-modal" onclick="if(event.target===this)closeAuthModal()">
+  <!-- Модальное окно авторизации через Telegram -->
+  <div class="modal-backdrop" id="auth-modal" onclick="if(!authLocked && event.target===this)closeAuthModal()">
     <div class="modal-box">
-      <h3 style="color:var(--cyan-bright);font-size:16px;margin-bottom:6px;">Верификация по почте</h3>
-      <p style="font-size:11px;color:var(--text-dim);margin-bottom:10px;">Введите ваш Email для получения защищённого кода.</p>
-      <input type="email" id="email-inp" placeholder="user@mail.com">
-      <button class="btn-cyan" style="width:100%;margin-bottom:10px;" onclick="sendEmailCode()">Получить код</button>
-      <div id="code-step" style="display:none;flex-direction:column;gap:8px;">
-        <div id="demo-code-hint" style="color:#f43f5e;font-size:11px;font-weight:700;text-align:center;"></div>
-        <input type="text" id="code-inp" placeholder="Введите 4 цифры кода">
-        <input type="text" id="nick-inp" placeholder="Ваш позывной" maxlength="24">
-        <button class="btn-cyan" style="width:100%;" onclick="verifyAndLogin()">Подтвердить вход</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h3 style="color:var(--cyan-bright);font-size:16px;">Вход на сервер</h3>
+        <span style="font-size:9px;background:#229ED9;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700;">TELEGRAM ID</span>
       </div>
-      <button class="btn-login-mini" style="width:100%;text-align:center;" onclick="closeAuthModal()">Закрыть</button>
+
+      <div class="auth-tabs">
+        <div class="auth-tab active" id="tab-tg-btn" onclick="switchAuthTab('tg')">✈️ Через Telegram</div>
+        <div class="auth-tab" id="tab-pass-btn" onclick="switchAuthTab('pass')">🔑 По паролю</div>
+      </div>
+
+      <input type="text" id="nick-inp" placeholder="Желаемый позывной (необязательно)" maxlength="24">
+
+      <!-- Вкладка 1: Вход через Telegram-бота -->
+      <div id="auth-tg-panel">
+        <p style="font-size:11px;color:var(--text-dim);margin-bottom:10px;line-height:1.45;" id="tg-status-hint">
+          Нажмите кнопку ниже, чтобы открыть бота в Telegram и нажать <b>«Запустить» (/start)</b> — вход выполнится автоматически, либо введите 4 цифры кода из бота:
+        </p>
+        <button type="button" class="btn-tg" id="tg-open-bot-btn" onclick="openTelegramBot()">
+          <span>✈️ Открыть Telegram и получить код</span>
+        </button>
+
+        <input type="text" id="tg-code-inp" placeholder="Код из Telegram (4 цифры)" maxlength="6" style="text-align:center;font-size:15px;font-weight:700;letter-spacing:4px;">
+        <button class="btn-cyan" style="width:100%;" onclick="verifyTelegramCode()">Подтвердить код и войти</button>
+      </div>
+
+      <!-- Вкладка 2: Вход по паролю или смена позывного -->
+      <div id="auth-pass-panel" style="display:none;">
+        <p style="font-size:11px;color:var(--text-dim);margin-bottom:10px;">
+          Резервный вход по паролю (или быстрая смена вашего позывного):
+        </p>
+        <input type="password" id="pass-inp" placeholder="Пароль (минимум 4 символа)" maxlength="64">
+        <button class="btn-cyan" style="width:100%;" onclick="loginWithPassword()">Войти / Сохранить позывной</button>
+      </div>
+
+      <button class="btn-login-mini" id="auth-close-btn" style="width:100%;text-align:center;margin-top:8px;" onclick="closeAuthModal()">Закрыть</button>
     </div>
   </div>
 
@@ -833,9 +1135,20 @@ const HTML_PAGE = `<!DOCTYPE html>
 
   let currentChannel = params.get('channel') || 'игровая-комната';
   let currentVoiceChannel = 'Ночной эфир';
-  let myNick = 'Гость_932';
-  try { myNick = localStorage.getItem('cyber_nick') || 'Гость_932'; } catch (e) {}
-  const clientId = Math.random().toString(36).substring(2, 10);
+  let myNick = 'Гость_' + Math.floor(100 + Math.random() * 899);
+  try {
+    const savedNick = localStorage.getItem('cyber_nick');
+    if (savedNick) myNick = savedNick;
+  } catch (e) {}
+  let myVerified = false;
+  try { myVerified = localStorage.getItem('cyber_verified') === '1'; } catch (e) {}
+  let authLocked = !myVerified;
+
+  let clientId = Math.random().toString(36).substring(2, 10);
+  let evtSource = null;
+  let tgSessionToken = '';
+  let tgBotUsername = '';
+  let tgPollTimer = null;
 
   let serversList = [];
   let currentServerMeta = {
@@ -850,7 +1163,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   let localStream = null, screenStream = null, peer = null, myPeerId = null;
   let inVoice = false, inScreen = false, isMuted = false;
   let screenCalls = {};
-  let myPid = null, lastMembers = [], social = { friends: [], incoming: [], outgoing: [] };
+  let myPid = null, lastMembers = [], social = { friends: [], incoming: [], outgoing: [], servers: [] };
   let pendingChannelType = 'text';
 
   function escapeHtml(s) {
@@ -869,11 +1182,28 @@ const HTML_PAGE = `<!DOCTYPE html>
     return e;
   }
 
+  function switchAuthTab(mode) {
+    const isTg = mode === 'tg';
+    document.getElementById('tab-tg-btn').classList.toggle('active', isTg);
+    document.getElementById('tab-pass-btn').classList.toggle('active', !isTg);
+    document.getElementById('auth-tg-panel').style.display = isTg ? 'block' : 'none';
+    document.getElementById('auth-pass-panel').style.display = isTg ? 'none' : 'block';
+  }
+
   function applyNickUI() {
     document.getElementById('user-name-label').textContent = myNick;
     document.getElementById('user-ava').textContent = myNick.slice(0, 2).toUpperCase();
     document.getElementById('voice-my-name').textContent = myNick + ' (Вы)';
-    document.getElementById('auth-bar-text').innerHTML = 'Вы в сети как <b>' + escapeHtml(myNick) + '</b> — сообщения мгновенно доставляются всем подключенным друзьям';
+    if (myVerified) {
+      const badge = social.tgUsername ? ('✓ @' + social.tgUsername) : '✓ Подтверждён';
+      document.getElementById('user-email-label').textContent = badge;
+      document.getElementById('user-email-label').style.color = '#34d399';
+      document.getElementById('auth-bar-text').innerHTML = 'Вы в сети как <b>' + escapeHtml(myNick) + '</b> — вы навсегда закреплены в списке сервера';
+    } else {
+      document.getElementById('user-email-label').textContent = 'Не авторизован';
+      document.getElementById('user-email-label').style.color = '';
+      document.getElementById('auth-bar-text').innerHTML = 'Войдите через Telegram, чтобы закрепиться на сервере и добавлять друзей';
+    }
   }
 
   function renderServersRail() {
@@ -957,55 +1287,77 @@ const HTML_PAGE = `<!DOCTYPE html>
     window.location.href = window.location.origin + '/?room=' + encodeURIComponent(clean);
   }
 
+  function connectEventStream() {
+    if (evtSource) {
+      try { evtSource.close(); } catch (e) {}
+    }
+    clientId = Math.random().toString(36).substring(2, 10);
+    evtSource = new EventSource('/api/events?id=' + clientId + '&uid=' + myUid + '&room=' + encodeURIComponent(currentRoom) + '&nick=' + encodeURIComponent(myNick));
+
+    evtSource.onmessage = function (e) {
+      let data;
+      try { data = JSON.parse(e.data); } catch (err) { return; }
+      if (data.type === 'server-meta') {
+        currentServerMeta = data.payload.current;
+        serversList = data.payload.list || [currentServerMeta];
+        renderServersRail();
+        renderServerChannels();
+        loadHistory();
+      } else if (data.type === 'servers') {
+        serversList = data.payload.list || [];
+        const found = serversList.find(function (s) { return s.id === currentRoom; });
+        if (found) currentServerMeta = found;
+        renderServersRail();
+        renderServerChannels();
+      } else if (data.type === 'msg' && data.payload.channel === currentChannel) {
+        addMsgToDOM(data.payload.msg);
+      } else if (data.type === 'users') {
+        renderUsers(data.payload);
+      } else if (data.type === 'social') {
+        myPid = data.payload.pid;
+        social = data.payload;
+        if (data.payload.nick) {
+          myNick = data.payload.nick;
+          try { localStorage.setItem('cyber_nick', myNick); } catch (err) {}
+        }
+        if (data.payload.verified) {
+          myVerified = true;
+          authLocked = false;
+          try { localStorage.setItem('cyber_verified', '1'); } catch (err) {}
+          closeAuthModal();
+        }
+        applyNickUI();
+        renderSocial();
+        renderUsers(lastMembers);
+      } else if (data.type === 'voice-join') {
+        if (inVoice && peer && localStream && myPeerId && data.payload.peerId !== myPeerId && data.payload.voiceChannel === currentVoiceChannel) {
+          const pid = data.payload.peerId;
+          const call = peer.call(pid, localStream, { metadata: { kind: 'audio', nick: myNick } });
+          if (call) {
+            call.on('stream', function (remoteStream) { playStream(pid, remoteStream); });
+            call.on('close', function () { removeAudio(pid); });
+            call.on('error', function () { removeAudio(pid); });
+          }
+          if (inScreen && screenStream) {
+            callPeerWithScreen(pid);
+          }
+        }
+      } else if (data.type === 'screen-stop') {
+        if (data.payload && data.payload.peerId) {
+          removeScreenTile(data.payload.peerId);
+        }
+      }
+    };
+  }
+
   applyNickUI();
   renderServersRail();
   renderServerChannels();
+  connectEventStream();
 
-  const evtSource = new EventSource('/api/events?id=' + clientId + '&uid=' + myUid + '&room=' + encodeURIComponent(currentRoom) + '&nick=' + encodeURIComponent(myNick));
-
-  evtSource.onmessage = function (e) {
-    let data;
-    try { data = JSON.parse(e.data); } catch (err) { return; }
-    if (data.type === 'server-meta') {
-      currentServerMeta = data.payload.current;
-      serversList = data.payload.list || [currentServerMeta];
-      renderServersRail();
-      renderServerChannels();
-      loadHistory();
-    } else if (data.type === 'servers') {
-      serversList = data.payload.list || [];
-      const found = serversList.find(function (s) { return s.id === currentRoom; });
-      if (found) currentServerMeta = found;
-      renderServersRail();
-      renderServerChannels();
-    } else if (data.type === 'msg' && data.payload.channel === currentChannel) {
-      addMsgToDOM(data.payload.msg);
-    } else if (data.type === 'users') {
-      renderUsers(data.payload);
-    } else if (data.type === 'social') {
-      myPid = data.payload.pid;
-      social = data.payload;
-      renderSocial();
-      renderUsers(lastMembers);
-    } else if (data.type === 'voice-join') {
-      if (inVoice && peer && localStream && myPeerId && data.payload.peerId !== myPeerId && data.payload.voiceChannel === currentVoiceChannel) {
-        const pid = data.payload.peerId;
-        const call = peer.call(pid, localStream, { metadata: { kind: 'audio', nick: myNick } });
-        if (call) {
-          call.on('stream', function (remoteStream) { playStream(pid, remoteStream); });
-          call.on('close', function () { removeAudio(pid); });
-          call.on('error', function () { removeAudio(pid); });
-        }
-        if (inScreen && screenStream) {
-          callPeerWithScreen(pid);
-        }
-      }
-    } else if (data.type === 'screen-stop') {
-      if (data.payload && data.payload.peerId) {
-        removeScreenTile(data.payload.peerId);
-      }
-    }
-  };
+  if (!myVerified) {
+    openAuthModal(true);
+  }
 
   function loadHistory() {
     const ch = currentChannel;
@@ -1041,6 +1393,10 @@ const HTML_PAGE = `<!DOCTYPE html>
   }
 
   function friendAction(action, pid) {
+    if (!myVerified) {
+      openAuthModal(true);
+      return Promise.resolve();
+    }
     return fetch('/api/friend', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1054,25 +1410,35 @@ const HTML_PAGE = `<!DOCTYPE html>
   function renderUsers(list) {
     lastMembers = list || [];
     const online = lastMembers.filter(function (u) { return u.online; });
+    const offline = lastMembers.filter(function (u) { return !u.online; });
     document.getElementById('online-count').textContent = online.length;
+    document.getElementById('total-members-count').textContent = lastMembers.length;
+
     const box = document.getElementById('online-users-box');
     box.innerHTML = '';
-    const sorted = online.concat(lastMembers.filter(function (u) { return !u.online; }));
-    const friendPids = social.friends.map(function (f) { return f.pid; });
+    const sorted = online.concat(offline);
+    const friendPids = (social.friends || []).map(function (f) { return f.pid; });
+
     sorted.forEach(function (u) {
-      const d = el('div', 'online-user-item');
-      if (!u.online) d.style.opacity = '0.5';
+      const d = el('div', 'online-user-item' + (u.online ? ' is-online' : ''));
+      if (!u.online) d.style.opacity = '0.68';
+
       d.appendChild(el('span', 'online-dot' + (u.online ? '' : ' off')));
-      const voiceTag = u.inVoice ? (' 🔊' + (u.inScreen ? ' 🖥️' : '') + (u.voiceChannel ? ' ' + u.voiceChannel : '')) : '';
+
+      const voiceTag = u.inVoice ? (' 🔊' + (u.inScreen ? ' 🖥️' : '')) : '';
       const name = el('span', '', u.nick + (u.pid === myPid ? ' (вы)' : '') + voiceTag);
-      name.style.flex = '1';
+      name.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:' + (u.online ? '600' : '400') + ';';
       d.appendChild(name);
+
+      const stPill = el('span', 'status-pill ' + (u.online ? 'on' : 'off'), u.online ? 'в сети' : 'не в сети');
+      d.appendChild(stPill);
+
       if (myPid && u.pid !== myPid) {
         if (friendPids.indexOf(u.pid) >= 0) {
           d.appendChild(el('span', 'friend-tag', 'друг'));
-        } else if (social.outgoing.indexOf(u.pid) >= 0) {
+        } else if ((social.outgoing || []).indexOf(u.pid) >= 0) {
           d.appendChild(el('span', 'friend-tag', 'заявка'));
-        } else if (social.incoming.some(function (i) { return i.pid === u.pid; })) {
+        } else if ((social.incoming || []).some(function (i) { return i.pid === u.pid; })) {
           const b = el('button', 'mini-btn', 'принять');
           b.onclick = function () { friendAction('accept', u.pid); };
           d.appendChild(b);
@@ -1087,11 +1453,15 @@ const HTML_PAGE = `<!DOCTYPE html>
   }
 
   function renderSocial() {
-    document.getElementById('friends-count').textContent = social.friends.length;
+    const friends = social.friends || [];
+    const incoming = social.incoming || [];
+    document.getElementById('friends-count').textContent = friends.length;
+
     const rq = document.getElementById('requests-box');
     rq.innerHTML = '';
-    social.incoming.forEach(function (r) {
+    incoming.forEach(function (r) {
       const d = el('div', 'online-user-item');
+      d.style.borderColor = 'rgba(219, 39, 119, 0.4)';
       const name = el('span', '', r.nick + ' хочет в друзья');
       name.style.flex = '1';
       const ok = el('button', 'mini-btn', '✓');
@@ -1103,20 +1473,25 @@ const HTML_PAGE = `<!DOCTYPE html>
       d.appendChild(no);
       rq.appendChild(d);
     });
+
     const fb = document.getElementById('friends-box');
     fb.innerHTML = '';
-    if (social.friends.length === 0) {
+    if (friends.length === 0) {
       const hint = el('div', '', 'Пока никого. Нажмите «+ друг» рядом с участником.');
-      hint.style.cssText = 'font-size:10px;color:var(--text-muted);';
+      hint.style.cssText = 'font-size:10px;color:var(--text-muted);line-height:1.35;';
       fb.appendChild(hint);
     }
-    social.friends.forEach(function (f) {
-      const d = el('div', 'online-user-item');
-      if (!f.online) d.style.opacity = '0.5';
+    friends.forEach(function (f) {
+      const d = el('div', 'online-user-item' + (f.online ? ' is-online' : ''));
+      if (!f.online) d.style.opacity = '0.68';
       d.appendChild(el('span', 'online-dot' + (f.online ? '' : ' off')));
       const name = el('span', '', f.nick);
-      name.style.flex = '1';
+      name.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
       d.appendChild(name);
+
+      const stPill = el('span', 'status-pill ' + (f.online ? 'on' : 'off'), f.online ? 'в сети' : 'не в сети');
+      d.appendChild(stPill);
+
       const rmb = el('button', 'mini-btn', '✕');
       rmb.title = 'Удалить из друзей';
       rmb.onclick = function () {
@@ -1129,13 +1504,17 @@ const HTML_PAGE = `<!DOCTYPE html>
 
   function sendChatMessage(e) {
     e.preventDefault();
+    if (!myVerified) {
+      openAuthModal(true);
+      return;
+    }
     const inp = document.getElementById('chat-input');
     const text = inp.value.trim();
     if (!text) return;
     fetch('/api/message', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: clientId, room: currentRoom, channel: currentChannel, author: myNick, text: text })
+      body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, channel: currentChannel, author: myNick, text: text })
     }).catch(function () { alert('Не удалось отправить сообщение. Проверьте соединение.'); });
     inp.value = '';
   }
@@ -1147,6 +1526,10 @@ const HTML_PAGE = `<!DOCTYPE html>
   }
 
   function selectVoiceChannel(vch) {
+    if (!myVerified) {
+      openAuthModal(true);
+      return;
+    }
     currentVoiceChannel = vch;
     updateVoicePanelUI();
     renderServerChannels();
@@ -1166,6 +1549,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 
   // Модалка создания сервера
   function openCreateServerModal() {
+    if (!myVerified) return openAuthModal(true);
     document.getElementById('new-srv-name').value = '';
     document.getElementById('new-srv-desc').value = '';
     document.getElementById('create-server-modal').classList.add('open');
@@ -1195,6 +1579,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 
   // Модалка создания текстового или голосового канала
   function openCreateChannelModal(type) {
+    if (!myVerified) return openAuthModal(true);
     pendingChannelType = type === 'voice' ? 'voice' : 'text';
     document.getElementById('create-ch-title').textContent = pendingChannelType === 'voice' ? 'Создать голосовой канал' : 'Создать текстовый канал';
     document.getElementById('create-ch-sub').textContent = pendingChannelType === 'voice' ? 'Участники смогут созваниваться и включать стрим экрана:' : 'Участники смогут переписываться в этом канале:';
@@ -1277,50 +1662,148 @@ const HTML_PAGE = `<!DOCTYPE html>
     const url = document.getElementById('public-invite-url').textContent;
     try {
       await navigator.clipboard.writeText(url);
-      alert('Публичная интернет-ссылка скопирована!');
+      alert('Ссылка-приглашение скопирована! Отправьте её другу.');
     } catch (e) {
       prompt('Скопируйте ссылку вручную:', url);
     }
   }
 
-  function openAuthModal() { document.getElementById('auth-modal').classList.add('open'); }
-  function closeAuthModal() { document.getElementById('auth-modal').classList.remove('open'); }
-
-  async function sendEmailCode() {
-    const email = document.getElementById('email-inp').value.trim();
+  // ---------- Авторизация через Telegram ----------
+  async function initTelegramSession() {
     try {
-      const res = await fetch('/api/send-code', {
+      const res = await fetch('/api/tg-init');
+      const data = await res.json();
+      tgSessionToken = data.token || '';
+      tgBotUsername = data.botUsername || '';
+      const btn = document.getElementById('tg-open-bot-btn');
+      const hint = document.getElementById('tg-status-hint');
+      if (tgBotUsername) {
+        btn.innerHTML = '<span>✈️ Открыть @' + escapeHtml(tgBotUsername) + ' и войти</span>';
+      } else {
+        hint.innerHTML = '⚠️ Чтобы заработал вход через Telegram, добавьте переменную <b>TELEGRAM_BOT_TOKEN</b> (от @BotFather) в Render → Environment, либо войдите во вкладке «По паролю».';
+      }
+    } catch (e) {}
+  }
+
+  function startTgPolling() {
+    if (tgPollTimer) clearInterval(tgPollTimer);
+    tgPollTimer = setInterval(async function () {
+      if (!tgSessionToken || myVerified) return;
+      try {
+        const customNick = document.getElementById('nick-inp').value.trim().slice(0, 24);
+        const res = await fetch('/api/tg-check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: clientId,
+            uid: myUid,
+            room: currentRoom,
+            token: tgSessionToken,
+            nick: customNick
+          })
+        });
+        const data = await res.json();
+        if (data && data.ok && data.verified) {
+          clearInterval(tgPollTimer);
+          tgPollTimer = null;
+          completeClientAuth(data);
+        }
+      } catch (e) {}
+    }, 2000);
+  }
+
+  function openTelegramBot() {
+    if (!tgBotUsername) {
+      alert('Бот ещё не подключён! Добавьте TELEGRAM_BOT_TOKEN (от @BotFather) в Render Dashboard -> Environment, либо используйте вкладку «По паролю».');
+      return;
+    }
+    const url = 'https://t.me/' + encodeURIComponent(tgBotUsername) + '?start=auth_' + encodeURIComponent(tgSessionToken);
+    window.open(url, '_blank');
+    startTgPolling();
+  }
+
+  async function verifyTelegramCode() {
+    const code = document.getElementById('tg-code-inp').value.trim();
+    const customNick = document.getElementById('nick-inp').value.trim().slice(0, 24);
+    if (!code) return alert('Введите 4-значный код, который прислал Telegram-бот!');
+    try {
+      const res = await fetch('/api/tg-verify-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email })
+        body: JSON.stringify({
+          id: clientId,
+          uid: myUid,
+          room: currentRoom,
+          code: code,
+          nick: customNick
+        })
       });
       const data = await res.json();
       if (data.error) return alert(data.error);
-      document.getElementById('code-step').style.display = 'flex';
-      document.getElementById('demo-code-hint').textContent = 'Код подтверждения: ' + data.demoCode;
+      completeClientAuth(data);
     } catch (e) {
       alert('Ошибка соединения с сервером.');
     }
   }
 
-  async function verifyAndLogin() {
-    const email = document.getElementById('email-inp').value.trim();
-    const code = document.getElementById('code-inp').value.trim();
-    const nick = document.getElementById('nick-inp').value.trim().slice(0, 24);
-    if (!nick) return alert('Введите позывной!');
+  function completeClientAuth(data) {
+    if (data.uid && data.uid !== myUid) {
+      myUid = data.uid;
+      try { localStorage.setItem('cyber_uid', myUid); } catch (e) {}
+    }
+    if (data.nick) myNick = data.nick;
+    myVerified = true;
+    authLocked = false;
     try {
-      const res = await fetch('/api/verify-code', {
+      localStorage.setItem('cyber_nick', myNick);
+      localStorage.setItem('cyber_verified', '1');
+    } catch (e) {}
+    applyNickUI();
+    closeAuthModal();
+    connectEventStream();
+  }
+
+  function openAuthModal(lock) {
+    authLocked = !!lock || !myVerified;
+    document.getElementById('auth-close-btn').style.display = authLocked ? 'none' : 'block';
+    const nickField = document.getElementById('nick-inp');
+    if (myNick && !myNick.startsWith('Гость_')) nickField.value = myNick;
+    document.getElementById('auth-modal').classList.add('open');
+    initTelegramSession().then(function () {
+      startTgPolling();
+    });
+  }
+
+  function closeAuthModal() {
+    if (authLocked && !myVerified) return;
+    if (tgPollTimer) {
+      clearInterval(tgPollTimer);
+      tgPollTimer = null;
+    }
+    document.getElementById('auth-modal').classList.remove('open');
+  }
+
+  async function loginWithPassword() {
+    const nick = document.getElementById('nick-inp').value.trim().slice(0, 24);
+    const password = document.getElementById('pass-inp').value;
+    if (!nick) return alert('Введите ваш позывной (никнейм)!');
+    if (!password && !myVerified) return alert('Введите пароль (минимум 4 символа) или войдите через Telegram!');
+
+    try {
+      const res = await fetch('/api/auth-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: clientId, email: email, code: code, nick: nick })
+        body: JSON.stringify({
+          id: clientId,
+          uid: myUid,
+          room: currentRoom,
+          nick: nick,
+          password: password
+        })
       });
       const data = await res.json();
       if (data.error) return alert(data.error);
-      myNick = nick;
-      try { localStorage.setItem('cyber_nick', myNick); } catch (e) {}
-      applyNickUI();
-      closeAuthModal();
-      alert('Авторизация успешна!');
+      completeClientAuth(data);
     } catch (e) {
       alert('Ошибка соединения с сервером.');
     }
@@ -1366,6 +1849,10 @@ const HTML_PAGE = `<!DOCTYPE html>
   }
 
   async function ensureVoiceConnected() {
+    if (!myVerified) {
+      openAuthModal(true);
+      return false;
+    }
     if (inVoice && peer && myPeerId) return true;
     try {
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1429,7 +1916,6 @@ const HTML_PAGE = `<!DOCTYPE html>
     await ensureVoiceConnected();
   }
 
-  // ---------- Трансляция экрана и отдельных окон ----------
   function callPeerWithScreen(remotePid) {
     if (!peer || !screenStream || !remotePid || remotePid === myPeerId) return;
     if (screenCalls[remotePid]) {
@@ -1446,6 +1932,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   }
 
   async function toggleScreenShare() {
+    if (!myVerified) return openAuthModal(true);
     if (inScreen) {
       stopScreenShare(false);
       return;
@@ -1461,7 +1948,7 @@ const HTML_PAGE = `<!DOCTYPE html>
         audio: true
       });
     } catch (e) {
-      return; // Пользователь отменил выбор экрана/окна
+      return;
     }
 
     const ok = await ensureVoiceConnected();
@@ -1651,10 +2138,93 @@ const server = http.createServer(async (req, res) => {
       return res.end('ok');
     }
 
+    // Инициализация сессии входа через Telegram
+    if (req.method === 'GET' && url.pathname === '/api/tg-init') {
+      const token = crypto.randomBytes(12).toString('hex');
+      pendingTgTokens[token] = {
+        expires: Date.now() + CODE_TTL_MS,
+        completed: null
+      };
+      return sendJson(res, 200, {
+        enabled: !!telegramBotUsername,
+        botUsername: telegramBotUsername,
+        token: token
+      });
+    }
+
+    // Автоматическая проверка: нажал ли пользователь Start в Telegram-боте
+    if (req.method === 'POST' && url.pathname === '/api/tg-check') {
+      const body = await readBody(req);
+      const token = String(body.token || '').trim();
+      const entry = pendingTgTokens[token];
+      if (!entry || entry.expires < Date.now() || !entry.completed) {
+        return sendJson(res, 200, { ok: true, verified: false });
+      }
+      const tgInfo = entry.completed;
+      delete pendingTgTokens[token];
+
+      const room = safeRoom(body.room);
+      const prevUid = validUid(body.uid) ? body.uid : null;
+      const finalUid = tgIdToUid[tgInfo.tgId] || uidFromTgId(tgInfo.tgId);
+      const existingNick = users[finalUid] && users[finalUid].verified ? users[finalUid].nick : '';
+      const chosenNick = cleanNick(body.nick || existingNick || tgInfo.firstName || tgInfo.username || 'Странник');
+
+      const u = mergeAccount(prevUid, finalUid, chosenNick, tgInfo.tgId, tgInfo.username, '');
+      addMember(room, finalUid);
+
+      clients.forEach(x => {
+        if (x.id === body.id || x.uid === prevUid || x.uid === finalUid) {
+          x.uid = finalUid;
+          x.nick = u.nick;
+        }
+      });
+
+      scheduleSave(room);
+      notifyAllRoomsOfUser(finalUid);
+      notifyFriendsOf(finalUid);
+      sendSocial(finalUid);
+
+      return sendJson(res, 200, { ok: true, verified: true, uid: finalUid, pid: u.pid, nick: u.nick });
+    }
+
+    // Вход по 4-значному коду из Telegram-бота
+    if (req.method === 'POST' && url.pathname === '/api/tg-verify-code') {
+      const body = await readBody(req);
+      const code = String(body.code || '').trim();
+      const entry = tgCodes[code];
+      if (!entry || entry.expires < Date.now()) {
+        return sendJson(res, 400, { error: 'Неверный или просроченный код! Нажмите /start в Telegram-боте.' });
+      }
+      delete tgCodes[code];
+
+      const room = safeRoom(body.room);
+      const prevUid = validUid(body.uid) ? body.uid : null;
+      const finalUid = tgIdToUid[entry.tgId] || uidFromTgId(entry.tgId);
+      const existingNick = users[finalUid] && users[finalUid].verified ? users[finalUid].nick : '';
+      const chosenNick = cleanNick(body.nick || existingNick || entry.firstName || entry.username || 'Странник');
+
+      const u = mergeAccount(prevUid, finalUid, chosenNick, entry.tgId, entry.username, '');
+      addMember(room, finalUid);
+
+      clients.forEach(x => {
+        if (x.id === body.id || x.uid === prevUid || x.uid === finalUid) {
+          x.uid = finalUid;
+          x.nick = u.nick;
+        }
+      });
+
+      scheduleSave(room);
+      notifyAllRoomsOfUser(finalUid);
+      notifyFriendsOf(finalUid);
+      sendSocial(finalUid);
+
+      return sendJson(res, 200, { ok: true, verified: true, uid: finalUid, pid: u.pid, nick: u.nick });
+    }
+
     if (req.method === 'GET' && url.pathname === '/api/events') {
       const id = String(url.searchParams.get('id') || '').slice(0, 32);
       const room = safeRoom(url.searchParams.get('room'));
-      const nick = cleanNick(url.searchParams.get('nick') || 'Гость_932');
+      const nick = cleanNick(url.searchParams.get('nick') || 'Гость');
       const uid = url.searchParams.get('uid');
       if (!validUid(uid)) {
         res.writeHead(400);
@@ -1681,7 +2251,7 @@ const server = http.createServer(async (req, res) => {
         payload: { current: meta, list: Object.values(serversMeta) }
       }) + '\n\n');
 
-      broadcastUsers(room);
+      notifyAllRoomsOfUser(uid);
       sendSocial(uid);
       notifyFriendsOf(uid);
 
@@ -1692,7 +2262,7 @@ const server = http.createServer(async (req, res) => {
         if (wasScreen && oldPeerId) {
           broadcast(room, 'screen-stop', { peerId: oldPeerId });
         }
-        broadcastUsers(room);
+        notifyAllRoomsOfUser(uid);
         notifyFriendsOf(uid);
       });
       return;
@@ -1709,11 +2279,90 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { publicUrl: null });
     }
 
+    // Резервный вход по Позывному + Паролю или смена позывного
+    if (req.method === 'POST' && url.pathname === '/api/auth-password') {
+      const body = await readBody(req);
+      const nick = cleanNick(body.nick);
+      const pass = String(body.password || '');
+      const room = safeRoom(body.room);
+      const prevUid = validUid(body.uid) ? body.uid : null;
+
+      if (!nick || nick.length < 2) {
+        return sendJson(res, 400, { error: 'Введите корректный позывной!' });
+      }
+
+      if (prevUid && users[prevUid] && users[prevUid].verified && !pass) {
+        const key = nick.toLowerCase();
+        if (nickToUid[key] && nickToUid[key] !== prevUid) {
+          return sendJson(res, 400, { error: 'Этот позывной уже занят!' });
+        }
+        users[prevUid].nick = nick;
+        nickToUid[key] = prevUid;
+        clients.forEach(x => {
+          if (x.uid === prevUid) x.nick = nick;
+        });
+        scheduleSave(room);
+        notifyAllRoomsOfUser(prevUid);
+        notifyFriendsOf(prevUid);
+        sendSocial(prevUid);
+        return sendJson(res, 200, { ok: true, uid: prevUid, pid: users[prevUid].pid, nick: nick });
+      }
+
+      if (pass.length < 4) {
+        return sendJson(res, 400, { error: 'Пароль должен содержать минимум 4 символа!' });
+      }
+
+      const key = nick.toLowerCase();
+      const existingUid = nickToUid[key];
+
+      if (existingUid && users[existingUid] && users[existingUid].passHash) {
+        if (!verifyPassword(pass, users[existingUid].passHash)) {
+          return sendJson(res, 400, { error: 'Этот позывной уже занят или введён неверный пароль!' });
+        }
+        const u = mergeAccount(prevUid, existingUid, nick, '', '', '');
+        u.nick = nick;
+        addMember(room, existingUid);
+        clients.forEach(x => {
+          if (x.id === body.id || x.uid === prevUid || x.uid === existingUid) {
+            x.uid = existingUid;
+            x.nick = u.nick;
+          }
+        });
+        scheduleSave(room);
+        notifyAllRoomsOfUser(existingUid);
+        notifyFriendsOf(existingUid);
+        sendSocial(existingUid);
+        return sendJson(res, 200, { ok: true, uid: existingUid, pid: u.pid, nick: u.nick });
+      }
+
+      const finalUid = existingUid || (prevUid && (!users[prevUid] || !users[prevUid].verified) ? prevUid : crypto.randomBytes(16).toString('hex'));
+      const passHash = hashPassword(pass);
+      const u = mergeAccount(prevUid, finalUid, nick, '', '', passHash);
+      u.nick = nick;
+      addMember(room, finalUid);
+
+      clients.forEach(x => {
+        if (x.id === body.id || x.uid === prevUid || x.uid === finalUid) {
+          x.uid = finalUid;
+          x.nick = u.nick;
+        }
+      });
+
+      scheduleSave(room);
+      notifyAllRoomsOfUser(finalUid);
+      notifyFriendsOf(finalUid);
+      sendSocial(finalUid);
+
+      return sendJson(res, 200, { ok: true, uid: finalUid, pid: u.pid, nick: u.nick });
+    }
+
     // Создание нового сервера
     if (req.method === 'POST' && url.pathname === '/api/server/create') {
       const body = await readBody(req);
       const uid = body.uid;
-      if (!validUid(uid)) return sendJson(res, 400, { error: 'Обновите страницу' });
+      if (!validUid(uid) || !users[uid] || !users[uid].verified) {
+        return sendJson(res, 400, { error: 'Сначала авторизуйтесь!' });
+      }
       if (Object.keys(serversMeta).length >= MAX_SERVERS) {
         return sendJson(res, 400, { error: 'Достигнут лимит серверов' });
       }
@@ -1723,10 +2372,11 @@ const server = http.createServer(async (req, res) => {
 
       const newId = 'cy-' + crypto.randomBytes(2).toString('hex');
       ensureServer(newId, name, desc);
+      addMember(newId, uid);
       rooms[newId]['игровая-комната'].push({
         author: 'СИСТЕМА СИГНАЛ',
         time: '00:00',
-        text: 'Сервер «' + name + '» создан! Приглашайте друзей по прямой ссылке.'
+        text: 'Сервер «' + name + '» создан участником ' + users[uid].nick + '! Приглашайте друзей по прямой ссылке.'
       });
       scheduleSave(newId);
       broadcastServers();
@@ -1737,7 +2387,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/channel/create') {
       const body = await readBody(req);
       const uid = body.uid;
-      if (!validUid(uid)) return sendJson(res, 400, { error: 'Обновите страницу' });
+      if (!validUid(uid) || !users[uid] || !users[uid].verified) {
+        return sendJson(res, 400, { error: 'Сначала авторизуйтесь!' });
+      }
       const room = safeRoom(body.room);
       const meta = ensureServer(room);
       const type = body.type === 'voice' ? 'voice' : 'text';
@@ -1770,7 +2422,11 @@ const server = http.createServer(async (req, res) => {
       if (!text) return sendJson(res, 400, { error: 'Пустое сообщение' });
 
       const c = clients.find(x => x.id === body.id);
-      const author = c ? c.nick : cleanNick(body.author);
+      const uid = c ? c.uid : body.uid;
+      if (!validUid(uid) || !users[uid] || !users[uid].verified) {
+        return sendJson(res, 403, { error: 'Авторизуйтесь для отправки сообщений' });
+      }
+      const author = users[uid].nick;
 
       const now = new Date();
       const time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
@@ -1787,47 +2443,12 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { ok: true });
     }
 
-    if (req.method === 'POST' && url.pathname === '/api/send-code') {
-      const body = await readBody(req);
-      const email = String(body.email || '').trim().toLowerCase();
-      if (!email || email.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-        return sendJson(res, 400, { error: 'Введите корректный email!' });
-      }
-      const code = Math.floor(1000 + Math.random() * 9000).toString();
-      emailCodes[email] = { code, expires: Date.now() + CODE_TTL_MS };
-      return sendJson(res, 200, { demoCode: code });
-    }
-
-    if (req.method === 'POST' && url.pathname === '/api/verify-code') {
-      const body = await readBody(req);
-      const email = String(body.email || '').trim().toLowerCase();
-      const entry = emailCodes[email];
-      if (!entry || entry.expires < Date.now() || entry.code !== String(body.code || '').trim()) {
-        return sendJson(res, 400, { error: 'Неверный или просроченный код!' });
-      }
-      delete emailCodes[email];
-      const nick = cleanNick(body.nick);
-      const c = clients.find(x => x.id === body.id);
-      if (c) {
-        if (users[c.uid]) {
-          users[c.uid].nick = nick;
-          scheduleSave();
-        }
-        clients.forEach(x => {
-          if (x.uid === c.uid) x.nick = nick;
-        });
-        broadcastUsers(c.room);
-        notifyFriendsOf(c.uid);
-        sendSocial(c.uid);
-      }
-      return sendJson(res, 200, { ok: true });
-    }
-
+    // Ручное добавление в друзья / принятие / удаление
     if (req.method === 'POST' && url.pathname === '/api/friend') {
       const body = await readBody(req);
       const uid = body.uid;
-      if (!validUid(uid) || !users[uid]) {
-        return sendJson(res, 400, { error: 'Неизвестный пользователь. Обновите страницу.' });
+      if (!validUid(uid) || !users[uid] || !users[uid].verified) {
+        return sendJson(res, 400, { error: 'Сначала авторизуйтесь!' });
       }
       const me = users[uid];
       const targetUid = validPid(body.target) ? pidToUid[body.target] : null;
@@ -1876,6 +2497,7 @@ const server = http.createServer(async (req, res) => {
       scheduleSave();
       sendSocial(uid);
       sendSocial(targetUid);
+      notifyAllRoomsOfUser(uid);
       return sendJson(res, 200, { ok: true });
     }
 
@@ -1942,6 +2564,7 @@ async function boot() {
     console.log('====================================================');
     console.log('⚡ СЕРВЕР ЗАПУЩЕН, порт ' + PORT);
     console.log('====================================================');
+    startTelegramBotPolling();
   });
 }
 boot();
