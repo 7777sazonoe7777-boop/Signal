@@ -81,7 +81,7 @@ function initDefaultServers() {
     rooms[DEFAULT_ROOM]['игровая-комната'].push({
       author: 'СИСТЕМА СИГНАЛ',
       time: '00:00',
-      text: 'Добро пожаловать в «Ночной клуб»! Создавайте свои серверы и каналы кнопками «+» слева или приглашайте друзей по прямой ссылке.'
+      text: 'Добро пожаловать в «Ночной клуб»! Создавайте свои серверы и каналы, включайте трансляцию экрана или отдельных окон и приглашайте друзей.'
     });
   }
 }
@@ -360,6 +360,7 @@ function memberList(room) {
     const prev = online.get(c.uid);
     online.set(c.uid, {
       inVoice: !!(prev && prev.inVoice) || !!c.inVoice,
+      inScreen: !!(prev && prev.inScreen) || !!c.inScreen,
       voiceChannel: c.inVoice ? c.voiceChannel : (prev ? prev.voiceChannel : null)
     });
   });
@@ -371,6 +372,7 @@ function memberList(room) {
       nick: u ? u.nick : '?',
       online: !!o,
       inVoice: !!(o && o.inVoice),
+      inScreen: !!(o && o.inScreen),
       voiceChannel: o && o.voiceChannel ? o.voiceChannel : null
     };
   });
@@ -533,10 +535,21 @@ const HTML_PAGE = `<!DOCTYPE html>
   .voice-label { font-size: 9px; text-transform: uppercase; color: var(--cyan-bright); font-weight: 700; }
   .voice-title { font-size: 12px; font-weight: 700; margin: 2px 0; }
   .voice-sub { font-size: 10px; color: var(--text-dim); }
-  .voice-active-area { display: none; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .voice-active-area { display: none; flex-direction: column; gap: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
   .voice-active-area.show { display: flex; }
   .voice-user-card { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); width: fit-content; }
   .vu-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+
+  /* Сетка трансляций экрана и отдельных окон */
+  .screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; width: 100%; }
+  .screen-grid:empty { display: none; }
+  .screen-card { background: #05080d; border: 1px solid var(--cyan-border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  .screen-card-head { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: rgba(15, 23, 34, 0.95); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--cyan-bright); }
+  .screen-live-pill { background: #e11d48; color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .screen-video-wrap { position: relative; width: 100%; background: #000; display: flex; align-items: center; justify-content: center; min-height: 180px; max-height: 420px; }
+  .screen-video-wrap video { width: 100%; max-height: 420px; object-fit: contain; background: #000; display: block; }
+  .btn-fs { background: rgba(255,255,255,0.08); border: 1px solid var(--border); color: #fff; padding: 3px 8px; border-radius: 5px; font-size: 10px; font-weight: 600; cursor: pointer; }
+  .btn-fs:hover { border-color: var(--cyan-bright); color: var(--cyan-bright); }
 
   .chat-bottom { padding: 8px 18px 12px; border-top: 1px solid var(--border); background: #070b12; display: flex; flex-direction: column; gap: 6px; }
   .auth-prompt-bar { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 600; }
@@ -559,6 +572,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   .btn-cyan { background: var(--cyan-bright); color: #042f2e; border: none; padding: 7px 14px; border-radius: 6px; font-weight: 700; font-size: 11px; cursor: pointer; }
   .btn-danger { background: #ef4444; color: #fff; border: none; padding: 7px 12px; border-radius: 6px; font-weight: 700; font-size: 11px; cursor: pointer; }
   .btn-mute { background: #1e293b; color: #fff; border: 1px solid var(--border); padding: 7px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; }
+  .btn-mute.active-screen { background: rgba(219, 39, 119, 0.2); border-color: #f43f5e; color: #fda4af; }
   .btn-pink-card { background: #9d174d; color: #fff; border: none; width: 100%; padding: 7px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
 
   .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 999; }
@@ -581,7 +595,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   </div>
 
   <div class="demo-notice">
-    <span><b>РЕАЛЬНАЯ СЕТЬ:</b> Создавайте свои серверы, текстовые и голосовые каналы и приглашайте друзей по прямой ссылке</span>
+    <span><b>РЕАЛЬНАЯ СЕТЬ:</b> Создавайте серверы, каналы, включайте трансляцию экрана или отдельных окон и приглашайте друзей</span>
     <span style="font-weight:700;color:var(--cyan-bright);" id="room-code-label">Код комнаты: <b>cy-4371</b> НА СВЯЗИ</span>
   </div>
 
@@ -684,12 +698,13 @@ const HTML_PAGE = `<!DOCTYPE html>
         <div class="voice-panel">
           <div class="voice-panel-top">
             <div>
-              <div class="voice-label">ГОЛОСОВОЙ КАНАЛ // WEBRTC P2P</div>
+              <div class="voice-label">ГОЛОСОВОЙ КАНАЛ И СТРИМ // WEBRTC P2P</div>
               <div class="voice-title" id="voice-panel-title">Общий разговор участников канала («Ночной эфир»)</div>
-              <div class="voice-sub" id="voice-sub-status">Говорите в микрофон — подключенные друзья слышат вас.</div>
+              <div class="voice-sub" id="voice-sub-status">Говорите в микрофон или нажмите «🖥️ Экран», чтобы транслировать весь экран, отдельное окно или вкладку.</div>
             </div>
-            <div style="display:flex;gap:6px;align-items:center;">
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
               <button class="btn-mute" id="mute-btn" style="display:none;" onclick="toggleMute()">🎤 Микр. вкл</button>
+              <button class="btn-mute" id="screen-btn" onclick="toggleScreenShare()" title="Транслировать весь экран, отдельное окно или вкладку">🖥️ Экран</button>
               <button class="btn-cyan" id="connect-voice-btn" onclick="toggleVoiceCall()">ПОДКЛЮЧИТЬСЯ</button>
             </div>
           </div>
@@ -698,6 +713,7 @@ const HTML_PAGE = `<!DOCTYPE html>
               <span class="vu-dot"></span>
               <span id="voice-my-name" style="font-size:11px;font-weight:700;">Гость_932 (Вы)</span>
             </div>
+            <div class="screen-grid" id="screen-grid"></div>
             <div id="audio-box"></div>
           </div>
         </div>
@@ -712,7 +728,7 @@ const HTML_PAGE = `<!DOCTYPE html>
           <input type="text" id="chat-input" class="chat-inp" placeholder="Написать сообщение..." autocomplete="off" maxlength="1000">
           <button type="submit" class="btn-cyan">ОТПРАВИТЬ</button>
         </form>
-        <div class="bottom-hint">ENTER — ОТПРАВИТЬ • СООБЩЕНИЯ И ГОЛОС ИДУТ МЕЖДУ УЧАСТНИКАМИ • P2P ONLINE</div>
+        <div class="bottom-hint">ENTER — ОТПРАВИТЬ • ГОЛОС И ТРАНСЛЯЦИЯ ЭКРАНА / ОКОН РАБОТАЮТ НАПРЯМУЮ МЕЖДУ БРАУЗЕРАМИ</div>
       </div>
     </div>
 
@@ -724,7 +740,7 @@ const HTML_PAGE = `<!DOCTYPE html>
       <div id="friends-box"></div>
       <div class="invite-banner-card">
         <h5>Зови друзей в канал</h5>
-        <p>Отправьте другу прямую ссылку или код комнаты — он сразу появится в этом списке, и вы сможете общаться текстом и голосом.</p>
+        <p>Отправьте другу прямую ссылку или код комнаты — он сразу появится в этом списке, и вы сможете общаться текстом, голосом и смотреть экран.</p>
         <button class="btn-pink-card" onclick="openInviteModal()">🔗 СОЗДАТЬ ПРИГЛАШЕНИЕ</button>
       </div>
     </div>
@@ -831,7 +847,9 @@ const HTML_PAGE = `<!DOCTYPE html>
     voiceChannels: ['Ночной эфир']
   };
 
-  let localStream = null, peer = null, myPeerId = null, inVoice = false, isMuted = false;
+  let localStream = null, screenStream = null, peer = null, myPeerId = null;
+  let inVoice = false, inScreen = false, isMuted = false;
+  let screenCalls = {};
   let myPid = null, lastMembers = [], social = { friends: [], incoming: [], outgoing: [] };
   let pendingChannelType = 'text';
 
@@ -972,11 +990,19 @@ const HTML_PAGE = `<!DOCTYPE html>
     } else if (data.type === 'voice-join') {
       if (inVoice && peer && localStream && myPeerId && data.payload.peerId !== myPeerId && data.payload.voiceChannel === currentVoiceChannel) {
         const pid = data.payload.peerId;
-        const call = peer.call(pid, localStream);
-        if (!call) return;
-        call.on('stream', function (remoteStream) { playStream(pid, remoteStream); });
-        call.on('close', function () { removeAudio(pid); });
-        call.on('error', function () { removeAudio(pid); });
+        const call = peer.call(pid, localStream, { metadata: { kind: 'audio', nick: myNick } });
+        if (call) {
+          call.on('stream', function (remoteStream) { playStream(pid, remoteStream); });
+          call.on('close', function () { removeAudio(pid); });
+          call.on('error', function () { removeAudio(pid); });
+        }
+        if (inScreen && screenStream) {
+          callPeerWithScreen(pid);
+        }
+      }
+    } else if (data.type === 'screen-stop') {
+      if (data.payload && data.payload.peerId) {
+        removeScreenTile(data.payload.peerId);
       }
     }
   };
@@ -1037,7 +1063,7 @@ const HTML_PAGE = `<!DOCTYPE html>
       const d = el('div', 'online-user-item');
       if (!u.online) d.style.opacity = '0.5';
       d.appendChild(el('span', 'online-dot' + (u.online ? '' : ' off')));
-      const voiceTag = u.inVoice ? (' 🔊' + (u.voiceChannel ? ' ' + u.voiceChannel : '')) : '';
+      const voiceTag = u.inVoice ? (' 🔊' + (u.inScreen ? ' 🖥️' : '') + (u.voiceChannel ? ' ' + u.voiceChannel : '')) : '';
       const name = el('span', '', u.nick + (u.pid === myPid ? ' (вы)' : '') + voiceTag);
       name.style.flex = '1';
       d.appendChild(name);
@@ -1127,7 +1153,14 @@ const HTML_PAGE = `<!DOCTYPE html>
     if (!inVoice) {
       toggleVoiceCall();
     } else {
-      postVoiceState({ inVoice: true, peerId: myPeerId, voiceChannel: currentVoiceChannel });
+      postVoiceState({ inVoice: true, inScreen: inScreen, peerId: myPeerId, voiceChannel: currentVoiceChannel })
+        .then(function (data) {
+          if (inScreen && screenStream && data && Array.isArray(data.peers)) {
+            data.peers.forEach(function (remotePid) {
+              callPeerWithScreen(remotePid);
+            });
+          }
+        });
     }
   }
 
@@ -1164,7 +1197,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   function openCreateChannelModal(type) {
     pendingChannelType = type === 'voice' ? 'voice' : 'text';
     document.getElementById('create-ch-title').textContent = pendingChannelType === 'voice' ? 'Создать голосовой канал' : 'Создать текстовый канал';
-    document.getElementById('create-ch-sub').textContent = pendingChannelType === 'voice' ? 'Участники смогут созваниваться в этом канале:' : 'Участники смогут переписываться в этом канале:';
+    document.getElementById('create-ch-sub').textContent = pendingChannelType === 'voice' ? 'Участники смогут созваниваться и включать стрим экрана:' : 'Участники смогут переписываться в этом канале:';
     document.getElementById('new-ch-name').value = '';
     document.getElementById('create-channel-modal').classList.add('open');
     document.getElementById('new-ch-name').focus();
@@ -1298,7 +1331,25 @@ const HTML_PAGE = `<!DOCTYPE html>
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(Object.assign({ id: clientId }, state))
-    }).catch(function () {});
+    })
+      .then(function (r) { return r.json(); })
+      .catch(function () { return {}; });
+  }
+
+  function createSilentAudioStream() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const dst = ctx.createMediaStreamDestination();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
+      gain.connect(dst);
+      osc.start();
+      return dst.stream;
+    } catch (e) {
+      return null;
+    }
   }
 
   function resetVoiceUI() {
@@ -1306,13 +1357,64 @@ const HTML_PAGE = `<!DOCTYPE html>
     document.getElementById('connect-voice-btn').className = 'btn-cyan';
     document.getElementById('mute-btn').style.display = 'none';
     document.getElementById('mute-btn').textContent = '🎤 Микр. вкл';
+    document.getElementById('screen-btn').textContent = '🖥️ Экран';
+    document.getElementById('screen-btn').classList.remove('active-screen');
     document.getElementById('voice-active-area').classList.remove('show');
     document.getElementById('audio-box').innerHTML = '';
+    document.getElementById('screen-grid').innerHTML = '';
     renderServerChannels();
+  }
+
+  async function ensureVoiceConnected() {
+    if (inVoice && peer && myPeerId) return true;
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      isMuted = false;
+    } catch (e) {
+      localStream = createSilentAudioStream();
+      isMuted = true;
+    }
+    inVoice = true;
+    document.getElementById('connect-voice-btn').textContent = 'ОТКЛЮЧИТЬСЯ';
+    document.getElementById('connect-voice-btn').className = 'btn-danger';
+    document.getElementById('mute-btn').style.display = 'inline-block';
+    document.getElementById('mute-btn').textContent = isMuted ? '🔇 Без микр.' : '🎤 Микр. вкл';
+    document.getElementById('voice-active-area').classList.add('show');
+    renderServerChannels();
+
+    return new Promise(function (resolve) {
+      peer = new Peer();
+      peer.on('open', function (id) {
+        myPeerId = id;
+        postVoiceState({
+          inVoice: true,
+          inScreen: inScreen,
+          peerId: id,
+          voiceChannel: currentVoiceChannel
+        }).then(function () { resolve(true); });
+      });
+      peer.on('call', function (call) {
+        if (call.metadata && call.metadata.kind === 'screen') {
+          call.answer();
+          call.on('stream', function (remoteScreenStream) {
+            renderScreenTile(call.peer, remoteScreenStream, call.metadata.nick || 'Участник', false);
+          });
+          call.on('close', function () { removeScreenTile(call.peer); });
+          call.on('error', function () { removeScreenTile(call.peer); });
+        } else {
+          call.answer(localStream || undefined);
+          call.on('stream', function (remoteStream) { playStream(call.peer, remoteStream); });
+          call.on('close', function () { removeAudio(call.peer); });
+          call.on('error', function () { removeAudio(call.peer); });
+        }
+      });
+      peer.on('error', function () { resolve(false); });
+    });
   }
 
   async function toggleVoiceCall() {
     if (inVoice) {
+      if (inScreen) stopScreenShare(true);
       if (localStream) localStream.getTracks().forEach(function (t) { t.stop(); });
       if (peer) peer.destroy();
       localStream = null;
@@ -1321,36 +1423,166 @@ const HTML_PAGE = `<!DOCTYPE html>
       inVoice = false;
       isMuted = false;
       resetVoiceUI();
-      postVoiceState({ inVoice: false });
+      postVoiceState({ inVoice: false, inScreen: false });
       return;
     }
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (e) {
-      alert('Разрешите доступ к микрофону!');
-      return;
-    }
-    inVoice = true;
-    isMuted = false;
-    document.getElementById('connect-voice-btn').textContent = 'ОТКЛЮЧИТЬСЯ';
-    document.getElementById('connect-voice-btn').className = 'btn-danger';
-    document.getElementById('mute-btn').style.display = 'inline-block';
-    document.getElementById('mute-btn').textContent = '🎤 Микр. вкл';
-    document.getElementById('voice-active-area').classList.add('show');
-    renderServerChannels();
+    await ensureVoiceConnected();
+  }
 
-    peer = new Peer();
-    peer.on('open', function (id) {
-      myPeerId = id;
-      postVoiceState({ inVoice: true, peerId: id, voiceChannel: currentVoiceChannel });
+  // ---------- Трансляция экрана и отдельных окон ----------
+  function callPeerWithScreen(remotePid) {
+    if (!peer || !screenStream || !remotePid || remotePid === myPeerId) return;
+    if (screenCalls[remotePid]) {
+      try { screenCalls[remotePid].close(); } catch (e) {}
+    }
+    const call = peer.call(remotePid, screenStream, {
+      metadata: { kind: 'screen', nick: myNick, voiceChannel: currentVoiceChannel }
     });
-    peer.on('call', function (call) {
-      call.answer(localStream);
-      call.on('stream', function (remoteStream) { playStream(call.peer, remoteStream); });
-      call.on('close', function () { removeAudio(call.peer); });
-      call.on('error', function () { removeAudio(call.peer); });
+    if (call) {
+      screenCalls[remotePid] = call;
+      call.on('close', function () { delete screenCalls[remotePid]; });
+      call.on('error', function () { delete screenCalls[remotePid]; });
+    }
+  }
+
+  async function toggleScreenShare() {
+    if (inScreen) {
+      stopScreenShare(false);
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      alert('Ваш браузер не поддерживает трансляцию экрана.');
+      return;
+    }
+    let displayStream;
+    try {
+      displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { cursor: 'always', frameRate: { ideal: 30, max: 60 } },
+        audio: true
+      });
+    } catch (e) {
+      return; // Пользователь отменил выбор экрана/окна
+    }
+
+    const ok = await ensureVoiceConnected();
+    if (!ok) {
+      displayStream.getTracks().forEach(function (t) { t.stop(); });
+      return;
+    }
+
+    screenStream = displayStream;
+    inScreen = true;
+    document.getElementById('screen-btn').textContent = '🛑 Стоп экран';
+    document.getElementById('screen-btn').classList.add('active-screen');
+    document.getElementById('voice-active-area').classList.add('show');
+
+    const videoTrack = screenStream.getVideoTracks()[0];
+    if (videoTrack) {
+      videoTrack.onended = function () {
+        stopScreenShare(false);
+      };
+    }
+
+    renderScreenTile('local', screenStream, myNick + ' (Ваш экран / окно)', true);
+
+    const data = await postVoiceState({
+      inVoice: true,
+      inScreen: true,
+      peerId: myPeerId,
+      voiceChannel: currentVoiceChannel
     });
-    peer.on('error', function () {});
+
+    if (data && Array.isArray(data.peers)) {
+      data.peers.forEach(function (remotePid) {
+        callPeerWithScreen(remotePid);
+      });
+    }
+  }
+
+  function stopScreenShare(silent) {
+    if (screenStream) {
+      screenStream.getTracks().forEach(function (t) { t.stop(); });
+      screenStream = null;
+    }
+    Object.keys(screenCalls).forEach(function (pid) {
+      try { screenCalls[pid].close(); } catch (e) {}
+    });
+    screenCalls = {};
+    inScreen = false;
+    document.getElementById('screen-btn').textContent = '🖥️ Экран';
+    document.getElementById('screen-btn').classList.remove('active-screen');
+    removeScreenTile('local');
+    if (!silent && inVoice) {
+      postVoiceState({
+        inVoice: true,
+        inScreen: false,
+        peerId: myPeerId,
+        voiceChannel: currentVoiceChannel
+      });
+    }
+  }
+
+  function renderScreenTile(id, stream, title, isLocal) {
+    const grid = document.getElementById('screen-grid');
+    let card = document.getElementById('screen-tile-' + id);
+    if (!card) {
+      card = el('div', 'screen-card');
+      card.id = 'screen-tile-' + id;
+
+      const head = el('div', 'screen-card-head');
+      const left = el('div', '');
+      const nameSpan = el('span', 'screen-title-text', '🖥️ ' + title);
+      const pill = el('span', 'screen-live-pill', 'LIVE');
+      left.appendChild(nameSpan);
+      left.appendChild(pill);
+
+      const right = el('div', '');
+      right.style.cssText = 'display:flex;gap:6px;align-items:center;';
+
+      const fsBtn = el('button', 'btn-fs', '⛶ На весь экран');
+      fsBtn.onclick = function () {
+        const vid = card.querySelector('video');
+        if (!vid) return;
+        if (vid.requestFullscreen) vid.requestFullscreen();
+        else if (vid.webkitRequestFullscreen) vid.webkitRequestFullscreen();
+      };
+      right.appendChild(fsBtn);
+
+      if (isLocal) {
+        const stopBtn = el('button', 'btn-fs', '✕ Закрыть');
+        stopBtn.style.borderColor = '#f43f5e';
+        stopBtn.style.color = '#fda4af';
+        stopBtn.onclick = function () { stopScreenShare(false); };
+        right.appendChild(stopBtn);
+      }
+
+      head.appendChild(left);
+      head.appendChild(right);
+
+      const wrap = el('div', 'screen-video-wrap');
+      const video = document.createElement('video');
+      video.autoplay = true;
+      video.playsInline = true;
+      if (isLocal) video.muted = true;
+      wrap.appendChild(video);
+
+      card.appendChild(head);
+      card.appendChild(wrap);
+      grid.appendChild(card);
+    } else {
+      const t = card.querySelector('.screen-title-text');
+      if (t) t.textContent = '🖥️ ' + title;
+    }
+    const videoEl = card.querySelector('video');
+    if (videoEl && videoEl.srcObject !== stream) {
+      videoEl.srcObject = stream;
+      videoEl.play().catch(function () {});
+    }
+  }
+
+  function removeScreenTile(id) {
+    const card = document.getElementById('screen-tile-' + id);
+    if (card) card.remove();
   }
 
   function toggleMute() {
@@ -1441,7 +1673,7 @@ const server = http.createServer(async (req, res) => {
       const user = ensureUser(uid, nick);
       addMember(room, uid);
 
-      const client = { id, uid, room, nick: user.nick, inVoice: false, peerId: null, voiceChannel: null, res };
+      const client = { id, uid, room, nick: user.nick, inVoice: false, inScreen: false, peerId: null, voiceChannel: null, res };
       clients.push(client);
 
       res.write('data: ' + JSON.stringify({
@@ -1454,7 +1686,12 @@ const server = http.createServer(async (req, res) => {
       notifyFriendsOf(uid);
 
       req.on('close', () => {
+        const oldPeerId = client.peerId;
+        const wasScreen = client.inScreen;
         clients = clients.filter(c => c !== client);
+        if (wasScreen && oldPeerId) {
+          broadcast(room, 'screen-stop', { peerId: oldPeerId });
+        }
         broadcastUsers(room);
         notifyFriendsOf(uid);
       });
@@ -1645,16 +1882,28 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/voice') {
       const body = await readBody(req);
       const c = clients.find(x => x.id === body.id);
+      let peers = [];
       if (c) {
+        const wasScreen = c.inScreen;
+        const oldPeerId = c.peerId;
         c.inVoice = !!body.inVoice;
+        c.inScreen = !!(c.inVoice && body.inScreen);
         c.peerId = body.peerId ? String(body.peerId).slice(0, 64) : null;
         c.voiceChannel = c.inVoice ? safeVoiceChannel(c.room, body.voiceChannel) : null;
+
+        if (wasScreen && !c.inScreen && (c.peerId || oldPeerId)) {
+          broadcast(c.room, 'screen-stop', { peerId: c.peerId || oldPeerId });
+        }
+
         broadcastUsers(c.room);
         if (c.inVoice && c.peerId) {
           broadcast(c.room, 'voice-join', { peerId: c.peerId, voiceChannel: c.voiceChannel });
+          peers = clients
+            .filter(x => x.room === c.room && x.inVoice && x.peerId && x.peerId !== c.peerId && x.voiceChannel === c.voiceChannel)
+            .map(x => x.peerId);
         }
       }
-      return sendJson(res, 200, { ok: true });
+      return sendJson(res, 200, { ok: true, peers });
     }
 
     res.writeHead(404);
