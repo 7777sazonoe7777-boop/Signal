@@ -23,7 +23,9 @@ const DEFAULT_CHANNELS = [
   { id: 'эфир', name: 'Ночной эфир', type: 'voice' }
 ];
 const servers = Object.create(null);
-servers[DEFAULT_ROOM] = { name: 'Ночной клуб', owner: null, channels: DEFAULT_CHANNELS.map(c => Object.assign({}, c)) };
+const ICON_COUNT = 8;
+function defaultIcon(room) { const n = parseInt(String(room).replace(/[^0-9a-f]/g, '').slice(0, 2), 16); return Number.isFinite(n) ? n % ICON_COUNT : 0; }
+servers[DEFAULT_ROOM] = { name: 'Ночной клуб', icon: 0, owner: null, channels: DEFAULT_CHANNELS.map(c => Object.assign({}, c)) };
 
 // Object.create(null) защищает от ключей вроде "__proto__"
 // rooms[код][id текстового канала] = [сообщения]
@@ -56,6 +58,7 @@ const REDIS_TOKEN = String(process.env.UPSTASH_REDIS_REST_TOKEN || '');
 const USE_REDIS = !!(REDIS_URL && REDIS_TOKEN);
 const KEY = 'signal:';
 const dirtyRooms = new Set();
+const deletedRooms = new Set();
 let loaded = false;
 let saveTimer = null;
 let saving = false;
@@ -88,7 +91,7 @@ function serversPart() {
   Object.keys(servers).forEach(r => {
     if (r === DEFAULT_ROOM) return;
     const sv = servers[r];
-    o[r] = { name: sv.name, owner: sv.owner, channels: sv.channels };
+    o[r] = { name: sv.name, icon: sv.icon, owner: sv.owner, channels: sv.channels };
   });
   return o;
 }
@@ -114,10 +117,14 @@ async function saveNow() {
         ['SET', KEY + 'servers', JSON.stringify(serversPart())]
       ];
       rs.forEach(r => { if (rooms[r]) cmds.push(['SET', KEY + 'msg:' + r, JSON.stringify(rooms[r])]); });
+      const dels = Array.from(deletedRooms);
+      deletedRooms.clear();
+      dels.forEach(r => cmds.push(['DEL', KEY + 'msg:' + r]));
       try {
         await redis(cmds);
       } catch (e) {
         rs.forEach(r => dirtyRooms.add(r));
+        dels.forEach(r => deletedRooms.add(r));
         throw e;
       }
     } else {
@@ -147,7 +154,7 @@ function applyData(d) {
           .map(c => ({ id: String(c.id).slice(0, 32), name: cleanName(c.name, 24) || 'канал', type: c.type }))
       : [];
     if (!chans.length) return;
-    servers[r] = { name: cleanName(sv.name, 24) || r, owner: validUid(sv.owner) ? sv.owner : null, channels: chans };
+    servers[r] = { name: cleanName(sv.name, 24) || r, icon: (Number.isInteger(sv.icon) && sv.icon >= 0 && sv.icon < ICON_COUNT) ? sv.icon : defaultIcon(r), owner: validUid(sv.owner) ? sv.owner : null, channels: chans };
   });
   Object.keys(d.users || {}).forEach(uid => {
     if (!validUid(uid)) return;
@@ -232,7 +239,7 @@ function socialState(uid) {
     friends: u.friends.map(info),
     incoming: u.incoming.map(info),
     outgoing: u.outgoing.slice(),
-    servers: u.servers.filter(r => servers[r]).map(r => ({ room: r, name: servers[r].name }))
+    servers: u.servers.filter(r => servers[r]).map(r => ({ room: r, name: servers[r].name, icon: servers[r].icon }))
   };
 }
 function sendSocial(uid) {
@@ -284,7 +291,7 @@ function codeList(a) {
 function serverInfo(room) {
   const sv = servers[room];
   const o = sv.owner && users[sv.owner];
-  return { room, name: sv.name, ownerPid: o ? o.pid : null, channels: sv.channels.map(c => ({ id: c.id, name: c.name, type: c.type })) };
+  return { room, name: sv.name, icon: sv.icon, ownerPid: o ? o.pid : null, channels: sv.channels.map(c => ({ id: c.id, name: c.name, type: c.type })) };
 }
 function broadcastServer(room) {
   broadcast(room, 'server', serverInfo(room));
@@ -454,6 +461,35 @@ const HTML_PAGE = `<!DOCTYPE html>
   .mini-btn { background: transparent; border: 1px solid var(--cyan-border); color: var(--cyan-bright); padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; cursor: pointer; }
   .mini-btn:hover { background: rgba(20, 184, 166, 0.12); }
   .srv-ico { overflow: hidden; }
+  .srv-ico.img { background-size: cover; background-position: center; border-color: transparent; }
+  .srv-ico.active.img { box-shadow: 0 0 0 2px var(--cyan-bright), 0 0 12px rgba(45, 212, 191, 0.4); }
+  .ava-img { background-size: cover !important; background-position: center; color: transparent !important; }
+  .ava-sm { width: 22px; height: 22px; border-radius: 7px; flex-shrink: 0; background-color: #1e293b; }
+  .ava-sm.on { box-shadow: 0 0 0 1.5px #22c55e; }
+  .hero-banner { position: relative; overflow: hidden; }
+  .hero-banner > * { position: relative; z-index: 1; }
+  .hero-art { position: absolute !important; inset: 0; z-index: 0 !important; background-size: cover; background-position: right bottom; background-repeat: no-repeat; opacity: 0.55; pointer-events: none;
+    -webkit-mask-image: linear-gradient(to right, transparent 25%, #000 85%); mask-image: linear-gradient(to right, transparent 25%, #000 85%); }
+  .freq-card { position: relative; overflow: hidden; }
+  .freq-card > * { position: relative; z-index: 1; }
+  .freq-art { position: absolute !important; inset: 0; z-index: 0 !important; background-size: cover; background-position: right bottom; background-repeat: no-repeat; opacity: 0.45; pointer-events: none;
+    -webkit-mask-image: linear-gradient(to right, transparent 55%, #000 90%); mask-image: linear-gradient(to right, transparent 55%, #000 90%); }
+  .srv-head-btns { display: flex; gap: 4px; align-items: center; }
+  .btn-gear { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-dim); font-size: 12px; padding: 2px 7px; border-radius: 4px; cursor: pointer; display: none; }
+  .btn-gear:hover { color: #fff; border-color: var(--cyan-border); }
+  .icon-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+  .icon-pick { width: 100%; aspect-ratio: 1; border-radius: 12px; border: 2px solid transparent; background-size: cover; cursor: pointer; padding: 0; }
+  .icon-pick.on { border-color: var(--cyan-bright); box-shadow: 0 0 10px rgba(45, 212, 191, 0.5); }
+  .modal-label { font-size: 10px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 6px; display: block; }
+  .btn-danger-wide { background: transparent; border: 1px solid #ef4444; color: #f87171; width: 100%; padding: 7px; border-radius: 6px; font-weight: 700; font-size: 11px; cursor: pointer; margin-bottom: 6px; }
+  .btn-danger-wide:hover { background: rgba(239, 68, 68, 0.12); }
+  .empty-art { display: flex; align-items: center; gap: 12px; padding: 6px 2px; font-size: 11px; color: var(--text-muted); }
+  .empty-art img { width: 84px; height: 56px; flex-shrink: 0; }
+  .eq { display: flex; align-items: flex-end; gap: 3px; height: 22px; }
+  .eq i { display: block; width: 4px; background: var(--cyan-bright); border-radius: 2px; animation: eqbounce 1s ease-in-out infinite; }
+  .eq i:nth-child(1) { animation-delay: -0.9s; } .eq i:nth-child(2) { animation-delay: -0.6s; } .eq i:nth-child(3) { animation-delay: -0.3s; } .eq i:nth-child(4) { animation-delay: -0.75s; } .eq i:nth-child(5) { animation-delay: -0.45s; }
+  @keyframes eqbounce { 0%, 100% { height: 4px; } 50% { height: 22px; } }
+  .invite-art { width: 100%; height: 56px; margin-bottom: 6px; }
   .ch-del { background: transparent; border: none; color: var(--text-muted); font-size: 11px; cursor: pointer; padding: 0 4px; }
   .ch-del:hover { color: #f43f5e; }
   .add-ch-btn { background: transparent; border: none; color: var(--cyan-bright); font-size: 14px; cursor: pointer; line-height: 1; }
@@ -509,10 +545,14 @@ const HTML_PAGE = `<!DOCTYPE html>
           <div class="srv-label">ОТКРЫТЫЙ СЕРВЕР</div>
           <div class="srv-title" id="srv-title">Ночной клуб</div>
         </div>
-        <button class="btn-code-modal" onclick="promptRoomCode()">Ввести код</button>
+        <div class="srv-head-btns">
+          <button class="btn-gear" id="btn-gear" title="Настройки сервера" onclick="openEditServer()">⚙</button>
+          <button class="btn-code-modal" onclick="promptRoomCode()">Ввести код</button>
+        </div>
       </div>
 
       <div class="freq-card">
+        <div class="freq-art" id="freq-art"></div>
         <div class="freq-top">
           <span class="freq-tag">ЧАСТОТА 108.4 FM</span>
           <span class="live-badge">LIVE</span>
@@ -564,6 +604,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 
       <div class="chat-scroll-area" id="chat-scroll">
         <div class="hero-banner">
+          <div class="hero-art" id="hero-art"></div>
           <div class="hero-banner-left">
             <div class="hash-badge">#</div>
             <div class="welcome-tag">НАЧАЛО КАНАЛА // СЕРВЕР ПК</div>
@@ -599,6 +640,7 @@ const HTML_PAGE = `<!DOCTYPE html>
             </div>
           </div>
           <div class="voice-active-area" id="voice-active-area">
+            <div class="eq" title="Вы в эфире"><i></i><i></i><i></i><i></i><i></i></div>
             <div class="voice-user-card">
               <span class="vu-dot"></span>
               <span id="voice-my-name" style="font-size:11px;font-weight:700;">Гость_932 (Вы)</span>
@@ -628,6 +670,7 @@ const HTML_PAGE = `<!DOCTYPE html>
       <div id="requests-box"></div>
       <div id="friends-box"></div>
       <div class="invite-banner-card">
+        <img class="invite-art" id="invite-art" alt="">
         <h5>Зови друзей в канал</h5>
         <p>Отправьте другу публичную ссылку — он сразу появится в списке участников.</p>
         <button class="btn-pink-card" onclick="openInviteModal()">🔗 СОЗДАТЬ ПРИГЛАШЕНИЕ</button>
@@ -650,9 +693,24 @@ const HTML_PAGE = `<!DOCTYPE html>
     <div class="modal-box">
       <h3 style="color:var(--cyan-bright);font-size:16px;margin-bottom:6px;">Создать свой сервер</h3>
       <p style="font-size:11px;color:var(--text-dim);margin-bottom:10px;">В нём сразу будут текстовый и голосовой каналы. Потом вы сможете добавить ещё.</p>
+      <span class="modal-label">Иконка</span>
+      <div class="icon-picker" id="create-icon-picker"></div>
       <input type="text" id="new-server-name" placeholder="Название сервера" maxlength="24" onkeydown="if(event.key==='Enter')submitCreateServer()">
       <button class="btn-cyan" style="width:100%;margin-bottom:6px;" onclick="submitCreateServer()">Создать</button>
       <button class="btn-login-mini" style="width:100%;text-align:center;" onclick="closeCreateServer()">Отмена</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="edit-server-modal" onclick="if(event.target===this)closeEditServer()">
+    <div class="modal-box">
+      <h3 style="color:var(--cyan-bright);font-size:16px;margin-bottom:10px;">Настройки сервера</h3>
+      <span class="modal-label">Название</span>
+      <input type="text" id="edit-server-name" placeholder="Название сервера" maxlength="24" onkeydown="if(event.key==='Enter')submitEditServer()">
+      <span class="modal-label">Иконка</span>
+      <div class="icon-picker" id="edit-icon-picker"></div>
+      <button class="btn-cyan" style="width:100%;margin-bottom:6px;" onclick="submitEditServer()">Сохранить</button>
+      <button class="btn-danger-wide" onclick="deleteServer()">Удалить сервер</button>
+      <button class="btn-login-mini" style="width:100%;text-align:center;" onclick="closeEditServer()">Закрыть</button>
     </div>
   </div>
 
@@ -716,6 +774,163 @@ const HTML_PAGE = `<!DOCTYPE html>
   // Voice state (объявлено заранее, чтобы обработчики SSE не обращались к необъявленным переменным)
   let localStream = null, peer = null, myPeerId = null, inVoice = false, isMuted = false;
 
+  // ---------- Иллюстрации (генерируются прямо в браузере, внешних картинок нет) ----------
+  const PALETTES = [['#14b8a6', '#0ea5e9'], ['#db2777', '#7c3aed'], ['#f59e0b', '#ef4444'], ['#22c55e', '#14b8a6'],
+                    ['#6366f1', '#ec4899'], ['#06b6d4', '#3b82f6'], ['#f43f5e', '#f59e0b'], ['#a855f7', '#2dd4bf']];
+  const GLYPHS = [
+    '<path d="M13 2 4 14h6l-1 8 9-12h-6z" fill="#fff"/>',
+    '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" fill="#fff"/>',
+    '<path d="M12 2l3 6.5 7 .9-5.1 4.9 1.3 7L12 17.8 5.8 21.3l1.3-7L2 9.4l7-.9z" fill="#fff"/>',
+    '<path d="M9 3v11.3A3.5 3.5 0 1 0 11 17.5V7.5l8-1.8v6.6A3.5 3.5 0 1 0 21 15.5V3z" fill="#fff"/>',
+    '<path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z" fill="#fff"/>',
+    '<circle cx="12" cy="12" r="5" fill="#fff"/><ellipse cx="12" cy="12" rx="10" ry="3.6" fill="none" stroke="#fff" stroke-width="1.6" transform="rotate(-25 12 12)"/>',
+    '<path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-4-1-6 1-9.5z" fill="#fff"/>',
+    '<rect x="2" y="7" width="20" height="11" rx="5.5" fill="#fff"/><path d="M7 10v5M4.5 12.5h5" stroke="#0b1118" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="11.5" r="1.3" fill="#0b1118"/><circle cx="18.5" cy="14" r="1.3" fill="#0b1118"/>'
+  ];
+  function hashStr(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function rng(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function svgUri(svg) { return 'data:image/svg+xml,' + encodeURIComponent(svg); }
+  function xmlEsc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function gradDef(id, c) {
+    return '<defs><linearGradient id="' + id + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + c[0] + '"/><stop offset="1" stop-color="' + c[1] + '"/></linearGradient></defs>';
+  }
+
+  function avatarUri(seed, label) {
+    const h = hashStr(String(seed));
+    const r = rng(h);
+    const c = PALETTES[h % PALETTES.length];
+    const ch = xmlEsc(Array.from(String(label || '?'))[0].toUpperCase());
+    let shapes = '';
+    for (let i = 0; i < 3; i++) {
+      shapes += '<circle cx="' + Math.round(r() * 64) + '" cy="' + Math.round(r() * 64) + '" r="' + Math.round(10 + r() * 22) + '" fill="#fff" fill-opacity="' + (0.10 + r() * 0.14).toFixed(2) + '"/>';
+    }
+    return svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' + gradDef('g', c) +
+      '<rect width="64" height="64" fill="url(#g)"/>' + shapes +
+      '<text x="32" y="43" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="32" fill="#fff" fill-opacity="0.95">' + ch + '</text></svg>');
+  }
+  function setAvatar(node, seed, label) {
+    node.style.backgroundImage = 'url("' + avatarUri(seed, label) + '")';
+    node.classList.add('ava-img');
+    node.textContent = '';
+  }
+
+  function serverIconUri(icon, room) {
+    const idx = (typeof icon === 'number' && icon >= 0 && icon < 8) ? icon : (hashStr(String(room || '')) % 8);
+    const c = PALETTES[idx];
+    return svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' + gradDef('g', c) +
+      '<rect width="64" height="64" fill="url(#g)"/><circle cx="52" cy="10" r="18" fill="#fff" fill-opacity="0.12"/>' +
+      '<g transform="translate(14 14) scale(1.5)">' + GLYPHS[idx] + '</g></svg>');
+  }
+
+  function skylineUri(room, icon) {
+    const idx = (typeof icon === 'number' && icon >= 0 && icon < 8) ? icon : (hashStr(String(room || '')) % 8);
+    const c = PALETTES[idx];
+    const r = rng(hashStr('sky' + room));
+    let g = '';
+    for (let i = 0; i < 40; i++) {
+      g += '<circle cx="' + Math.round(r() * 640) + '" cy="' + Math.round(r() * 90) + '" r="' + (0.6 + r() * 1.2).toFixed(1) + '" fill="#fff" fill-opacity="' + (0.3 + r() * 0.6).toFixed(2) + '"/>';
+    }
+    g += '<circle cx="' + Math.round(430 + r() * 120) + '" cy="46" r="22" fill="' + c[1] + '" fill-opacity="0.35"/>';
+    g += '<circle cx="' + Math.round(430 + r() * 120) + '" cy="46" r="13" fill="#fff" fill-opacity="0.55"/>';
+    let x = 0;
+    while (x < 640) {
+      const w = 22 + Math.round(r() * 34);
+      const hgt = 30 + Math.round(r() * 80);
+      const y = 170 - hgt;
+      g += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + hgt + '" fill="#0a1220"/>';
+      g += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="2" fill="' + c[0] + '" fill-opacity="0.8"/>';
+      for (let wy = y + 8; wy < 160; wy += 11) {
+        for (let wx = x + 5; wx < x + w - 5; wx += 8) {
+          if (r() < 0.38) g += '<rect x="' + wx + '" y="' + wy + '" width="3.5" height="5" fill="' + (r() < 0.5 ? c[0] : '#fde68a') + '" fill-opacity="' + (0.5 + r() * 0.5).toFixed(2) + '"/>';
+        }
+      }
+      x += w + 2 + Math.round(r() * 6);
+    }
+    return svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 170" preserveAspectRatio="xMaxYMax slice">' +
+      gradDef('s', c) + '<rect width="640" height="170" fill="url(#s)" fill-opacity="0.18"/>' + g + '</svg>');
+  }
+
+  function waveUri(icon, room) {
+    const idx = (typeof icon === 'number' && icon >= 0 && icon < 8) ? icon : (hashStr(String(room || '')) % 8);
+    const c = PALETTES[idx];
+    const r = rng(hashStr('wave' + room));
+    let bars = '';
+    for (let i = 0; i < 22; i++) {
+      const hh = 8 + Math.round(r() * 50);
+      bars += '<rect x="' + (110 + i * 9) + '" y="' + (64 - hh) + '" width="5" height="' + hh + '" rx="2.5" fill="' + c[i % 2] + '" fill-opacity="' + (0.35 + r() * 0.5).toFixed(2) + '"/>';
+    }
+    return svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 70" preserveAspectRatio="xMaxYMax slice">' + bars + '</svg>');
+  }
+
+  function emptyArtUri() {
+    return svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 56"><defs><linearGradient id="m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#0ea5e9"/></linearGradient></defs>' +
+      '<path d="M30 8a16 16 0 1 0 14 24 13 13 0 0 1-14-24z" fill="url(#m)" fill-opacity="0.9"/>' +
+      '<rect x="40" y="22" width="38" height="24" rx="8" fill="#131c28" stroke="#2dd4bf" stroke-opacity="0.6"/>' +
+      '<path d="M48 46l-2 7 9-7z" fill="#131c28" stroke="#2dd4bf" stroke-opacity="0.6"/>' +
+      '<circle cx="51" cy="34" r="2.2" fill="#2dd4bf"/><circle cx="59" cy="34" r="2.2" fill="#db2777"/><circle cx="67" cy="34" r="2.2" fill="#2dd4bf"/>' +
+      '<circle cx="12" cy="14" r="1.2" fill="#fff"/><circle cx="20" cy="40" r="1" fill="#fff" fill-opacity="0.7"/><circle cx="74" cy="8" r="1.1" fill="#fff" fill-opacity="0.8"/></svg>');
+  }
+  function peopleArtUri() {
+    return svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 56"><defs><linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#0ea5e9"/></linearGradient><linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#db2777"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs>' +
+      '<circle cx="30" cy="20" r="9" fill="url(#a)"/><path d="M12 50a18 15 0 0 1 36 0z" fill="url(#a)" fill-opacity="0.85"/>' +
+      '<circle cx="58" cy="22" r="8" fill="url(#b)"/><path d="M42 50a16 13 0 0 1 32 0z" fill="url(#b)" fill-opacity="0.85"/>' +
+      '<path d="M44 8v8M40 12h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>');
+  }
+  function planeArtUri() {
+    return svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 56" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="p" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#db2777" stop-opacity="0"/><stop offset="1" stop-color="#db2777"/></linearGradient></defs>' +
+      '<path d="M10 44C60 44 90 14 150 22" fill="none" stroke="url(#p)" stroke-width="2" stroke-dasharray="3 5" stroke-linecap="round"/>' +
+      '<path d="M150 22l60-14-24 40-14-14z" fill="#2dd4bf"/><path d="M172 34l14 14 0-16z" fill="#0d9488"/><path d="M150 22l36 10" stroke="#042f2e" stroke-width="1.2"/>' +
+      '<circle cx="30" cy="12" r="1.4" fill="#fff"/><circle cx="100" cy="6" r="1" fill="#fff" fill-opacity="0.7"/><circle cx="220" cy="50" r="1.2" fill="#fff" fill-opacity="0.8"/></svg>');
+  }
+
+  function emptyArtBlock(text, uri) {
+    const d = document.createElement('div');
+    d.className = 'empty-art';
+    const img = document.createElement('img');
+    img.alt = '';
+    img.src = uri;
+    d.appendChild(img);
+    d.appendChild(document.createTextNode(text));
+    return d;
+  }
+
+  function applyServerArt() {
+    if (!serverInfo) return;
+    document.getElementById('hero-art').style.backgroundImage = 'url("' + skylineUri(serverInfo.room, serverInfo.icon) + '")';
+    document.getElementById('freq-art').style.backgroundImage = 'url("' + waveUri(serverInfo.icon, serverInfo.room) + '")';
+    document.getElementById('invite-art').src = planeArtUri();
+    document.getElementById('btn-gear').style.display = isOwner() ? 'inline-block' : 'none';
+  }
+
+  function buildIconPicker(boxId, selected, onPick) {
+    const box = document.getElementById(boxId);
+    box.innerHTML = '';
+    for (let i = 0; i < 8; i++) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'icon-pick' + (i === selected ? ' on' : '');
+      b.style.backgroundImage = 'url("' + serverIconUri(i, '') + '")';
+      b.onclick = (function (n) { return function () {
+        box.querySelectorAll('.icon-pick').forEach(function (x, k) { x.classList.toggle('on', k === n); });
+        onPick(n);
+      }; })(i);
+      box.appendChild(b);
+    }
+  }
+
   function escapeHtml(s) {
     return String(s)
       .replace(/&/g, '&amp;')
@@ -727,7 +942,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 
   function applyNickUI() {
     document.getElementById('user-name-label').textContent = myNick;
-    document.getElementById('user-ava').textContent = myNick.slice(0, 2).toUpperCase();
+    setAvatar(document.getElementById('user-ava'), myNick, myNick);
     document.getElementById('voice-my-name').textContent = myNick + ' (Вы)';
     document.getElementById('auth-bar-text').innerHTML = 'Вы в сети как <b>' + escapeHtml(myNick) + '</b> — сообщения синхронизируются через ваш сервер';
   }
@@ -764,6 +979,11 @@ const HTML_PAGE = `<!DOCTYPE html>
       try { localStorage.removeItem('cyber_last_room'); } catch (e) {}
       alert('Такого сервера не существует. Открываем главный сервер.');
       window.location.href = '/?room=cy-4371';
+    } else if (data.type === 'serverdeleted') {
+      evtSource.close();
+      try { localStorage.removeItem('cyber_last_room'); } catch (e) {}
+      alert('Этот сервер был удалён владельцем. Открываем главный сервер.');
+      window.location.href = '/?room=cy-4371';
     } else if (data.type === 'server') {
       onServerInfo(data.payload);
     } else if (data.type === 'users') {
@@ -774,7 +994,7 @@ const HTML_PAGE = `<!DOCTYPE html>
       renderSocial();
       renderUsers(lastMembers);
       renderServers();
-      if (serverInfo) renderChannels();
+      if (serverInfo) { renderChannels(); applyServerArt(); }
     } else if (data.type === 'voice-join') {
       if (inVoice && peer && localStream && myPeerId && data.payload.vch === myVoiceChannel && data.payload.peerId !== myPeerId) {
         const pid = data.payload.peerId;
@@ -797,7 +1017,9 @@ const HTML_PAGE = `<!DOCTYPE html>
         const box = document.getElementById('messages-list');
         box.innerHTML = '';
         if (msgs.length === 0) {
-          box.innerHTML = '<div id="empty-hint" style="font-size:11px;color:var(--text-muted);">Здесь пока тихо. Напишите первым.</div>';
+          const eh = emptyArtBlock('Здесь пока тихо. Напишите первым.', emptyArtUri());
+          eh.id = 'empty-hint';
+          box.appendChild(eh);
           return;
         }
         msgs.forEach(addMsgToDOM);
@@ -811,9 +1033,10 @@ const HTML_PAGE = `<!DOCTYPE html>
     const author = String(m.author || '?');
     const div = document.createElement('div');
     div.className = 'msg-item';
-    div.innerHTML = '<div class="msg-ava">' + escapeHtml(author.charAt(0).toUpperCase()) + '</div>' +
+    div.innerHTML = '<div class="msg-ava"></div>' +
       '<div><div><span class="msg-author">' + escapeHtml(author) + '</span><span class="msg-time">' + escapeHtml(m.time) + '</span></div>' +
       '<div class="msg-text">' + escapeHtml(m.text) + '</div></div>';
+    setAvatar(div.querySelector('.msg-ava'), author, author);
     box.appendChild(div);
     const scrollArea = document.getElementById('chat-scroll');
     scrollArea.scrollTop = scrollArea.scrollHeight;
@@ -846,7 +1069,9 @@ const HTML_PAGE = `<!DOCTYPE html>
     sorted.forEach(function (u) {
       const d = el('div', 'online-user-item');
       if (!u.online) d.style.opacity = '0.5';
-      d.appendChild(el('span', 'online-dot' + (u.online ? '' : ' off')));
+      const av = el('span', 'ava-sm' + (u.online ? ' on' : ''));
+      setAvatar(av, u.nick, u.nick);
+      d.appendChild(av);
       const name = el('span', '', u.nick + (u.pid === myPid ? ' (вы)' : '') + (u.inVoice ? ' 🔊' + (u.vch ? ' ' + channelName(u.vch) : '') : ''));
       name.style.flex = '1';
       d.appendChild(name);
@@ -875,6 +1100,9 @@ const HTML_PAGE = `<!DOCTYPE html>
     rq.innerHTML = '';
     social.incoming.forEach(function (r) {
       const d = el('div', 'online-user-item');
+      const rav = el('span', 'ava-sm');
+      setAvatar(rav, r.nick, r.nick);
+      d.appendChild(rav);
       const name = el('span', '', r.nick + ' хочет в друзья');
       name.style.flex = '1';
       const ok = el('button', 'mini-btn', '✓');
@@ -889,14 +1117,16 @@ const HTML_PAGE = `<!DOCTYPE html>
     const fb = document.getElementById('friends-box');
     fb.innerHTML = '';
     if (social.friends.length === 0) {
-      const hint = el('div', '', 'Пока никого. Нажмите «+ друг» рядом с участником.');
+      const hint = el('div', '');
       hint.style.cssText = 'font-size:10px;color:var(--text-muted);';
-      fb.appendChild(hint);
+      fb.appendChild(emptyArtBlock('Пока никого. Нажмите «+ друг» рядом с участником.', peopleArtUri()));
     }
     social.friends.forEach(function (f) {
       const d = el('div', 'online-user-item');
       if (!f.online) d.style.opacity = '0.5';
-      d.appendChild(el('span', 'online-dot' + (f.online ? '' : ' off')));
+      const fav = el('span', 'ava-sm' + (f.online ? ' on' : ''));
+      setAvatar(fav, f.nick, f.nick);
+      d.appendChild(fav);
       const name = el('span', '', f.nick);
       name.style.flex = '1';
       d.appendChild(name);
@@ -937,6 +1167,7 @@ const HTML_PAGE = `<!DOCTYPE html>
     applyChannelUI();
     if (currentChannel !== prev) loadHistory();
     renderServers();
+    applyServerArt();
   }
 
   function isOwner() { return !!(serverInfo && serverInfo.ownerPid && serverInfo.ownerPid === myPid); }
@@ -996,10 +1227,11 @@ const HTML_PAGE = `<!DOCTYPE html>
     box.innerHTML = '';
     const list = (social.servers || []).slice();
     if (!list.some(function (x) { return x.room === currentRoom; }) && serverInfo) {
-      list.push({ room: currentRoom, name: serverInfo.name });
+      list.push({ room: currentRoom, name: serverInfo.name, icon: serverInfo.icon });
     }
     list.forEach(function (sv) {
-      const d = el('div', 'srv-ico' + (sv.room === currentRoom ? ' active' : ''), (sv.name || '?').slice(0, 2).toUpperCase());
+      const d = el('div', 'srv-ico img' + (sv.room === currentRoom ? ' active' : ''));
+      d.style.backgroundImage = 'url("' + serverIconUri(sv.icon, sv.room) + '")';
       d.title = sv.name;
       d.onclick = function () {
         if (sv.room !== currentRoom) window.location.href = '/?room=' + encodeURIComponent(sv.room);
@@ -1014,7 +1246,10 @@ const HTML_PAGE = `<!DOCTYPE html>
     loadHistory();
   }
 
+  let createIcon = 0;
   function openCreateServer() {
+    createIcon = Math.floor(Math.random() * 8);
+    buildIconPicker('create-icon-picker', createIcon, function (n) { createIcon = n; });
     document.getElementById('create-server-modal').classList.add('open');
     const i = document.getElementById('new-server-name');
     i.value = '';
@@ -1024,12 +1259,41 @@ const HTML_PAGE = `<!DOCTYPE html>
   function submitCreateServer() {
     const name = document.getElementById('new-server-name').value.trim();
     if (!name) return alert('Введите название сервера');
-    fetch('/api/server', { method: 'POST', body: JSON.stringify({ uid: myUid, name: name }) })
+    fetch('/api/server', { method: 'POST', body: JSON.stringify({ uid: myUid, name: name, icon: createIcon }) })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (d.error) return alert(d.error);
         window.location.href = '/?room=' + encodeURIComponent(d.room);
       })
+      .catch(function () { alert('Ошибка соединения с сервером.'); });
+  }
+
+  let editIcon = 0;
+  function openEditServer() {
+    if (!serverInfo || !isOwner()) return;
+    editIcon = typeof serverInfo.icon === 'number' ? serverInfo.icon : 0;
+    buildIconPicker('edit-icon-picker', editIcon, function (n) { editIcon = n; });
+    document.getElementById('edit-server-name').value = serverInfo.name;
+    document.getElementById('edit-server-modal').classList.add('open');
+  }
+  function closeEditServer() { document.getElementById('edit-server-modal').classList.remove('open'); }
+  function submitEditServer() {
+    const name = document.getElementById('edit-server-name').value.trim();
+    if (!name) return alert('Введите название сервера');
+    fetch('/api/server-edit', { method: 'POST', body: JSON.stringify({ uid: myUid, room: currentRoom, action: 'update', name: name, icon: editIcon }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.error) return alert(d.error);
+        closeEditServer();
+      })
+      .catch(function () { alert('Ошибка соединения с сервером.'); });
+  }
+  function deleteServer() {
+    if (!serverInfo || !isOwner()) return;
+    if (!confirm('Удалить сервер «' + serverInfo.name + '» навсегда? Все каналы и сообщения пропадут, участников выкинет на главный сервер.')) return;
+    fetch('/api/server-edit', { method: 'POST', body: JSON.stringify({ uid: myUid, room: currentRoom, action: 'delete' }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d.error) alert(d.error); })
       .catch(function () { alert('Ошибка соединения с сервером.'); });
   }
 
@@ -1407,8 +1671,10 @@ const server = http.createServer(async (req, res) => {
       if (Object.keys(servers).length >= MAX_SERVERS) return sendJson(res, 400, { error: 'Достигнут общий лимит серверов' });
       let code;
       do { code = 'srv-' + crypto.randomBytes(4).toString('hex'); } while (servers[code]);
+      const icon = (Number.isInteger(body.icon) && body.icon >= 0 && body.icon < ICON_COUNT) ? body.icon : Math.floor(Math.random() * ICON_COUNT);
       servers[code] = {
         name,
+        icon,
         owner: uid,
         channels: [
           { id: 'general', name: 'общий', type: 'text' },
@@ -1421,6 +1687,60 @@ const server = http.createServer(async (req, res) => {
       scheduleSave(code);
       sendSocial(uid);
       return sendJson(res, 200, { room: code });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/server-edit') {
+      const body = await readBody(req);
+      const uid = body.uid;
+      if (!validUid(uid) || !users[uid]) return sendJson(res, 400, { error: 'Неизвестный пользователь. Обновите страницу.' });
+      const room = roomOf(body.room);
+      if (!room) return sendJson(res, 400, { error: 'Сервер не найден' });
+      const sv = servers[room];
+      if (room === DEFAULT_ROOM || sv.owner !== uid) return sendJson(res, 403, { error: 'Только владелец может менять этот сервер' });
+
+      const refreshAll = () => {
+        broadcastServer(room);
+        (members[room] || []).forEach(m => sendSocial(m));
+      };
+
+      if (body.action === 'update') {
+        if (body.name !== undefined) {
+          const name = cleanName(body.name, 24);
+          if (!name) return sendJson(res, 400, { error: 'Введите название сервера' });
+          sv.name = name;
+        }
+        if (body.icon !== undefined) {
+          if (!(Number.isInteger(body.icon) && body.icon >= 0 && body.icon < ICON_COUNT)) return sendJson(res, 400, { error: 'Неверная иконка' });
+          sv.icon = body.icon;
+        }
+        scheduleSave(room);
+        refreshAll();
+        return sendJson(res, 200, { ok: true });
+      }
+
+      if (body.action === 'delete') {
+        const memberUids = (members[room] || []).slice();
+        const gone = clients.filter(c => c.room === room);
+        gone.forEach(c => {
+          try { c.res.write('data: ' + JSON.stringify({ type: 'serverdeleted' }) + '\n\n'); c.res.end(); } catch (e) {}
+        });
+        clients = clients.filter(c => c.room !== room);
+        delete servers[room];
+        delete rooms[room];
+        delete members[room];
+        dirtyRooms.delete(room);
+        deletedRooms.add(room);
+        Object.keys(users).forEach(u => {
+          const list = users[u].servers;
+          const i = list.indexOf(room);
+          if (i >= 0) list.splice(i, 1);
+        });
+        scheduleSave();
+        memberUids.forEach(m => sendSocial(m));
+        return sendJson(res, 200, { ok: true });
+      }
+
+      return sendJson(res, 400, { error: 'Неизвестное действие' });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/channel') {
