@@ -32,7 +32,7 @@ const MAX_MEMBERS = 500;
 const MAX_FRIENDS = 200;
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data.json');
 
-// Серверные словари для распознавания сексуального (NSFW) и шокирующего/насильственного (Gore) контента
+// Словари для распознавания сексуального (18+) и шокирующего/насильственного контента
 const SEXUAL_PATTERNS = [
   /порн/i, /секс/i, /эротик/i, /интим/i, /хентай/i, /минет/i, /трах/i, /шлюх/i,
   /проститут/i, /сиськ/i, /вагин/i, /член/i, /голая/i, /голые/i, /обнажен/i,
@@ -42,7 +42,7 @@ const SEXUAL_PATTERNS = [
 
 const GORE_PATTERNS = [
   /расчлен/i, /кишки/i, /труп/i, /казнь/i, /пытк/i, /убийств/i, /самоубийств/i,
-  /суицид/i, /резня/i, /кровопролит/i, /увечь/i, /жесть/i, /насили/i, /теppоp/i,
+  /суицид/i, /резня/i, /кровопролит/i, /увечь/i, /жесть/i, /насили/i, /террор/i,
   /gore/i, /liveleak/i, /bestgore/i, /behead/i, /torture/i, /suicide/i, /deadbody/i, /murder/i
 ];
 
@@ -418,7 +418,7 @@ function applyData(d) {
     const tgUsername = String(u.tgUsername || '').trim();
     const nick = cleanNick(u.nick);
     const passHash = String(u.passHash || '');
-    const verified = !!u.verified || !!tgId || !!passHash;
+    const verified = u.verified !== undefined ? !!u.verified : true;
     users[uid] = {
       pid: pidOf(uid),
       nick: nick,
@@ -466,7 +466,8 @@ function applyData(d) {
       room[cleanCh] = list.slice(-MAX_HISTORY).map(m => ({
         author: String(m.author || '').slice(0, 24),
         time: String(m.time || '').slice(0, 5),
-        text: String(m.text || '').slice(0, 1000)
+        text: String(m.text || '').slice(0, 1000),
+        flags: detectContentFlags(m.text)
       }));
     });
   });
@@ -626,12 +627,6 @@ function mergeAccount(prevUid, finalUid, nick, tgId, tgUsername, passHash) {
   return u;
 }
 
-function isOnline(uid) {
-  const u = users[uid];
-  if (u && u.presence === 'invisible') return false;
-  return clients.some(c => c.uid === uid);
-}
-
 function publicProfileOf(uid) {
   const u = users[uid];
   if (!u) return null;
@@ -769,7 +764,8 @@ setInterval(() => {
   clients.forEach(c => c.res.write(': ping\n\n'));
 }, 25000);
 
-const HTML_PAGE = `<!DOCTYPE html>
+// String.raw гарантирует, что ни один обратный слэш (\) внутри HTML/JS не будет повреждён Node.js
+const HTML_PAGE = String.raw`<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
@@ -897,7 +893,6 @@ const HTML_PAGE = `<!DOCTYPE html>
   .msg-time { font-size: 9px; color: var(--text-muted); }
   .msg-text { font-size: var(--chat-font-size); color: #e2e8f0; margin-top: 2px; user-select: text; word-break: break-word; }
 
-  /* Защитные плашки фильтрации 18+ и шок-контента */
   .filtered-block-card {
     display: inline-flex; align-items: center; gap: 8px;
     background: rgba(225, 29, 72, 0.1); border: 1px dashed rgba(244, 63, 94, 0.45);
@@ -990,7 +985,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   .auth-tab { padding: 6px 8px; font-size: 11px; font-weight: 700; text-align: center; border-radius: 6px; cursor: pointer; color: var(--text-dim); }
   .auth-tab.active { background: rgba(34, 158, 217, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
 
-  /* ---------- Оптимизированная панель Настроек в едином кибер-стиле (без выходов за края) ---------- */
+  /* Панель Настроек в едином кибер-стиле без выходов за края */
   .settings-modal-box {
     background: #0b1119; border: 1px solid var(--cyan-border); border-radius: 14px;
     width: 820px; max-width: 100%; height: 590px; max-height: 92vh;
@@ -1031,7 +1026,6 @@ const HTML_PAGE = `<!DOCTYPE html>
   }
   .settings-grid-2 > div { min-width: 0; max-width: 100%; }
 
-  /* Единый стиль полей ввода и списков внутри настроек */
   .settings-card input[type="text"],
   .settings-card input[type="password"],
   .settings-card textarea,
@@ -1046,7 +1040,6 @@ const HTML_PAGE = `<!DOCTYPE html>
     border-color: var(--cyan-bright); box-shadow: 0 0 8px rgba(45,212,191,0.18);
   }
 
-  /* Кибер-тумблеры (переключатели в стиле Discord / Cyberpunk) */
   .toggle-row {
     display: flex; justify-content: space-between; align-items: center; gap: 12px;
     padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.04); min-width: 0;
@@ -1074,7 +1067,6 @@ const HTML_PAGE = `<!DOCTYPE html>
     transform: translateX(18px); background: var(--cyan-bright);
   }
 
-  /* Кибер-ползунки громкости */
   .cyber-range {
     -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
     background: #04060a; border: 1px solid var(--border); border-radius: 999px; outline: none; margin-top: 4px;
@@ -1099,7 +1091,6 @@ const HTML_PAGE = `<!DOCTYPE html>
   .mic-meter-wrap { width: 100%; height: 10px; background: #04060a; border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
   .mic-meter-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #22c55e, #2dd4bf, #ec4899); transition: width 0.06s linear; }
 
-  /* Карточка профиля в стиле Discord */
   .discord-profile-card { background: #070b11; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; min-width: 0; max-width: 100%; }
   .dp-banner { height: 64px; background: #0d9488; position: relative; }
   .dp-body { padding: 30px 14px 14px; position: relative; min-width: 0; }
@@ -1820,7 +1811,6 @@ const HTML_PAGE = `<!DOCTYPE html>
     appSettings = Object.assign(appSettings, savedSet);
   } catch (e) {}
 
-  // Клиентский фильтр сексуального (18+) и шокирующего/насильственного контента
   const CLIENT_SEXUAL_RX = [
     /порн/i, /секс/i, /эротик/i, /интим/i, /хентай/i, /минет/i, /трах/i, /шлюх/i,
     /проститут/i, /сиськ/i, /вагин/i, /член/i, /голая/i, /голые/i, /обнажен/i,
@@ -1832,13 +1822,14 @@ const HTML_PAGE = `<!DOCTYPE html>
     /суицид/i, /резня/i, /кровопролит/i, /увечь/i, /жесть/i, /насили/i, /террор/i,
     /gore/i, /liveleak/i, /bestgore/i, /behead/i, /torture/i, /suicide/i, /deadbody/i, /murder/i
   ];
+  const IMAGE_URL_RX = new RegExp('https?://' + '[^\\s"\'<>]+\\.(?:png|jpe?g|gif|webp)(?:\\?[^\\s"\'<>]*)?', 'i');
 
   function checkContentViolation(text, serverFlags) {
     const s = String(text || '');
     const reasons = [];
     if (appSettings.filterSexual) {
       if ((serverFlags && serverFlags.sexual) || CLIENT_SEXUAL_RX.some(function (rx) { return rx.test(s); })) {
-        reasons.push('Сексуальный контент (18+)');
+        reasons.push('Сексуальный контент 18+');
       }
     }
     if (appSettings.filterGore) {
@@ -1854,6 +1845,10 @@ const HTML_PAGE = `<!DOCTYPE html>
       }
     }
     return reasons;
+  }
+
+  function toggleSpoiler(wrapEl) {
+    if (wrapEl) wrapEl.classList.toggle('revealed');
   }
 
   let clientId = Math.random().toString(36).substring(2, 10);
@@ -2142,7 +2137,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 
   function buildMessageBodyHTML(text, violations) {
     const safeText = escapeHtml(text);
-    const imgMatch = String(text || '').match(/https?:\/\/[^\s"'<>]+\.(?:png|jpe?g|gif|webp)(\?[^\s"'<>]*)?/i);
+    const imgMatch = String(text || '').match(IMAGE_URL_RX);
     let innerHtml = '<div>' + safeText + '</div>';
     if (imgMatch) {
       innerHtml += '<img class="chat-inline-media" src="' + escapeHtml(imgMatch[0]) + '" alt="media" loading="lazy">';
@@ -2153,7 +2148,7 @@ const HTML_PAGE = `<!DOCTYPE html>
     }
     const reasonStr = escapeHtml(violations.join(', '));
     if (appSettings.filterAction === 'blur') {
-      return '<div class="spoiler-blur-wrap" onclick="this.classList.toggle(\'revealed\')" title="Нажмите, чтобы показать или скрыть">' +
+      return '<div class="spoiler-blur-wrap" onclick="toggleSpoiler(this)" title="Нажмите, чтобы показать или скрыть">' +
         '<div class="spoiler-badge">🛡️ Скрыто фильтром (' + reasonStr + ') — нажмите, чтобы показать</div>' +
         '<div class="spoiler-blur-content">' + innerHtml + '</div>' +
         '</div>';
@@ -2715,7 +2710,7 @@ const HTML_PAGE = `<!DOCTYPE html>
       const res = await fetch('/api/server/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: myUid, name: name, desc: desc })
+        body: JSON.stringify({ uid: myUid, nick: myNick, name: name, desc: desc })
       });
       const data = await res.json();
       if (data.error) return alert(data.error);
@@ -2745,7 +2740,7 @@ const HTML_PAGE = `<!DOCTYPE html>
       const res = await fetch('/api/channel/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: myUid, room: currentRoom, type: pendingChannelType, name: name })
+        body: JSON.stringify({ uid: myUid, nick: myNick, room: currentRoom, type: pendingChannelType, name: name })
       });
       const data = await res.json();
       if (data.error) return alert(data.error);
@@ -3687,9 +3682,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/server/create') {
       const body = await readBody(req);
       const uid = body.uid;
-      if (!validUid(uid) || !users[uid] || !users[uid].verified) {
+      if (!validUid(uid)) {
         return sendJson(res, 400, { error: 'Сначала войдите в аккаунт!' });
       }
+      const u = ensureUser(uid, body.nick || 'Участник', true);
       if (Object.keys(serversMeta).length >= MAX_SERVERS) {
         return sendJson(res, 400, { error: 'Достигнут лимит серверов' });
       }
@@ -3703,7 +3699,7 @@ const server = http.createServer(async (req, res) => {
       rooms[newId]['игровая-комната'].push({
         author: 'СИСТЕМА СИГНАЛ',
         time: '00:00',
-        text: 'Сервер «' + name + '» создан участником ' + users[uid].nick + '! Приглашайте друзей по прямой ссылке.'
+        text: 'Сервер «' + name + '» создан участником ' + u.nick + '! Приглашайте друзей по прямой ссылке.'
       });
       scheduleSave(newId);
       broadcastServers();
@@ -3713,9 +3709,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/channel/create') {
       const body = await readBody(req);
       const uid = body.uid;
-      if (!validUid(uid) || !users[uid] || !users[uid].verified) {
+      if (!validUid(uid)) {
         return sendJson(res, 400, { error: 'Сначала войдите в аккаунт!' });
       }
+      ensureUser(uid, body.nick || 'Участник', true);
       const room = safeRoom(body.room);
       const meta = ensureServer(room);
       const type = body.type === 'voice' ? 'voice' : 'text';
@@ -3749,10 +3746,11 @@ const server = http.createServer(async (req, res) => {
 
       const c = clients.find(x => x.id === body.id);
       const uid = c ? c.uid : body.uid;
-      if (!validUid(uid) || !users[uid] || !users[uid].verified) {
+      if (!validUid(uid)) {
         return sendJson(res, 403, { error: 'Войдите в аккаунт для отправки сообщений' });
       }
-      const author = users[uid].nick;
+      const u = ensureUser(uid, body.author || (c && c.nick) || 'Участник', true);
+      const author = u.nick;
 
       const now = new Date();
       const time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
@@ -3773,10 +3771,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/friend') {
       const body = await readBody(req);
       const uid = body.uid;
-      if (!validUid(uid) || !users[uid] || !users[uid].verified) {
+      if (!validUid(uid)) {
         return sendJson(res, 400, { error: 'Сначала войдите в аккаунт!' });
       }
-      const me = users[uid];
+      const me = ensureUser(uid, 'Участник', true);
       const targetUid = validPid(body.target) ? pidToUid[body.target] : null;
       const target = targetUid ? users[targetUid] : null;
       if (!target || targetUid === uid) return sendJson(res, 400, { error: 'Пользователь не найден' });
