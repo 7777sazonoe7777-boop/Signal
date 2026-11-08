@@ -140,7 +140,7 @@ function initDefaultServers() {
     rooms[DEFAULT_ROOM]['игровая-комната'].push({
       author: 'СИСТЕМА СИГНАЛ',
       time: '00:00',
-      text: 'Добро пожаловать в «Ночной клуб»! Сайт полностью адаптирован под ПК и смартфоны в стиле Discord.'
+      text: 'Добро пожаловать в «Ночной клуб»! Все каналы и настройки теперь работают мгновенно в реальном времени без перезагрузки страницы.'
     });
   }
 }
@@ -840,6 +840,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .ch-btn.active { background: rgba(20, 184, 166, 0.12); color: #fff; font-weight: 600; }
   .ch-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--cyan-bright); display: none; }
   .ch-btn.active .ch-dot { display: block; }
+  .ch-unread-badge { background: #e11d48; color: #fff; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 999px; margin-left: 6px; }
 
   .voice-ch-box { display: flex; align-items: center; justify-content: space-between; padding: 8px 9px; border-radius: 6px; font-size: 12px; color: var(--text-dim); cursor: pointer; margin-bottom: 2px; }
   .voice-ch-box:hover { background: rgba(255,255,255,0.03); color: #fff; }
@@ -873,7 +874,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .top-ch-desc { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .btn-top-right-share { background: #0d9488; color: #fff; border: none; padding: 6px 11px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 
-  /* Кнопки мобильных штор (скрыты на ПК, видны на смартфонах как в Discord) */
   .mob-top-btn {
     display: none; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
     color: var(--text-main); width: 34px; height: 34px; border-radius: 8px;
@@ -1138,7 +1138,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     .mob-top-btn { display: inline-flex; }
     .mob-bottom-nav { display: grid; }
 
-    /* Выдвижная левая штора (Серверы + Каналы, как в Discord Mobile) */
     .servers-rail {
       position: fixed; top: 0; bottom: 54px; left: 0; width: 64px; z-index: 955;
       transform: translateX(-360px); transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
@@ -1154,7 +1153,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       transform: translateX(0);
     }
 
-    /* Выдвижная правая штора (Участники и Друзья) */
     .right-panel {
       position: fixed; top: 0; bottom: 54px; right: 0; width: min(86vw, 300px); z-index: 955;
       transform: translateX(105%); transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
@@ -1183,10 +1181,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     .screen-grid { grid-template-columns: 1fr; }
 
     .chat-bottom { padding: 6px 10px 8px; }
-    .chat-inp { font-size: 16px; padding: 8px 11px; } /* 16px предотвращает авто-зум в iOS Safari */
+    .chat-inp { font-size: 16px; padding: 8px 11px; }
     .bottom-hint { display: none; }
 
-    /* Адаптация модального окна Настроек и Профиля под экран телефона */
     .modal-backdrop { padding: 6px; }
     .settings-modal-box {
       grid-template-columns: 1fr; grid-template-rows: auto 1fr;
@@ -1348,7 +1345,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           <input type="text" id="chat-input" class="chat-inp" placeholder="Написать сообщение..." autocomplete="off" maxlength="1000">
           <button type="submit" class="btn-cyan">ОТПРАВИТЬ</button>
         </form>
-        <div class="bottom-hint">ENTER — ОТПРАВИТЬ • НАЖМИТЕ НА УЧАСТНИКА СПРАВА, ЧТОБЫ ПОСМОТРЕТЬ ЕГО ПРОФИЛЬ И ИНТЕРЕСЫ</div>
+        <div class="bottom-hint">ENTER — ОТПРАВИТЬ • ПЕРЕКЛЮЧЕНИЕ КАНАЛОВ И НАСТРОЕК РАБОТАЕТ МГНОВЕННО БЕЗ ОБНОВЛЕНИЯ СТРАНИЦЫ</div>
       </div>
     </div>
 
@@ -1421,7 +1418,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div class="settings-pane active" id="pane-profile">
           <div class="settings-head">
             <h3>Мой профиль</h3>
-            <button class="btn-cyan" onclick="saveProfileSettings()">✓ Сохранить профиль</button>
+            <button class="btn-cyan" onclick="saveProfileSettings()">✓ Сохранить онлайн</button>
           </div>
 
           <div class="discord-profile-card">
@@ -1449,7 +1446,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
               </div>
               <div>
                 <label class="field-label">Статус активности</label>
-                <select id="prof-presence-sel">
+                <select id="prof-presence-sel" onchange="updateProfilePreview()">
                   <option value="online">🟢 В сети</option>
                   <option value="idle">🌙 Не активен</option>
                   <option value="dnd">⛔ Не беспокоить</option>
@@ -1891,7 +1888,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     }
   }
 
-  // ---------- Сохранение сессии в localStorage + Cookie ----------
+  // ---------- Сохранение сессии и обновление URL без перезагрузки ----------
   function setPersistCookie(name, val) {
     try {
       document.cookie = name + '=' + encodeURIComponent(val) + '; path=/; max-age=31536000; SameSite=Lax';
@@ -1940,6 +1937,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     myVerified = localStorage.getItem('cyber_verified') === '1' || getPersistCookie('cyber_verified') === '1';
   } catch (e) {}
   let authLocked = !myVerified;
+
+  function updateBrowserUrl() {
+    try {
+      const newUrl = window.location.pathname + '?room=' + encodeURIComponent(currentRoom) + '&channel=' + encodeURIComponent(currentChannel);
+      window.history.replaceState({ room: currentRoom, channel: currentChannel }, '', newUrl);
+    } catch (e) {}
+  }
 
   let myProfile = {
     bio: '',
@@ -2024,7 +2028,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let tgSessionToken = '';
   let tgBotUsername = '';
   let tgPollTimer = null;
+
+  // Кэш сообщений ВСЕХ каналов текущего сервера для переключения за 0 мс без перезагрузки
+  let roomMessagesCache = {};
+  let unreadByChannel = {};
   let cachedMessages = [];
+  let profileSyncTimer = null;
 
   let serversList = [];
   let currentServerMeta = {
@@ -2138,9 +2147,15 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const row = el('div', 'ch-btn' + (ch === currentChannel ? ' active' : ''));
       row.setAttribute('data-ch', ch);
       const span = el('span', '', '# ' + ch);
-      const dot = el('span', 'ch-dot');
+      const rightWrap = el('div', '');
+      rightWrap.style.cssText = 'display:flex;align-items:center;gap:4px;';
+      const unread = unreadByChannel[ch] || 0;
+      if (unread > 0 && ch !== currentChannel) {
+        rightWrap.appendChild(el('span', 'ch-unread-badge', String(unread)));
+      }
+      rightWrap.appendChild(el('span', 'ch-dot'));
       row.appendChild(span);
-      row.appendChild(dot);
+      row.appendChild(rightWrap);
       row.onclick = function () { setChannel(ch); };
       tBox.appendChild(row);
     });
@@ -2177,11 +2192,68 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('voice-panel-title').textContent = 'Общий разговор участников канала («' + currentVoiceChannel + '»)';
   }
 
-  function switchServer(roomId) {
+  // ---------- МГНОВЕННОЕ переключение серверов без перезагрузки страницы ----------
+  async function switchServer(roomId) {
     const clean = String(roomId || '').trim();
-    if (!clean) return;
-    try { localStorage.setItem('cyber_last_room', clean); } catch (e) {}
-    window.location.href = window.location.origin + '/?room=' + encodeURIComponent(clean);
+    if (!clean || clean === currentRoom) {
+      closeMobileDrawers();
+      return;
+    }
+    if (inVoice) {
+      await toggleVoiceCall();
+    }
+    currentRoom = clean;
+    unreadByChannel = {};
+    roomMessagesCache = {};
+    try { localStorage.setItem('cyber_last_room', currentRoom); } catch (e) {}
+
+    const found = serversList.find(function (s) { return s.id === currentRoom; });
+    if (found) {
+      currentServerMeta = found;
+      currentChannel = (found.textChannels && found.textChannels[0]) || 'игровая-комната';
+      currentVoiceChannel = (found.voiceChannels && found.voiceChannels[0]) || 'Ночной эфир';
+    }
+    updateBrowserUrl();
+    renderServersRail();
+    renderServerChannels();
+    closeMobileDrawers();
+
+    try {
+      const res = await fetch('/api/switch-room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, nick: myNick })
+      });
+      const data = await res.json();
+      if (data && data.ok) {
+        currentServerMeta = data.current || currentServerMeta;
+        serversList = data.list || serversList;
+        roomMessagesCache = data.messagesByChannel || {};
+        if (!currentServerMeta.textChannels.includes(currentChannel)) {
+          currentChannel = currentServerMeta.textChannels[0] || 'игровая-комната';
+        }
+        cachedMessages = roomMessagesCache[currentChannel] || [];
+        updateBrowserUrl();
+        renderServersRail();
+        renderServerChannels();
+        rerenderChatMessages();
+        if (Array.isArray(data.users)) renderUsers(data.users);
+      }
+    } catch (e) {
+      preloadAllChannelsOfRoom();
+    }
+  }
+
+  function preloadAllChannelsOfRoom() {
+    fetch('/api/room-data?room=' + encodeURIComponent(currentRoom))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || data.room !== currentRoom) return;
+        roomMessagesCache = data.messagesByChannel || {};
+        cachedMessages = roomMessagesCache[currentChannel] || [];
+        rerenderChatMessages();
+      })
+      .catch(function () {});
   }
 
   function connectEventStream() {
@@ -2198,9 +2270,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       if (data.type === 'server-meta') {
         currentServerMeta = data.payload.current;
         serversList = data.payload.list || [currentServerMeta];
+        if (data.payload.messagesByChannel) {
+          roomMessagesCache = data.payload.messagesByChannel;
+        }
         renderServersRail();
         renderServerChannels();
-        loadHistory();
+        cachedMessages = roomMessagesCache[currentChannel] || [];
+        rerenderChatMessages();
         if (myVerified) syncProfileToServer();
       } else if (data.type === 'servers') {
         serversList = data.payload.list || [];
@@ -2208,10 +2284,20 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         if (found) currentServerMeta = found;
         renderServersRail();
         renderServerChannels();
-      } else if (data.type === 'msg' && data.payload.channel === currentChannel) {
-        cachedMessages.push(data.payload.msg);
-        addMsgToDOM(data.payload.msg);
-        if (appSettings.soundMsg && data.payload.msg && data.payload.msg.author !== myNick) {
+      } else if (data.type === 'msg') {
+        const ch = data.payload.channel;
+        const msg = data.payload.msg;
+        if (!roomMessagesCache[ch]) roomMessagesCache[ch] = [];
+        roomMessagesCache[ch].push(msg);
+
+        if (ch === currentChannel) {
+          cachedMessages = roomMessagesCache[ch];
+          addMsgToDOM(msg);
+        } else {
+          unreadByChannel[ch] = (unreadByChannel[ch] || 0) + 1;
+          renderServerChannels();
+        }
+        if (appSettings.soundMsg && msg && msg.author !== myNick) {
           playUiBeep(540, 0.06);
         }
       } else if (data.type === 'users') {
@@ -2280,23 +2366,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     openAuthModal(true);
   }
 
-  function loadHistory() {
-    const ch = currentChannel;
-    fetch('/api/history?room=' + encodeURIComponent(currentRoom) + '&channel=' + encodeURIComponent(ch))
-      .then(function (r) { return r.json(); })
-      .then(function (msgs) {
-        if (ch !== currentChannel) return;
-        cachedMessages = Array.isArray(msgs) ? msgs : [];
-        rerenderChatMessages();
-      })
-      .catch(function () {});
-  }
-  loadHistory();
-
   function rerenderChatMessages() {
     const box = document.getElementById('messages-list');
     box.innerHTML = '';
-    if (!cachedMessages.length) {
+    if (!cachedMessages || !cachedMessages.length) {
       box.innerHTML = '<div id="empty-hint" style="font-size:11px;color:var(--text-muted);">Здесь пока тихо. Напишите первым.</div>';
       return;
     }
@@ -2517,7 +2590,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('prof-status-inp').value = myProfile.customStatus || '';
     document.getElementById('prof-bio-inp').value = myProfile.bio || '';
     document.getElementById('prof-interests-inp').value = myProfile.interests || '';
-    updateProfilePreview();
+    updateProfilePreview(true);
 
     document.getElementById('chk-filter-sexual').checked = appSettings.filterSexual !== false;
     document.getElementById('chk-filter-gore').checked = appSettings.filterGore !== false;
@@ -2568,22 +2641,25 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
     rerenderChatMessages();
     renderUsers(lastMembers);
+    applyNickUI();
   }
 
   function selectBannerColor(col) {
     myProfile.bannerColor = col;
-    updateProfilePreview();
+    updateProfilePreview(false);
   }
   function selectAvatarColor(col) {
     myProfile.avatarColor = col;
-    updateProfilePreview();
+    updateProfilePreview(false);
   }
 
-  function updateProfilePreview() {
-    const n = document.getElementById('prof-nick-inp').value.trim() || myNick;
-    const st = document.getElementById('prof-status-inp').value.trim();
-    const bio = document.getElementById('prof-bio-inp').value.trim();
-    const intr = document.getElementById('prof-interests-inp').value.trim();
+  // Живое обновление превью и автоматическая онлайн-синхронизация с сервером без перезагрузки
+  function updateProfilePreview(skipOnlineSync) {
+    const n = document.getElementById('prof-nick-inp').value.trim().slice(0, 24) || myNick;
+    const pr = document.getElementById('prof-presence-sel').value || 'online';
+    const st = document.getElementById('prof-status-inp').value.trim().slice(0, 60);
+    const bio = document.getElementById('prof-bio-inp').value.trim().slice(0, 220);
+    const intr = document.getElementById('prof-interests-inp').value.trim().slice(0, 160);
 
     document.getElementById('preview-banner').style.background = myProfile.bannerColor || '#0d9488';
     const ava = document.getElementById('preview-ava');
@@ -2602,6 +2678,25 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       tags.forEach(function (tg) {
         tBox.appendChild(el('span', 'dp-tag', tg));
       });
+    }
+
+    if (!skipOnlineSync) {
+      myNick = n;
+      myProfile.presence = pr;
+      myProfile.customStatus = st;
+      myProfile.bio = bio;
+      myProfile.interests = intr;
+      try {
+        localStorage.setItem('cyber_nick', myNick);
+        localStorage.setItem('cyber_profile', JSON.stringify(myProfile));
+      } catch (e) {}
+      setPersistCookie('cyber_nick', myNick);
+      applyNickUI();
+
+      if (profileSyncTimer) clearTimeout(profileSyncTimer);
+      profileSyncTimer = setTimeout(function () {
+        syncProfileToServer();
+      }, 350);
     }
   }
 
@@ -2623,19 +2718,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   async function saveProfileSettings() {
-    const newNick = document.getElementById('prof-nick-inp').value.trim().slice(0, 24);
-    if (newNick) {
-      myNick = newNick;
-      try { localStorage.setItem('cyber_nick', myNick); } catch (e) {}
-      setPersistCookie('cyber_nick', myNick);
-    }
-    myProfile.presence = document.getElementById('prof-presence-sel').value;
-    myProfile.customStatus = document.getElementById('prof-status-inp').value.trim().slice(0, 60);
-    myProfile.bio = document.getElementById('prof-bio-inp').value.trim().slice(0, 220);
-    myProfile.interests = document.getElementById('prof-interests-inp').value.trim().slice(0, 160);
-
-    try { localStorage.setItem('cyber_profile', JSON.stringify(myProfile)); } catch (e) {}
-    applyNickUI();
+    updateProfilePreview(false);
     await syncProfileToServer();
     closeSettingsModal();
   }
@@ -2805,7 +2888,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     } catch (e) {}
     setPersistCookie('cyber_verified', '');
     setPersistCookie('cyber_uid', '');
-    window.location.reload();
+    myVerified = false;
+    openAuthModal(true);
   }
 
   function sendChatMessage(e) {
@@ -2834,10 +2918,15 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     inp.value = '';
   }
 
+  // ---------- МГНОВЕННОЕ переключение текстового канала из кэша (0 мс, без перезагрузки) ----------
   function setChannel(ch) {
     currentChannel = ch;
+    unreadByChannel[ch] = 0;
+    updateBrowserUrl();
     applyChannelUI(ch);
-    loadHistory();
+    renderServerChannels();
+    cachedMessages = roomMessagesCache[ch] || [];
+    rerenderChatMessages();
     closeMobileDrawers();
   }
 
@@ -2889,7 +2978,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const data = await res.json();
       if (data.error) return alert(data.error);
       closeCreateServerModal();
-      switchServer(data.serverId);
+      await switchServer(data.serverId);
     } catch (e) {
       alert('Ошибка создания сервера.');
     }
@@ -2921,10 +3010,15 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       if (data.error) return alert(data.error);
       closeCreateChannelModal();
       if (pendingChannelType === 'text' && data.channel) {
-        currentChannel = data.channel;
-        renderServerChannels();
-        loadHistory();
+        if (!roomMessagesCache[data.channel]) roomMessagesCache[data.channel] = [];
+        if (currentServerMeta.textChannels && !currentServerMeta.textChannels.includes(data.channel)) {
+          currentServerMeta.textChannels.push(data.channel);
+        }
+        setChannel(data.channel);
       } else if (pendingChannelType === 'voice' && data.channel) {
+        if (currentServerMeta.voiceChannels && !currentServerMeta.voiceChannels.includes(data.channel)) {
+          currentServerMeta.voiceChannels.push(data.channel);
+        }
         currentVoiceChannel = data.channel;
         renderServerChannels();
       }
@@ -3382,7 +3476,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       return;
     }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-      alert('На этом устройстве или в мобильном браузере демонстрация экрана не поддерживается (используйте кнопку «📷 Камера»).');
+      alert('На этом устройстве демонстрация экрана не поддерживается (используйте кнопку «📷 Камера»).');
       return;
     }
     let displayStream;
@@ -3718,9 +3812,14 @@ const server = http.createServer(async (req, res) => {
       const client = { id, uid, room, nick: user.nick, inVoice: false, inScreen: false, inCam: false, peerId: null, voiceChannel: null, res };
       clients.push(client);
 
+      // Сразу передаём историю ВСЕХ каналов этого сервера в память браузера
       res.write('data: ' + JSON.stringify({
         type: 'server-meta',
-        payload: { current: meta, list: Object.values(serversMeta) }
+        payload: {
+          current: meta,
+          list: Object.values(serversMeta),
+          messagesByChannel: getRoom(room)
+        }
       }) + '\n\n');
 
       notifyAllRoomsOfUser(uid);
@@ -3731,17 +3830,62 @@ const server = http.createServer(async (req, res) => {
         const oldPeerId = client.peerId;
         const wasScreen = client.inScreen;
         const wasCam = client.inCam;
+        const oldRoom = client.room;
         clients = clients.filter(c => c !== client);
         if (wasScreen && oldPeerId) {
-          broadcast(room, 'screen-stop', { peerId: oldPeerId });
+          broadcast(oldRoom, 'screen-stop', { peerId: oldPeerId });
         }
         if (wasCam && oldPeerId) {
-          broadcast(room, 'cam-stop', { peerId: oldPeerId });
+          broadcast(oldRoom, 'cam-stop', { peerId: oldPeerId });
         }
         notifyAllRoomsOfUser(uid);
         notifyFriendsOf(uid);
       });
       return;
+    }
+
+    // Мгновенное переключение сервера без перезагрузки страницы
+    if (req.method === 'POST' && url.pathname === '/api/switch-room') {
+      const body = await readBody(req);
+      const uid = body.uid;
+      if (!validUid(uid)) return sendJson(res, 400, { error: 'Некорректный ID' });
+      const newRoom = safeRoom(body.room);
+      const meta = ensureServer(newRoom);
+      ensureUser(uid, body.nick || 'Участник', true);
+      addMember(newRoom, uid);
+
+      let oldRoom = null;
+      clients.forEach(c => {
+        if (c.id === body.id || c.uid === uid) {
+          oldRoom = c.room;
+          c.room = newRoom;
+          c.inVoice = false;
+          c.inScreen = false;
+          c.inCam = false;
+          c.peerId = null;
+          c.voiceChannel = null;
+        }
+      });
+
+      if (oldRoom && oldRoom !== newRoom) broadcastUsers(oldRoom);
+      broadcastUsers(newRoom);
+
+      return sendJson(res, 200, {
+        ok: true,
+        current: meta,
+        list: Object.values(serversMeta),
+        messagesByChannel: getRoom(newRoom),
+        users: memberList(newRoom)
+      });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/room-data') {
+      const room = safeRoom(url.searchParams.get('room'));
+      ensureServer(room);
+      return sendJson(res, 200, {
+        room: room,
+        messagesByChannel: getRoom(room)
+      });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/profile') {
