@@ -10,7 +10,7 @@ const DEFAULT_VOICE_CHANNELS = ['Ночной эфир'];
 const MAX_HISTORY = 500;
 const MAX_CHANNELS = 40;
 const MAX_SERVERS = 100;
-const MAX_BODY = 1024 * 1024;
+const MAX_BODY = 2 * 1024 * 1024;
 const CODE_TTL_MS = 10 * 60 * 1000;
 
 const TELEGRAM_BOT_TOKEN = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
@@ -66,10 +66,10 @@ function validPid(v) {
   return typeof v === 'string' && /^[a-f0-9]{10}$/.test(v);
 }
 function pidList(a) {
-  return Array.isArray(a) ? a.filter(validPid).slice(0, MAX_FRIENDS) : [];
+  return Array.isArray(a) ? Array.from(new Set(a.filter(validPid))).slice(0, MAX_FRIENDS) : [];
 }
 function roomList(a) {
-  return Array.isArray(a) ? a.filter(r => safeRoom(r) === r).slice(0, MAX_SERVERS) : [];
+  return Array.isArray(a) ? Array.from(new Set(a.filter(r => safeRoom(r) === r))).slice(0, MAX_SERVERS) : [];
 }
 
 function hashPassword(password, salt) {
@@ -140,7 +140,7 @@ function initDefaultServers() {
     rooms[DEFAULT_ROOM]['игровая-комната'].push({
       author: 'СИСТЕМА СИГНАЛ',
       time: '00:00',
-      text: 'Добро пожаловать в «Ночной клуб»! При звонке нажмите «🪟 Оверлей», чтобы вывести мини-окно разговора поверх всех окон и игр — связь работает даже при свёрнутом браузере.'
+      text: 'Добро пожаловать в «Ночной клуб»! Все друзья, серверы и каналы защищены от сброса при обновлениях, а системный оверлей звонка работает поверх всех окон даже при свёрнутом браузере.'
     });
   }
 }
@@ -279,7 +279,7 @@ async function startTelegramBotPolling() {
   })();
 }
 
-// ---------- Хранилище: Upstash Redis или локальный data.json ----------
+// ---------- Хранилище: Upstash Redis + локальный data.json + Клиентское Авто-Восстановление ----------
 const REDIS_URL = String(process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/+$/, '');
 const REDIS_TOKEN = String(process.env.UPSTASH_REDIS_REST_TOKEN || '');
 const USE_REDIS = !!(REDIS_URL && REDIS_TOKEN);
@@ -313,6 +313,7 @@ function usersPart() {
   Object.keys(users).forEach(uid => {
     const u = users[uid];
     o[uid] = {
+      pid: u.pid || pidOf(uid),
       nick: u.nick,
       tgId: u.tgId || '',
       tgUsername: u.tgUsername || '',
@@ -324,9 +325,9 @@ function usersPart() {
       presence: u.presence || 'online',
       bannerColor: u.bannerColor || '#0d9488',
       avatarColor: u.avatarColor || '#e11d48',
-      friends: u.friends,
-      incoming: u.incoming,
-      outgoing: u.outgoing,
+      friends: u.friends || [],
+      incoming: u.incoming || [],
+      outgoing: u.outgoing || [],
       servers: u.servers || []
     };
   });
@@ -339,7 +340,7 @@ function scheduleSave(room) {
   saveTimer = setTimeout(() => {
     saveTimer = null;
     saveNow();
-  }, USE_REDIS ? 2000 : 1000);
+  }, USE_REDIS ? 600 : 400);
 }
 
 async function saveNow() {
@@ -393,18 +394,27 @@ async function saveNow() {
 }
 
 function applyData(d) {
+  if (!d || typeof d !== 'object') return;
   if (d.servers && typeof d.servers === 'object') {
     Object.keys(d.servers).forEach(r => {
       if (safeRoom(r) !== r) return;
       const sm = d.servers[r] || {};
       const meta = ensureServer(r, sm.name, sm.desc, sm.icon);
       if (Array.isArray(sm.textChannels)) {
-        const tc = sm.textChannels.map(cleanChannelName).filter(Boolean).slice(0, MAX_CHANNELS);
-        if (tc.length) meta.textChannels = Array.from(new Set(tc));
+        const tc = sm.textChannels.map(cleanChannelName).filter(Boolean);
+        tc.forEach(c => {
+          if (!meta.textChannels.includes(c) && meta.textChannels.length < MAX_CHANNELS) {
+            meta.textChannels.push(c);
+          }
+        });
       }
       if (Array.isArray(sm.voiceChannels)) {
-        const vc = sm.voiceChannels.map(v => String(v || '').trim().slice(0, 28)).filter(Boolean).slice(0, MAX_CHANNELS);
-        if (vc.length) meta.voiceChannels = Array.from(new Set(vc));
+        const vc = sm.voiceChannels.map(v => String(v || '').trim().slice(0, 28)).filter(Boolean);
+        vc.forEach(c => {
+          if (!meta.voiceChannels.includes(c) && meta.voiceChannels.length < MAX_CHANNELS) {
+            meta.voiceChannels.push(c);
+          }
+        });
       }
       meta.textChannels.forEach(ch => {
         if (!rooms[r][ch]) rooms[r][ch] = [];
@@ -414,28 +424,31 @@ function applyData(d) {
   Object.keys(d.users || {}).forEach(uid => {
     if (!validUid(uid)) return;
     const u = d.users[uid] || {};
-    const tgId = String(u.tgId || '').trim();
-    const tgUsername = String(u.tgUsername || '').trim();
-    const nick = cleanNick(u.nick);
-    const passHash = String(u.passHash || '');
+    const existing = users[uid];
+    const tgId = String(u.tgId || (existing && existing.tgId) || '').trim();
+    const tgUsername = String(u.tgUsername || (existing && existing.tgUsername) || '').trim();
+    const nick = cleanNick(u.nick || (existing && existing.nick));
+    const passHash = String(u.passHash || (existing && existing.passHash) || '');
     const verified = u.verified !== undefined ? !!u.verified : true;
+    const customPid = validPid(u.pid) ? u.pid : (existing && existing.pid ? existing.pid : pidOf(uid));
+
     users[uid] = {
-      pid: pidOf(uid),
+      pid: customPid,
       nick: nick,
       tgId: tgId,
       tgUsername: tgUsername,
       passHash: passHash,
       verified: verified,
-      bio: cleanText(u.bio, 220),
-      interests: cleanText(u.interests, 160),
-      customStatus: cleanText(u.customStatus, 60),
-      presence: cleanPresence(u.presence),
-      bannerColor: cleanColor(u.bannerColor, '#0d9488'),
-      avatarColor: cleanColor(u.avatarColor, '#e11d48'),
-      friends: pidList(u.friends),
-      incoming: pidList(u.incoming),
-      outgoing: pidList(u.outgoing),
-      servers: roomList(u.servers)
+      bio: cleanText(u.bio !== undefined ? u.bio : (existing && existing.bio), 220),
+      interests: cleanText(u.interests !== undefined ? u.interests : (existing && existing.interests), 160),
+      customStatus: cleanText(u.customStatus !== undefined ? u.customStatus : (existing && existing.customStatus), 60),
+      presence: cleanPresence(u.presence || (existing && existing.presence)),
+      bannerColor: cleanColor(u.bannerColor || (existing && existing.bannerColor), '#0d9488'),
+      avatarColor: cleanColor(u.avatarColor || (existing && existing.avatarColor), '#e11d48'),
+      friends: pidList([].concat((existing && existing.friends) || [], u.friends || [])),
+      incoming: pidList([].concat((existing && existing.incoming) || [], u.incoming || [])),
+      outgoing: pidList([].concat((existing && existing.outgoing) || [], u.outgoing || [])),
+      servers: roomList([].concat((existing && existing.servers) || [], u.servers || []))
     };
     pidToUid[users[uid].pid] = uid;
     if (tgId) tgIdToUid[tgId] = uid;
@@ -444,8 +457,9 @@ function applyData(d) {
   Object.keys(d.members || {}).forEach(r => {
     if (safeRoom(r) !== r || !Array.isArray(d.members[r])) return;
     ensureServer(r);
-    members[r] = d.members[r].filter(validUid).slice(0, MAX_MEMBERS);
-    members[r].forEach(uid => {
+    const cur = members[r] || (members[r] = []);
+    d.members[r].filter(validUid).forEach(uid => {
+      if (!cur.includes(uid) && cur.length < MAX_MEMBERS) cur.push(uid);
       if (users[uid] && !users[uid].servers.includes(r)) {
         users[uid].servers.push(r);
       }
@@ -463,25 +477,51 @@ function applyData(d) {
       }
       const list = d.messages[r][ch];
       if (!Array.isArray(list)) return;
-      room[cleanCh] = list.slice(-MAX_HISTORY).map(m => ({
-        author: String(m.author || '').slice(0, 24),
-        time: String(m.time || '').slice(0, 5),
-        text: String(m.text || '').slice(0, 1000),
-        flags: detectContentFlags(m.text)
-      }));
+      const existingList = room[cleanCh] || [];
+      const seenKeys = new Set(existingList.map(m => (m.author + '|' + m.time + '|' + m.text)));
+      list.slice(-MAX_HISTORY).forEach(m => {
+        const cleanM = {
+          author: String(m.author || '').slice(0, 24),
+          time: String(m.time || '').slice(0, 5),
+          text: String(m.text || '').slice(0, 1000)
+        };
+        cleanM.flags = detectContentFlags(cleanM.text);
+        const k = cleanM.author + '|' + cleanM.time + '|' + cleanM.text;
+        if (!seenKeys.has(k) && cleanM.text) {
+          seenKeys.add(k);
+          existingList.push(cleanM);
+        }
+      });
+      room[cleanCh] = existingList.slice(-MAX_HISTORY);
     });
   });
 }
 
 async function loadData() {
   if (USE_REDIS) {
+    // Загружаем данные как из основного префикса signal:, так и из резервного signal:v3:, чтобы ничего не терялось
     const first = await redis([
       ['GET', KEY + 'users'],
       ['GET', KEY + 'members'],
       ['GET', KEY + 'rooms'],
-      ['GET', KEY + 'servers']
+      ['GET', KEY + 'servers'],
+      ['GET', 'signal:v3:users'],
+      ['GET', 'signal:v3:members'],
+      ['GET', 'signal:v3:servers']
     ]);
-    const roomNames = (first[2] ? JSON.parse(first[2]) : []).filter(n => safeRoom(n) === n);
+    if (first[4] || first[5] || first[6]) {
+      applyData({
+        users: first[4] ? JSON.parse(first[4]) : {},
+        members: first[5] ? JSON.parse(first[5]) : {},
+        servers: first[6] ? JSON.parse(first[6]) : {}
+      });
+    }
+    const roomNames = Array.from(new Set(
+      [].concat(
+        first[2] ? JSON.parse(first[2]) : [],
+        first[3] ? Object.keys(JSON.parse(first[3])) : []
+      )
+    )).filter(n => safeRoom(n) === n);
     const msgs = roomNames.length ? await redis(roomNames.map(n => ['GET', KEY + 'msg:' + n])) : [];
     const messages = {};
     roomNames.forEach((n, i) => {
@@ -498,6 +538,117 @@ async function loadData() {
   }
   loaded = true;
   console.log('💾 Хранилище: ' + (USE_REDIS ? 'Upstash Redis' : 'файл ' + DATA_FILE) + ', пользователей: ' + Object.keys(users).length);
+}
+
+// Синхронизация резервной копии из браузера пользователя (чтобы после замены server.js на Render друзья и серверы мгновенно восстанавливались)
+function restoreClientVault(v) {
+  if (!v || typeof v !== 'object') return false;
+  let updated = false;
+
+  // 1. Восстанавливаем известные профили друзей и участников (по их pid/uid)
+  if (Array.isArray(v.knownUsers)) {
+    v.knownUsers.forEach(ku => {
+      if (!ku || !validPid(ku.pid)) return;
+      let targetUid = pidToUid[ku.pid];
+      if (!targetUid) {
+        targetUid = validUid(ku.uid) ? ku.uid : crypto.createHash('sha256').update(' ghost-pid:' + ku.pid).digest('hex').slice(0, 32);
+      }
+      if (!users[targetUid]) {
+        users[targetUid] = {
+          pid: ku.pid,
+          nick: cleanNick(ku.nick),
+          tgId: '',
+          tgUsername: '',
+          passHash: '',
+          verified: true,
+          bio: cleanText(ku.bio, 220),
+          interests: cleanText(ku.interests, 160),
+          customStatus: cleanText(ku.customStatus, 60),
+          presence: cleanPresence(ku.presence),
+          bannerColor: cleanColor(ku.bannerColor, '#0d9488'),
+          avatarColor: cleanColor(ku.avatarColor, '#e11d48'),
+          friends: [],
+          incoming: [],
+          outgoing: [],
+          servers: []
+        };
+        pidToUid[ku.pid] = targetUid;
+        updated = true;
+      }
+    });
+  }
+
+  // 2. Восстанавливаем владельца хранилища и все его связи с друзьями
+  if (validUid(v.uid)) {
+    const me = ensureUser(v.uid, v.nick || 'Участник', true);
+    if (v.profile && typeof v.profile === 'object') {
+      if (v.profile.bio) me.bio = cleanText(v.profile.bio, 220);
+      if (v.profile.interests) me.interests = cleanText(v.profile.interests, 160);
+      if (v.profile.customStatus) me.customStatus = cleanText(v.profile.customStatus, 60);
+      if (v.profile.presence) me.presence = cleanPresence(v.profile.presence);
+      if (v.profile.bannerColor) me.bannerColor = cleanColor(v.profile.bannerColor, '#0d9488');
+      if (v.profile.avatarColor) me.avatarColor = cleanColor(v.profile.avatarColor, '#e11d48');
+    }
+    if (Array.isArray(v.friends)) {
+      v.friends.forEach(fPid => {
+        if (!validPid(fPid)) return;
+        if (!me.friends.includes(fPid) && me.friends.length < MAX_FRIENDS) {
+          me.friends.push(fPid);
+          updated = true;
+        }
+        const fUid = pidToUid[fPid];
+        if (fUid && users[fUid] && !users[fUid].friends.includes(me.pid)) {
+          users[fUid].friends.push(me.pid);
+        }
+      });
+    }
+    if (Array.isArray(v.incoming)) {
+      v.incoming.forEach(iPid => {
+        if (validPid(iPid) && !me.friends.includes(iPid) && !me.incoming.includes(iPid)) {
+          me.incoming.push(iPid);
+          updated = true;
+        }
+      });
+    }
+    if (Array.isArray(v.outgoing)) {
+      v.outgoing.forEach(oPid => {
+        if (validPid(oPid) && !me.friends.includes(oPid) && !me.outgoing.includes(oPid)) {
+          me.outgoing.push(oPid);
+          updated = true;
+        }
+      });
+    }
+  }
+
+  // 3. Восстанавливаем созданные серверы, каналы и историю сообщений
+  if (Array.isArray(v.servers)) {
+    const serversObj = {};
+    v.servers.forEach(s => {
+      if (s && s.id && safeRoom(s.id) === s.id) {
+        serversObj[s.id] = s;
+      }
+    });
+    applyData({ servers: serversObj });
+    updated = true;
+  }
+
+  if (v.room && safeRoom(v.room) === v.room && Array.isArray(v.roomMembersPids)) {
+    v.roomMembersPids.forEach(p => {
+      const uId = pidToUid[p];
+      if (uId) addMember(v.room, uId);
+    });
+  }
+
+  if (v.messages && typeof v.messages === 'object') {
+    applyData({ messages: v.messages });
+    Object.keys(v.messages).forEach(r => {
+      if (safeRoom(r) === r) dirtyRooms.add(r);
+    });
+    updated = true;
+  }
+
+  if (updated) scheduleSave();
+  return updated;
 }
 
 function ensureUser(uid, nick, verifiedFlag) {
@@ -652,7 +803,7 @@ function socialState(uid) {
   if (!u) return null;
   const info = pid => {
     const tu = pidToUid[pid];
-    if (!tu || !users[tu]) return { pid, nick: '?', online: false, presence: 'offline' };
+    if (!tu || !users[tu]) return { pid, nick: 'Друг (' + pid.slice(0, 4) + ')', online: false, presence: 'offline' };
     return publicProfileOf(tu);
   };
   return {
@@ -946,7 +1097,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   /* ---------- ПЛАВАЮЩИЙ МИНИ-ОВЕРЛЕЙ ЗВОНКА (ВНУТРИ ВКЛАДКИ И ПОВЕРХ ОКОН) ---------- */
   .floating-call-overlay {
-    position: fixed; right: 18px; bottom: 72px; width: 290px;
+    position: fixed; right: 18px; bottom: 72px; width: 300px;
     background: rgba(8, 13, 20, 0.96); border: 1px solid var(--cyan-border);
     border-radius: 12px; padding: 10px 12px; z-index: 980;
     box-shadow: 0 14px 40px rgba(0,0,0,0.85), 0 0 16px rgba(45,212,191,0.18);
@@ -1341,14 +1492,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div>
               <div class="voice-label">ГОЛОСОВОЙ КАНАЛ, КАМЕРА И ОВЕРЛЕЙ // WEBRTC P2P</div>
               <div class="voice-title" id="voice-panel-title">Общий разговор участников канала («Ночной эфир»)</div>
-              <div class="voice-sub" id="voice-sub-status">Звонок продолжает работать при сворачивании браузера. Нажмите «🪟 Оверлей» для окна поверх всех программ.</div>
+              <div class="voice-sub" id="voice-sub-status">Нажмите «🪟 Оверлей (Не пропадает)», чтобы закрепить системное мини-окно поверх всех игр и рабочего стола даже при сворачивании браузера.</div>
             </div>
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
               <button class="btn-mute" id="mute-btn" style="display:none;" onclick="toggleMute()">🎤 Микр. вкл</button>
               <button class="btn-mute" id="deafen-btn" style="display:none;" onclick="toggleDeafen()" title="Отключить весь входящий звук">🎧 Звук вкл</button>
               <button class="btn-mute" id="cam-btn" onclick="toggleWebcam()" title="Включить веб-камеру при разговоре">📷 Камера</button>
               <button class="btn-mute" id="screen-btn" onclick="toggleScreenShare()" title="Транслировать экран, окно или вкладку">🖥️ Экран</button>
-              <button class="btn-mute" id="pip-overlay-btn" onclick="toggleExternalOverlay()" title="Открыть плавающий оверлей звонка поверх всех окон и игр">🪟 Оверлей</button>
+              <button class="btn-mute" id="pip-overlay-btn" onclick="toggleExternalOverlay()" title="Системный оверлей поверх всех окон (не пропадает при сворачивании браузера)">🪟 Оверлей</button>
               <button class="btn-mute" onclick="openSettingsModal('voice')" title="Настройки микрофона, звука и оверлея">⚙️</button>
               <button class="btn-cyan" id="connect-voice-btn" onclick="toggleVoiceCall()">ПОДКЛЮЧИТЬСЯ</button>
             </div>
@@ -1369,7 +1520,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           <input type="text" id="chat-input" class="chat-inp" placeholder="Написать сообщение..." autocomplete="off" maxlength="1000">
           <button type="submit" class="btn-cyan">ОТПРАВИТЬ</button>
         </form>
-        <div class="bottom-hint">ENTER — ОТПРАВИТЬ • ЗВОНОК И ОВЕРЛЕЙ ПРОДОЛЖАЮТ РАБОТАТЬ ДАЖЕ ПРИ СВОРАЧИВАНИИ БРАУЗЕРА</div>
+        <div class="bottom-hint">ENTER — ОТПРАВИТЬ • ВСЕ ДРУЗЬЯ, СЕРВЕРЫ И КАНАЛЫ АВТОМАТИЧЕСКИ СОХРАНЯЮТСЯ ПРИ ОБНОВЛЕНИЯХ</div>
       </div>
     </div>
 
@@ -1395,7 +1546,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- Плавающий мини-оверлей активного звонка (перетаскиваемый виджет + запуск системного PiP-оверлея поверх окон) -->
+  <!-- Встроенный перетаскиваемый виджет + быстрый запуск неубиваемого системного PiP-оверлея -->
   <div class="floating-call-overlay" id="floating-call-overlay">
     <div class="fco-head" id="fco-drag-handle">
       <div class="fco-live">
@@ -1408,12 +1559,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     <div class="fco-actions">
       <button class="fco-btn" id="fco-mute-btn" onclick="toggleMute()">🎤 Вкл</button>
       <button class="fco-btn" id="fco-deaf-btn" onclick="toggleDeafen()">🎧 Вкл</button>
-      <button class="fco-btn" id="fco-pip-btn" onclick="toggleExternalOverlay()" title="Вынести поверх всех окон Windows/Mac/телефона">🪟 Поверх</button>
+      <button class="fco-btn" id="fco-pip-btn" onclick="toggleExternalOverlay()" title="Закрепить системное окно поверх рабочего стола (не исчезает при сворачивании браузера)">🪟 Поверх</button>
       <button class="fco-btn danger" onclick="toggleVoiceCall()">🛑 Выход</button>
     </div>
   </div>
 
-  <!-- Нижняя навигационная панель для смартфонов (как в мобильном приложении Discord) -->
+  <!-- Нижняя навигационная панель для смартфонов -->
   <div class="mob-bottom-nav" id="mob-bottom-nav">
     <div class="mob-nav-item" id="mob-tab-left" onclick="toggleMobileLeft()">
       <span class="ico">☰</span>
@@ -1640,7 +1791,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div class="toggle-row">
               <div class="toggle-text-col">
                 <div class="toggle-title">🪟 Игровой оверлей звонка поверх всех окон (PiP Overlay)</div>
-                <div class="toggle-sub">Показывает плавающий виджет разговора и удерживает связь активной при сворачивании браузера</div>
+                <div class="toggle-sub">Закрепляет окно звонка поверх рабочего стола, чтобы оно не пропадало при сворачивании браузера</div>
               </div>
               <label class="cyber-switch">
                 <input type="checkbox" id="chk-auto-overlay" checked onchange="saveAudioVideoSettings()">
@@ -1772,14 +1923,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Вкладка 6: Учётная запись -->
+        <!-- Вкладка 6: Учётная запись и резервная защита -->
         <div class="settings-pane" id="pane-account">
           <div class="settings-head">
-            <h3>Учётная запись и сессия</h3>
+            <h3>Учётная запись и защита данных</h3>
           </div>
           <div class="settings-card">
             <div style="font-size:12px;color:#cbd5e1;line-height:1.5;">
-              Ваш аккаунт автоматически сохранён в этом браузере — повторный вход при перезагрузке страницы не требуется.
+              Ваш аккаунт, список друзей, созданные серверы и каналы автоматически сохраняются в памяти браузера и мгновенно восстанавливаются на сервере после любых обновлений кода.
             </div>
             <div class="settings-grid-2">
               <button class="btn-cyan" onclick="closeSettingsModal();openAuthModal(false)">✈️ Сменить аккаунт / Telegram</button>
@@ -2083,6 +2234,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let tgPollTimer = null;
 
   let roomMessagesCache = {};
+  let allRoomsMessagesVault = {};
+  let knownUsersByPid = {};
   let unreadByChannel = {};
   let cachedMessages = [];
   let profileSyncTimer = null;
@@ -2105,10 +2258,116 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let pendingChannelType = 'text';
   let micTestStream = null, micTestTimer = null;
 
-  // Переменные для фоновой работы звонка и плавающего оверлея поверх окон (PiP)
-  let callStartTime = 0, callDurationTimer = null;
+  // Переменные для фоновой работы звонка и системного PiP-оверлея, не исчезающего при сворачивании браузера
+  let callStartTime = 0;
   let voiceLockRelease = null, wakeLockSentinel = null, keepAliveAudioEl = null;
-  let docPipWindow = null, canvasPipVideo = null, canvasPipTimer = null;
+  let pipCanvas = null, pipCtx = null, canvasPipVideo = null, pipWorker = null;
+
+  // ---------- АВТО-СОХРАНЕНИЕ И ВОССТАНОВЛЕНИЕ ДРУЗЕЙ И СЕРВЕРОВ (VAULT AUTO-RESTORE) ----------
+  function loadLocalVault() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}');
+      if (raw.knownUsers && typeof raw.knownUsers === 'object') {
+        knownUsersByPid = raw.knownUsers;
+      }
+      if (raw.messages && typeof raw.messages === 'object') {
+        allRoomsMessagesVault = raw.messages;
+      }
+      if (Array.isArray(raw.servers) && raw.servers.length) {
+        serversList = raw.servers;
+      }
+      if (Array.isArray(raw.friendsPids) && (!social.friends || !social.friends.length)) {
+        social.friends = raw.friendsPids.map(function (pid) {
+          return knownUsersByPid[pid] || { pid: pid, nick: 'Друг', online: false };
+        });
+      }
+    } catch (e) {}
+  }
+  loadLocalVault();
+
+  function saveLocalVault() {
+    try {
+      (lastMembers || []).forEach(function (u) {
+        if (u && u.pid) {
+          knownUsersByPid[u.pid] = Object.assign({}, knownUsersByPid[u.pid] || {}, u);
+        }
+      });
+      (social.friends || []).forEach(function (f) {
+        if (f && f.pid && f.nick && !f.nick.startsWith('Друг (')) {
+          knownUsersByPid[f.pid] = Object.assign({}, knownUsersByPid[f.pid] || {}, f);
+        }
+      });
+      if (currentRoom && Object.keys(roomMessagesCache).length) {
+        allRoomsMessagesVault[currentRoom] = roomMessagesCache;
+      }
+      const prevRaw = JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}');
+      const currentFriendsPids = (social.friends || []).map(function (f) { return f.pid; });
+      const mergedFriendsPids = currentFriendsPids.length ? currentFriendsPids : (prevRaw.friendsPids || []);
+
+      const vault = {
+        uid: myUid,
+        nick: myNick,
+        profile: myProfile,
+        friendsPids: mergedFriendsPids,
+        incomingPids: (social.incoming || []).map(function (i) { return i.pid; }),
+        outgoingPids: social.outgoing || [],
+        knownUsers: knownUsersByPid,
+        servers: serversList,
+        room: currentRoom,
+        roomMembersPids: (lastMembers || []).map(function (m) { return m.pid; }),
+        messages: allRoomsMessagesVault
+      };
+      localStorage.setItem('cyber_vault_v1', JSON.stringify(vault));
+    } catch (e) {}
+  }
+
+  async function syncLocalVaultToServer() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}');
+      if (!raw || !raw.uid) return;
+      const knownArr = Object.keys(raw.knownUsers || {}).map(function (k) { return raw.knownUsers[k]; });
+      const res = await fetch('/api/vault-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: myUid,
+          nick: myNick,
+          profile: myProfile,
+          friends: raw.friendsPids || [],
+          incoming: raw.incomingPids || [],
+          outgoing: raw.outgoingPids || [],
+          knownUsers: knownArr,
+          servers: raw.servers || [],
+          room: currentRoom,
+          roomMembersPids: raw.roomMembersPids || [],
+          messages: raw.messages || {}
+        })
+      });
+      const data = await res.json();
+      if (data && data.ok) {
+        if (data.list && data.list.length) {
+          serversList = data.list;
+          const found = serversList.find(function (s) { return s.id === currentRoom; });
+          if (found) currentServerMeta = found;
+          renderServersRail();
+          renderServerChannels();
+        }
+        if (data.messagesByChannel) {
+          roomMessagesCache = data.messagesByChannel;
+          cachedMessages = roomMessagesCache[currentChannel] || [];
+          rerenderChatMessages();
+        }
+        if (data.social) {
+          myPid = data.social.pid;
+          social = data.social;
+          renderSocial();
+        }
+        if (Array.isArray(data.users)) {
+          renderUsers(data.users);
+        }
+      }
+    } catch (e) {}
+  }
 
   function escapeHtml(s) {
     return String(s)
@@ -2147,9 +2406,176 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
   }
 
-  // ---------- ЗАЩИТА ОТ ЗАСЫПАНИЯ ПРИ СВОРАЧИВАНИИ БРАУЗЕРА И ПЛАВАЮЩИЙ ОВЕРЛЕЙ ----------
+  // ---------- НЕУБИВАЕМЫЙ СИСТЕМНЫЙ ОВЕРЛЕЙ УРОВНЯ ОС (РАБОТАЕТ ПРИ СВОРАЧИВАНИИ БРАУЗЕРА) ----------
+  function ensurePipRenderEngine() {
+    if (!pipCanvas) {
+      pipCanvas = document.createElement('canvas');
+      pipCanvas.width = 460;
+      pipCanvas.height = 260;
+      pipCtx = pipCanvas.getContext('2d');
+    }
+    if (!canvasPipVideo) {
+      canvasPipVideo = document.createElement('video');
+      canvasPipVideo.muted = true;
+      canvasPipVideo.autoplay = true;
+      canvasPipVideo.playsInline = true;
+      // Включаем авто-вывод системного оверлея при сворачивании браузера в поддерживаемых браузерах
+      canvasPipVideo.autoPictureInPicture = true;
+      canvasPipVideo.style.cssText = 'position:fixed;width:2px;height:2px;opacity:0.01;pointer-events:none;bottom:0;right:0;z-index:-1;';
+      document.body.appendChild(canvasPipVideo);
+
+      canvasPipVideo.addEventListener('enterpictureinpicture', function () {
+        const b1 = document.getElementById('pip-overlay-btn');
+        const b2 = document.getElementById('fco-pip-btn');
+        if (b1) b1.classList.add('active-cam');
+        if (b2) b2.classList.add('active-pip');
+      });
+      canvasPipVideo.addEventListener('leavepictureinpicture', function () {
+        const b1 = document.getElementById('pip-overlay-btn');
+        const b2 = document.getElementById('fco-pip-btn');
+        if (b1) b1.classList.remove('active-cam');
+        if (b2) b2.classList.remove('active-pip');
+      });
+    }
+    if (!pipWorker) {
+      // Web Worker работает в отдельном потоке и НЕ замораживается при сворачивании окна браузера
+      try {
+        const blob = new Blob([
+          'setInterval(function(){ postMessage(Date.now()); }, 250);'
+        ], { type: 'application/javascript' });
+        pipWorker = new Worker(URL.createObjectURL(blob));
+        pipWorker.onmessage = function () {
+          if (!inVoice) return;
+          const elapsed = callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
+          const tEl = document.getElementById('fco-timer-label');
+          if (tEl) tEl.textContent = formatCallTime(elapsed);
+          drawSystemPipOverlayFrame();
+        };
+      } catch (e) {
+        setInterval(function () {
+          if (!inVoice) return;
+          drawSystemPipOverlayFrame();
+        }, 300);
+      }
+    }
+  }
+
+  function drawSystemPipOverlayFrame() {
+    if (!pipCtx || !pipCanvas) return;
+    const ctx = pipCtx;
+    const W = pipCanvas.width;
+    const H = pipCanvas.height;
+
+    ctx.fillStyle = '#05080f';
+    ctx.fillRect(0, 0, W, H);
+
+    // Если кто-то транслирует экран или камеру, рисуем живое видео на фоне системного оверлея
+    const activeVideo = document.querySelector('#screen-grid video');
+    if (activeVideo && activeVideo.readyState >= 2) {
+      try {
+        ctx.drawImage(activeVideo, 0, 42, W, H - 82);
+        ctx.fillStyle = 'rgba(4, 7, 13, 0.55)';
+        ctx.fillRect(0, 42, W, H - 82);
+      } catch (e) {}
+    }
+
+    // Неоновая рамка
+    ctx.strokeStyle = isMuted ? '#f43f5e' : '#2dd4bf';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(2, 2, W - 4, H - 4);
+
+    // Верхняя шапка оверлея
+    ctx.fillStyle = '#09101a';
+    ctx.fillRect(4, 4, W - 8, 38);
+
+    ctx.fillStyle = '#e11d48';
+    ctx.fillRect(14, 11, 74, 24);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('СИГНАЛ', 24, 27);
+
+    ctx.fillStyle = '#2dd4bf';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText('🔊 ' + currentVoiceChannel, 98, 28);
+
+    const elapsed = callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = 'bold 14px monospace';
+    ctx.fillText(formatCallTime(elapsed), W - 64, 28);
+
+    // Список участников голосового канала
+    const vUsers = getVoiceChannelMembers();
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('УЧАСТНИКИ В КАНАЛЕ (' + vUsers.length + '):', 16, 64);
+
+    vUsers.slice(0, 5).forEach(function (u, idx) {
+      const y = 88 + idx * 25;
+      ctx.fillStyle = 'rgba(15, 23, 34, 0.85)';
+      ctx.fillRect(14, y - 16, W - 28, 22);
+
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath();
+      ctx.arc(26, y - 5, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 13px sans-serif';
+      const tags = (u.pid === myPid ? ' (Вы)' : '') + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '');
+      ctx.fillText(u.nick + tags, 38, y);
+    });
+
+    // Нижняя панель статуса микрофона и звука
+    ctx.fillStyle = '#09101a';
+    ctx.fillRect(4, H - 38, W - 8, 34);
+
+    ctx.fillStyle = isMuted ? '#fda4af' : '#4ade80';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText(isMuted ? '🔇 МИКРОФОН ВЫКЛ' : '🎤 МИКРОФОН ВКЛ', 16, H - 16);
+
+    ctx.fillStyle = isDeafened ? '#fda4af' : '#38bdf8';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText(isDeafened ? '🔇 ЗВУК ОТКЛ' : '🎧 В ЭФИРЕ', W - 120, H - 16);
+  }
+
+  async function toggleExternalOverlay() {
+    if (!inVoice) {
+      const ok = await ensureVoiceConnected();
+      if (!ok) return;
+    }
+    if (document.pictureInPictureElement) {
+      closeExternalOverlay();
+      return;
+    }
+    try {
+      ensurePipRenderEngine();
+      drawSystemPipOverlayFrame();
+      if (!canvasPipVideo.srcObject) {
+        canvasPipVideo.srcObject = pipCanvas.captureStream(15);
+      }
+      await canvasPipVideo.play();
+      if (canvasPipVideo.requestPictureInPicture) {
+        await canvasPipVideo.requestPictureInPicture();
+      } else if (canvasPipVideo.webkitSetPresentationMode) {
+        canvasPipVideo.webkitSetPresentationMode('picture-in-picture');
+      }
+    } catch (e) {
+      alert('Нажмите кнопку «🪟 Оверлей» ещё раз для закрепления окна поверх экрана.');
+    }
+  }
+
+  function closeExternalOverlay() {
+    if (document.pictureInPictureElement) {
+      try { document.exitPictureInPicture(); } catch (e) {}
+    }
+    const b1 = document.getElementById('pip-overlay-btn');
+    const b2 = document.getElementById('fco-pip-btn');
+    if (b1) b1.classList.remove('active-cam');
+    if (b2) b2.classList.remove('active-pip');
+  }
+
   function startBackgroundCallPersistence() {
-    // 1. Удерживаем Web Lock, чтобы браузер не замораживал свёрнутую вкладку
+    // 1. Web Lock API запрещает браузеру замораживать вкладку при сворачивании
     if (navigator.locks && navigator.locks.request && !voiceLockRelease) {
       navigator.locks.request('signal_active_voice_call', { mode: 'exclusive' }, function () {
         return new Promise(function (resolve) {
@@ -2158,14 +2584,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       }).catch(function () {});
     }
 
-    // 2. WakeLock для удержания активности на смартфонах
+    // 2. WakeLock удерживает устройство активным
     if (navigator.wakeLock && navigator.wakeLock.request && !wakeLockSentinel) {
       navigator.wakeLock.request('screen').then(function (s) {
         wakeLockSentinel = s;
       }).catch(function () {});
     }
 
-    // 3. Непрерывный фоновый аудио-мост + регистрация в системном MediaSession
+    // 3. Непрерывный аудио-мост + подготовка системного PiP видеопотока
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -2173,7 +2599,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const osc = audioCtx.createOscillator();
       const g = audioCtx.createGain();
       osc.frequency.value = 40;
-      g.gain.value = 0.0001; // Неслышимый сигнал для поддержки аудиопроцесса ОС в фоне
+      g.gain.value = 0.0001;
       osc.connect(g);
       g.connect(dst);
       osc.start();
@@ -2188,6 +2614,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       keepAliveAudioEl.play().catch(function () {});
     } catch (e) {}
 
+    callStartTime = Date.now();
+    ensurePipRenderEngine();
+    drawSystemPipOverlayFrame();
+    try {
+      if (!canvasPipVideo.srcObject) {
+        canvasPipVideo.srcObject = pipCanvas.captureStream(15);
+      }
+      canvasPipVideo.play().catch(function () {});
+    } catch (e) {}
+
+    // 4. Интеграция с системными кнопками MediaSession (управление микрофоном прямо из мини-окна PiP)
     if ('mediaSession' in navigator) {
       try {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -2198,29 +2635,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         navigator.mediaSession.playbackState = 'playing';
         navigator.mediaSession.setActionHandler('play', function () {
           if (isMuted) toggleMute();
+          if (canvasPipVideo) canvasPipVideo.play().catch(function () {});
         });
         navigator.mediaSession.setActionHandler('pause', function () {
           toggleMute();
+          if (canvasPipVideo) canvasPipVideo.play().catch(function () {});
         });
         navigator.mediaSession.setActionHandler('hangup', function () {
           if (inVoice) toggleVoiceCall();
         });
       } catch (e) {}
     }
-
-    callStartTime = Date.now();
-    if (callDurationTimer) clearInterval(callDurationTimer);
-    callDurationTimer = setInterval(function () {
-      if (!inVoice) return;
-      const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
-      const tStr = formatCallTime(elapsed);
-      const tEl = document.getElementById('fco-timer-label');
-      if (tEl) tEl.textContent = tStr;
-      if (docPipWindow && !docPipWindow.closed) {
-        const pt = docPipWindow.document.getElementById('pip-timer');
-        if (pt) pt.textContent = tStr;
-      }
-    }, 1000);
 
     updateFloatingOverlayUI();
   }
@@ -2237,10 +2662,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (keepAliveAudioEl) {
       try { keepAliveAudioEl.pause(); keepAliveAudioEl.srcObject = null; } catch (e) {}
     }
-    if (callDurationTimer) {
-      clearInterval(callDurationTimer);
-      callDurationTimer = null;
-    }
     if ('mediaSession' in navigator) {
       try { navigator.mediaSession.playbackState = 'none'; } catch (e) {}
     }
@@ -2248,7 +2669,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     updateFloatingOverlayUI();
   }
 
-  // При сворачивании или разворачивании браузера поддерживаем AudioContext и потоки активными
   document.addEventListener('visibilitychange', function () {
     if (!inVoice) return;
     if (audioCtx && audioCtx.state === 'suspended') {
@@ -2259,6 +2679,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     });
     if (keepAliveAudioEl && keepAliveAudioEl.paused) {
       keepAliveAudioEl.play().catch(function () {});
+    }
+    if (canvasPipVideo && canvasPipVideo.paused) {
+      canvasPipVideo.play().catch(function () {});
     }
   });
 
@@ -2296,13 +2719,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       peersBox.appendChild(chip);
     });
 
-    // Обновляем открытое плавающее окно Document PiP (если активно)
-    if (docPipWindow && !docPipWindow.closed) {
-      renderDocPipContent();
-    }
+    drawSystemPipOverlayFrame();
   }
 
-  // Перетаскивание встроенного оверлея мышью или пальцем
   (function initDraggableOverlay() {
     const card = document.getElementById('floating-call-overlay');
     const handle = document.getElementById('fco-drag-handle');
@@ -2339,200 +2758,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     }, { passive: true });
     window.addEventListener('touchend', onEnd);
   })();
-
-  // ---------- ВЫНОСНОЙ ОВЕРЛЕЙ ПОВЕРХ ВСЕХ ОКОН И ИГР (Document PiP + Canvas PiP) ----------
-  async function toggleExternalOverlay() {
-    if (!inVoice) {
-      const ok = await ensureVoiceConnected();
-      if (!ok) return;
-    }
-    if ((docPipWindow && !docPipWindow.closed) || document.pictureInPictureElement) {
-      closeExternalOverlay();
-      return;
-    }
-    // 1. В браузерах Chrome / Edge / Яндекс открываем интерактивный Document Picture-in-Picture оверлей
-    if ('documentPictureInPicture' in window) {
-      try {
-        docPipWindow = await window.documentPictureInPicture.requestWindow({
-          width: 320,
-          height: 230
-        });
-        setupDocPipWindow(docPipWindow);
-        document.getElementById('pip-overlay-btn').classList.add('active-cam');
-        document.getElementById('fco-pip-btn').classList.add('active-pip');
-        return;
-      } catch (e) {}
-    }
-    // 2. Универсальный Canvas Video PiP оверлей (Safari, Firefox, мобильные браузеры)
-    await startCanvasVideoPipOverlay();
-  }
-
-  function closeExternalOverlay() {
-    if (docPipWindow && !docPipWindow.closed) {
-      try { docPipWindow.close(); } catch (e) {}
-    }
-    docPipWindow = null;
-    if (canvasPipTimer) {
-      clearInterval(canvasPipTimer);
-      canvasPipTimer = null;
-    }
-    if (document.pictureInPictureElement) {
-      try { document.exitPictureInPicture(); } catch (e) {}
-    }
-    const b1 = document.getElementById('pip-overlay-btn');
-    const b2 = document.getElementById('fco-pip-btn');
-    if (b1) b1.classList.remove('active-cam');
-    if (b2) b2.classList.remove('active-pip');
-  }
-
-  function setupDocPipWindow(pipWin) {
-    const doc = pipWin.document;
-    doc.head.innerHTML = '<meta charset="UTF-8"><title>СИГНАЛ Оверлей</title>' +
-      '<style>' +
-      '*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;user-select:none;}' +
-      'body{background:#060a10;color:#f1f5f9;padding:12px;height:100vh;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(45,212,191,0.4);}' +
-      '.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px;}' +
-      '.badge{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:#2dd4bf;}' +
-      '.dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;}' +
-      '.timer{font-family:monospace;font-size:11px;background:rgba(255,255,255,0.07);padding:2px 7px;border-radius:4px;color:#cbd5e1;}' +
-      '.peers{display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;overflow-y:auto;flex:1;align-content:flex-start;}' +
-      '.chip{display:inline-flex;align-items:center;gap:6px;background:#0f1722;border:1px solid rgba(45,212,191,0.3);padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;}' +
-      '.btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);}' +
-      'button{background:#131c28;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:8px 6px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;}' +
-      'button:hover{border-color:#2dd4bf;color:#2dd4bf;}' +
-      'button.off{background:rgba(244,63,94,0.2);border-color:#f43f5e;color:#fda4af;}' +
-      'button.hang{background:#ef4444;border-color:#ef4444;color:#fff;}' +
-      '</style>';
-
-    doc.body.innerHTML =
-      '<div class="top">' +
-      '  <div class="badge"><span class="dot"></span><span id="pip-ch"></span></div>' +
-      '  <span class="timer" id="pip-timer">00:00</span>' +
-      '</div>' +
-      '<div class="peers" id="pip-peers"></div>' +
-      '<div class="btns">' +
-      '  <button id="pip-mute"></button>' +
-      '  <button id="pip-deaf"></button>' +
-      '  <button class="hang" id="pip-hang">🛑 Выход</button>' +
-      '</div>';
-
-    doc.getElementById('pip-mute').onclick = function () { toggleMute(); };
-    doc.getElementById('pip-deaf').onclick = function () { toggleDeafen(); };
-    doc.getElementById('pip-hang').onclick = function () { toggleVoiceCall(); };
-
-    pipWin.addEventListener('pagehide', function () {
-      docPipWindow = null;
-      const b1 = document.getElementById('pip-overlay-btn');
-      const b2 = document.getElementById('fco-pip-btn');
-      if (b1) b1.classList.remove('active-cam');
-      if (b2) b2.classList.remove('active-pip');
-    });
-
-    renderDocPipContent();
-  }
-
-  function renderDocPipContent() {
-    if (!docPipWindow || docPipWindow.closed) return;
-    const doc = docPipWindow.document;
-    const chEl = doc.getElementById('pip-ch');
-    if (chEl) chEl.textContent = '🔊 ' + currentVoiceChannel;
-
-    const mBtn = doc.getElementById('pip-mute');
-    if (mBtn) {
-      mBtn.textContent = isMuted ? '🔇 Микр. выкл' : '🎤 Микр. вкл';
-      mBtn.className = isMuted ? 'off' : '';
-    }
-    const dBtn = doc.getElementById('pip-deaf');
-    if (dBtn) {
-      dBtn.textContent = isDeafened ? '🔇 Звук выкл' : '🎧 Звук вкл';
-      dBtn.className = isDeafened ? 'off' : '';
-    }
-
-    const peersBox = doc.getElementById('pip-peers');
-    if (peersBox) {
-      peersBox.innerHTML = '';
-      getVoiceChannelMembers().forEach(function (u) {
-        const c = doc.createElement('div');
-        c.className = 'chip';
-        c.textContent = '🟢 ' + u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '');
-        peersBox.appendChild(c);
-      });
-    }
-  }
-
-  async function startCanvasVideoPipOverlay() {
-    try {
-      // Если в канале уже есть активное видео (экран или камера), можем вывести его или живой кибер-виджет
-      const canvas = document.createElement('canvas');
-      canvas.width = 420;
-      canvas.height = 240;
-      const ctx = canvas.getContext('2d');
-
-      function drawOverlayFrame() {
-        ctx.fillStyle = '#060a11';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = '#14b8a6';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
-
-        ctx.fillStyle = '#e11d48';
-        ctx.fillRect(16, 14, 78, 22);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 12px sans-serif';
-        ctx.fillText('СИГНАЛ', 26, 29);
-
-        ctx.fillStyle = '#2dd4bf';
-        ctx.font = 'bold 15px sans-serif';
-        ctx.fillText('🔊 ' + currentVoiceChannel, 106, 30);
-
-        const elapsed = callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '13px monospace';
-        ctx.fillText(formatCallTime(elapsed), 355, 29);
-
-        ctx.fillStyle = isMuted ? '#f43f5e' : '#34d399';
-        ctx.font = 'bold 13px sans-serif';
-        ctx.fillText(isMuted ? '🔇 Микрофон выключен' : '🎤 Микрофон включён', 16, 62);
-
-        ctx.fillStyle = '#cbd5e1';
-        ctx.font = '12px sans-serif';
-        ctx.fillText('Участники на связи:', 16, 92);
-
-        const vUsers = getVoiceChannelMembers();
-        vUsers.slice(0, 5).forEach(function (u, idx) {
-          const y = 118 + idx * 24;
-          ctx.fillStyle = '#22c55e';
-          ctx.beginPath();
-          ctx.arc(24, y - 4, 5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#f1f5f9';
-          ctx.font = 'bold 13px sans-serif';
-          ctx.fillText(u.nick + (u.inCam ? ' [Камера]' : '') + (u.inScreen ? ' [Экран]' : ''), 36, y);
-        });
-      }
-
-      drawOverlayFrame();
-      if (canvasPipTimer) clearInterval(canvasPipTimer);
-      canvasPipTimer = setInterval(drawOverlayFrame, 500);
-
-      if (!canvasPipVideo) {
-        canvasPipVideo = document.createElement('video');
-        canvasPipVideo.muted = true;
-        canvasPipVideo.playsInline = true;
-        canvasPipVideo.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;bottom:0;right:0;';
-        document.body.appendChild(canvasPipVideo);
-      }
-      canvasPipVideo.srcObject = canvas.captureStream(10);
-      await canvasPipVideo.play();
-      if (canvasPipVideo.requestPictureInPicture) {
-        await canvasPipVideo.requestPictureInPicture();
-        document.getElementById('pip-overlay-btn').classList.add('active-cam');
-        document.getElementById('fco-pip-btn').classList.add('active-pip');
-      }
-    } catch (e) {
-      alert('Плавающий виджет звонка уже закреплён в правом нижнем углу экрана!');
-    }
-  }
 
   function switchAuthTab(mode) {
     const isTg = mode === 'tg';
@@ -2654,7 +2879,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     }
     currentRoom = clean;
     unreadByChannel = {};
-    roomMessagesCache = {};
+    roomMessagesCache = allRoomsMessagesVault[currentRoom] || {};
     try { localStorage.setItem('cyber_last_room', currentRoom); } catch (e) {}
 
     const found = serversList.find(function (s) { return s.id === currentRoom; });
@@ -2688,6 +2913,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         renderServerChannels();
         rerenderChatMessages();
         if (Array.isArray(data.users)) renderUsers(data.users);
+        saveLocalVault();
       }
     } catch (e) {}
   }
@@ -2713,18 +2939,21 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         renderServerChannels();
         cachedMessages = roomMessagesCache[currentChannel] || [];
         rerenderChatMessages();
-        if (myVerified) syncProfileToServer();
+        // Мгновенно синхронизируем сохранённое хранилище браузера с сервером (чтобы после замены server.js на Render друзья и серверы не пропадали)
+        syncLocalVaultToServer();
       } else if (data.type === 'servers') {
         serversList = data.payload.list || [];
         const found = serversList.find(function (s) { return s.id === currentRoom; });
         if (found) currentServerMeta = found;
         renderServersRail();
         renderServerChannels();
+        saveLocalVault();
       } else if (data.type === 'msg') {
         const ch = data.payload.channel;
         const msg = data.payload.msg;
         if (!roomMessagesCache[ch]) roomMessagesCache[ch] = [];
         roomMessagesCache[ch].push(msg);
+        saveLocalVault();
 
         if (ch === currentChannel) {
           cachedMessages = roomMessagesCache[ch];
@@ -2739,6 +2968,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       } else if (data.type === 'users') {
         renderUsers(data.payload);
         updateFloatingOverlayUI();
+        saveLocalVault();
       } else if (data.type === 'social') {
         myPid = data.payload.pid;
         social = data.payload;
@@ -2765,6 +2995,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         applyNickUI();
         renderSocial();
         renderUsers(lastMembers);
+        saveLocalVault();
       } else if (data.type === 'voice-join') {
         if (inVoice && peer && localStream && myPeerId && data.payload.peerId !== myPeerId && data.payload.voiceChannel === currentVoiceChannel) {
           const pid = data.payload.peerId;
@@ -2797,6 +3028,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   applyAppearanceFromStorage();
   renderServersRail();
   renderServerChannels();
+  renderSocial();
   connectEventStream();
 
   if (!myVerified) {
@@ -2861,7 +3093,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       body: JSON.stringify({ uid: myUid, action: action, target: pid })
     })
       .then(function (r) { return r.json(); })
-      .then(function (d) { if (d.error) alert(d.error); })
+      .then(function (d) {
+        if (d.error) alert(d.error);
+        else saveLocalVault();
+      })
       .catch(function () { alert('Ошибка соединения с сервером.'); });
   }
 
@@ -2949,10 +3184,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       fb.appendChild(hint);
     }
     friends.forEach(function (f) {
+      const cachedF = knownUsersByPid[f.pid] || {};
+      const dispNick = (f.nick && !f.nick.startsWith('Друг (')) ? f.nick : (cachedF.nick || f.nick);
       const d = el('div', 'online-user-item' + (f.online ? ' is-online' : ''));
       if (!f.online) d.style.opacity = '0.68';
       d.appendChild(el('span', 'online-dot ' + (f.online ? (f.presence || 'online') : 'off')));
-      const name = el('span', '', f.nick);
+      const name = el('span', '', dispNick);
       name.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
       d.appendChild(name);
 
@@ -2963,10 +3200,20 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       rmb.title = 'Удалить из друзей';
       rmb.onclick = function (ev) {
         ev.stopPropagation();
-        if (confirm('Удалить ' + f.nick + ' из друзей?')) friendAction('remove', f.pid);
+        if (confirm('Удалить ' + dispNick + ' из друзей?')) {
+          social.friends = (social.friends || []).filter(function (x) { return x.pid !== f.pid; });
+          try {
+            const v = JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}');
+            if (Array.isArray(v.friendsPids)) {
+              v.friendsPids = v.friendsPids.filter(function (p) { return p !== f.pid; });
+              localStorage.setItem('cyber_vault_v1', JSON.stringify(v));
+            }
+          } catch (e) {}
+          friendAction('remove', f.pid);
+        }
       };
       d.appendChild(rmb);
-      d.onclick = function () { openUserProfileCard(f); };
+      d.onclick = function () { openUserProfileCard(Object.assign({}, cachedF, f, { nick: dispNick })); };
       fb.appendChild(d);
     });
   }
@@ -3129,6 +3376,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       } catch (e) {}
       setPersistCookie('cyber_nick', myNick);
       applyNickUI();
+      saveLocalVault();
 
       if (profileSyncTimer) clearTimeout(profileSyncTimer);
       profileSyncTimer = setTimeout(function () {
@@ -3452,12 +3700,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         if (currentServerMeta.textChannels && !currentServerMeta.textChannels.includes(data.channel)) {
           currentServerMeta.textChannels.push(data.channel);
         }
+        saveLocalVault();
         setChannel(data.channel);
       } else if (pendingChannelType === 'voice' && data.channel) {
         if (currentServerMeta.voiceChannels && !currentServerMeta.voiceChannels.includes(data.channel)) {
           currentServerMeta.voiceChannels.push(data.channel);
         }
         currentVoiceChannel = data.channel;
+        saveLocalVault();
         renderServerChannels();
       }
     } catch (e) {
@@ -3590,6 +3840,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     setPersistCookie('cyber_nick', myNick);
     setPersistCookie('cyber_verified', '1');
 
+    saveLocalVault();
     applyNickUI();
     closeAuthModal();
     connectEventStream();
@@ -4018,8 +4269,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         right.appendChild(blockBtn);
       }
 
-      const pipVidBtn = el('button', 'btn-fs', '🪟 В окне');
-      pipVidBtn.title = 'Вынести это видео поверх всех окон';
+      const pipVidBtn = el('button', 'btn-fs', '🪟 Поверх окон');
+      pipVidBtn.title = 'Закрепить это видео поверх всех окон (не пропадает при сворачивании браузера)';
       pipVidBtn.onclick = function () {
         const vid = card.querySelector('video');
         if (vid && vid.requestPictureInPicture) {
@@ -4164,6 +4415,29 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/healthz') {
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       return res.end('ok');
+    }
+
+    // Двусторонняя синхронизация хранилища (мгновенно восстанавливает друзей, серверы и каналы после обновления server.js)
+    if (req.method === 'POST' && url.pathname === '/api/vault-sync') {
+      const body = await readBody(req);
+      const uid = body.uid;
+      if (!validUid(uid)) return sendJson(res, 400, { error: 'Invalid UID' });
+      const room = safeRoom(body.room);
+      restoreClientVault(body);
+      const meta = ensureServer(room);
+      addMember(room, uid);
+      broadcastServers();
+      notifyAllRoomsOfUser(uid);
+      notifyFriendsOf(uid);
+      sendSocial(uid);
+      return sendJson(res, 200, {
+        ok: true,
+        current: meta,
+        list: Object.values(serversMeta),
+        messagesByChannel: getRoom(room),
+        users: memberList(room),
+        social: socialState(uid)
+      });
     }
 
     if (req.method === 'GET' && url.pathname === '/api/tg-init') {
