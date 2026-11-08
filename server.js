@@ -1225,7 +1225,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function connectEventStream() {
     if (evtSource) try { evtSource.close(); } catch (e) {}
     clientId = Math.random().toString(36).substring(2, 10);
-    evtSource = new EventSource(`/api/events?id=${clientId}&uid=${myUid}&verified=${myVerified ? '1' : '0'}&room=${encodeURIComponent(currentRoom)}&nick=${encodeURIComponent(myNick)}`);
+    evtSource = new EventSource('/api/events?id=' + clientId + '&uid=' + myUid + '&verified=' + (myVerified ? '1' : '0') + '&room=' + encodeURIComponent(currentRoom) + '&nick=' + encodeURIComponent(myNick));
     evtSource.onmessage = e => {
       let data; try { data = JSON.parse(e.data); } catch (err) { return; }
       if (data.type === 'server-meta') {
