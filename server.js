@@ -140,7 +140,7 @@ function initDefaultServers() {
     rooms[DEFAULT_ROOM]['игровая-комната'].push({
       author: 'СИСТЕМА СИГНАЛ',
       time: '00:00',
-      text: 'Добро пожаловать в «Ночной клуб»! Все каналы и настройки теперь работают мгновенно в реальном времени без перезагрузки страницы.'
+      text: 'Добро пожаловать в «Ночной клуб»! При звонке нажмите «🪟 Оверлей», чтобы вывести мини-окно разговора поверх всех окон и игр — связь работает даже при свёрнутом браузере.'
     });
   }
 }
@@ -944,6 +944,27 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .voice-user-card { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); width: fit-content; }
   .vu-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
 
+  /* ---------- ПЛАВАЮЩИЙ МИНИ-ОВЕРЛЕЙ ЗВОНКА (ВНУТРИ ВКЛАДКИ И ПОВЕРХ ОКОН) ---------- */
+  .floating-call-overlay {
+    position: fixed; right: 18px; bottom: 72px; width: 290px;
+    background: rgba(8, 13, 20, 0.96); border: 1px solid var(--cyan-border);
+    border-radius: 12px; padding: 10px 12px; z-index: 980;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.85), 0 0 16px rgba(45,212,191,0.18);
+    display: none; flex-direction: column; gap: 8px; backdrop-filter: blur(8px);
+  }
+  .floating-call-overlay.show { display: flex; }
+  .fco-head { display: flex; justify-content: space-between; align-items: center; cursor: move; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  .fco-live { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; color: var(--cyan-bright); text-transform: uppercase; }
+  .fco-pulse { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+  .fco-timer { font-size: 10px; font-family: monospace; color: #cbd5e1; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; }
+  .fco-peers { display: flex; flex-wrap: wrap; gap: 5px; max-height: 74px; overflow-y: auto; }
+  .fco-peer-chip { display: inline-flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); padding: 3px 7px; border-radius: 999px; font-size: 10px; color: #f1f5f9; }
+  .fco-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+  .fco-btn { background: #131c28; border: 1px solid var(--border); color: #fff; padding: 6px 4px; border-radius: 6px; font-size: 10px; font-weight: 700; cursor: pointer; text-align: center; transition: 0.15s; }
+  .fco-btn:hover { border-color: var(--cyan-bright); color: var(--cyan-bright); }
+  .fco-btn.danger { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.5); color: #fca5a5; }
+  .fco-btn.active-pip { background: rgba(20,184,166,0.22); border-color: var(--cyan-bright); color: var(--cyan-bright); }
+
   .screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; width: 100%; }
   .screen-grid:empty { display: none; }
   .screen-card { background: #05080d; border: 1px solid var(--cyan-border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
@@ -1180,6 +1201,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     .voice-panel-top { flex-direction: column; align-items: stretch; gap: 8px; }
     .screen-grid { grid-template-columns: 1fr; }
 
+    .floating-call-overlay { right: 10px; left: 10px; width: auto; bottom: 62px; }
+
     .chat-bottom { padding: 6px 10px 8px; }
     .chat-inp { font-size: 16px; padding: 8px 11px; }
     .bottom-hint { display: none; }
@@ -1205,7 +1228,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   <div class="top-header">
     <div class="top-logo">СИГНАЛ <b>CYBER.NET</b></div>
-    <div class="top-sub">МЕСТО ДЛЯ СВОИХ // ГОЛОС, КАМЕРА И СТРИМЫ</div>
+    <div class="top-sub">МЕСТО ДЛЯ СВОИХ // ГОЛОС, КАМЕРА, ОВЕРЛЕЙ И СТРИМЫ</div>
     <div class="top-right-group">
       <button class="btn-top-settings" onclick="openSettingsModal('profile')">👤 Мой профиль</button>
       <button class="btn-top-settings" onclick="openSettingsModal('safety')">🛡️ Фильтр 18+</button>
@@ -1294,7 +1317,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div class="hash-badge">#</div>
             <div class="welcome-tag">НАЧАЛО КАНАЛА // P2P СИНХРОНИЗАЦИЯ</div>
             <h2>Кто сегодня на связи?</h2>
-            <p id="banner-desc">Это #игровая-комната на сервере «Ночной клуб». Делитесь мыслями, включайте камеру или демонстрацию экрана и приглашайте друзей.</p>
+            <p id="banner-desc">Это #игровая-комната на сервере «Ночной клуб». Делитесь мыслями, включайте камеру, экран или плавающий оверлей поверх игр.</p>
             <div class="pill-tags-row">
               <span class="pill-tag" onclick="openSettingsModal('profile')">👤 ПРОФИЛЬ И ИНТЕРЕСЫ</span>
               <span class="pill-tag" onclick="openSettingsModal('safety')">🛡️ ФИЛЬТР 18+</span>
@@ -1316,16 +1339,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div class="voice-panel" id="voice-panel-card">
           <div class="voice-panel-top">
             <div>
-              <div class="voice-label">ГОЛОСОВОЙ КАНАЛ, КАМЕРА И СТРИМ // WEBRTC P2P</div>
+              <div class="voice-label">ГОЛОСОВОЙ КАНАЛ, КАМЕРА И ОВЕРЛЕЙ // WEBRTC P2P</div>
               <div class="voice-title" id="voice-panel-title">Общий разговор участников канала («Ночной эфир»)</div>
-              <div class="voice-sub" id="voice-sub-status">Подключайтесь голосом, включайте веб-камеру «📷 Камера» или трансляцию «🖥️ Экран».</div>
+              <div class="voice-sub" id="voice-sub-status">Звонок продолжает работать при сворачивании браузера. Нажмите «🪟 Оверлей» для окна поверх всех программ.</div>
             </div>
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
               <button class="btn-mute" id="mute-btn" style="display:none;" onclick="toggleMute()">🎤 Микр. вкл</button>
               <button class="btn-mute" id="deafen-btn" style="display:none;" onclick="toggleDeafen()" title="Отключить весь входящий звук">🎧 Звук вкл</button>
               <button class="btn-mute" id="cam-btn" onclick="toggleWebcam()" title="Включить веб-камеру при разговоре">📷 Камера</button>
               <button class="btn-mute" id="screen-btn" onclick="toggleScreenShare()" title="Транслировать экран, окно или вкладку">🖥️ Экран</button>
-              <button class="btn-mute" onclick="openSettingsModal('voice')" title="Настройки микрофона, звука и камеры">⚙️</button>
+              <button class="btn-mute" id="pip-overlay-btn" onclick="toggleExternalOverlay()" title="Открыть плавающий оверлей звонка поверх всех окон и игр">🪟 Оверлей</button>
+              <button class="btn-mute" onclick="openSettingsModal('voice')" title="Настройки микрофона, звука и оверлея">⚙️</button>
               <button class="btn-cyan" id="connect-voice-btn" onclick="toggleVoiceCall()">ПОДКЛЮЧИТЬСЯ</button>
             </div>
           </div>
@@ -1345,7 +1369,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           <input type="text" id="chat-input" class="chat-inp" placeholder="Написать сообщение..." autocomplete="off" maxlength="1000">
           <button type="submit" class="btn-cyan">ОТПРАВИТЬ</button>
         </form>
-        <div class="bottom-hint">ENTER — ОТПРАВИТЬ • ПЕРЕКЛЮЧЕНИЕ КАНАЛОВ И НАСТРОЕК РАБОТАЕТ МГНОВЕННО БЕЗ ОБНОВЛЕНИЯ СТРАНИЦЫ</div>
+        <div class="bottom-hint">ENTER — ОТПРАВИТЬ • ЗВОНОК И ОВЕРЛЕЙ ПРОДОЛЖАЮТ РАБОТАТЬ ДАЖЕ ПРИ СВОРАЧИВАНИИ БРАУЗЕРА</div>
       </div>
     </div>
 
@@ -1368,6 +1392,24 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <p>Отправьте другу ссылку на сервер — он останется в списке участников навсегда, и вы сможете общаться с веб-камерой и демонстрацией экрана.</p>
         <button class="btn-pink-card" onclick="openInviteModal()">🔗 СОЗДАТЬ ПРИГЛАШЕНИЕ</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Плавающий мини-оверлей активного звонка (перетаскиваемый виджет + запуск системного PiP-оверлея поверх окон) -->
+  <div class="floating-call-overlay" id="floating-call-overlay">
+    <div class="fco-head" id="fco-drag-handle">
+      <div class="fco-live">
+        <span class="fco-pulse"></span>
+        <span id="fco-channel-label">Ночной эфир</span>
+      </div>
+      <span class="fco-timer" id="fco-timer-label">00:00</span>
+    </div>
+    <div class="fco-peers" id="fco-peers-box"></div>
+    <div class="fco-actions">
+      <button class="fco-btn" id="fco-mute-btn" onclick="toggleMute()">🎤 Вкл</button>
+      <button class="fco-btn" id="fco-deaf-btn" onclick="toggleDeafen()">🎧 Вкл</button>
+      <button class="fco-btn" id="fco-pip-btn" onclick="toggleExternalOverlay()" title="Вынести поверх всех окон Windows/Mac/телефона">🪟 Поверх</button>
+      <button class="fco-btn danger" onclick="toggleVoiceCall()">🛑 Выход</button>
     </div>
   </div>
 
@@ -1405,7 +1447,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div class="settings-nav-label" style="margin-top:6px;">Безопасность</div>
         <div class="settings-nav-btn" data-pane="safety" onclick="switchSettingsPane('safety')">🛡️ Фильтр контента</div>
         <div class="settings-nav-label" style="margin-top:6px;">Приложение</div>
-        <div class="settings-nav-btn" data-pane="voice" onclick="switchSettingsPane('voice')">🎙️ Голос и видео</div>
+        <div class="settings-nav-btn" data-pane="voice" onclick="switchSettingsPane('voice')">🎙️ Голос и оверлей</div>
         <div class="settings-nav-btn" data-pane="appearance" onclick="switchSettingsPane('appearance')">🎨 Внешний вид</div>
         <div class="settings-nav-btn" data-pane="notifications" onclick="switchSettingsPane('notifications')">🔔 Уведомления</div>
         <div style="margin-top:auto;padding-top:10px;border-top:1px solid var(--border);flex-shrink:0;">
@@ -1553,10 +1595,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Вкладка 3: Голос и видео -->
+        <!-- Вкладка 3: Голос, видео и игровой оверлей -->
         <div class="settings-pane" id="pane-voice">
           <div class="settings-head">
-            <h3>Настройки голоса и видео</h3>
+            <h3>Настройки голоса, видео и оверлея</h3>
             <button class="btn-login-mini" onclick="refreshMediaDevices()">🔄 Обновить устройства</button>
           </div>
 
@@ -1595,6 +1637,16 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           </div>
 
           <div class="settings-card">
+            <div class="toggle-row">
+              <div class="toggle-text-col">
+                <div class="toggle-title">🪟 Игровой оверлей звонка поверх всех окон (PiP Overlay)</div>
+                <div class="toggle-sub">Показывает плавающий виджет разговора и удерживает связь активной при сворачивании браузера</div>
+              </div>
+              <label class="cyber-switch">
+                <input type="checkbox" id="chk-auto-overlay" checked onchange="saveAudioVideoSettings()">
+                <span class="cyber-slider"></span>
+              </label>
+            </div>
             <div class="settings-grid-2">
               <div>
                 <label class="field-label">Веб-камера</label>
@@ -1965,6 +2017,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     micVolume: 100,
     outVolume: 100,
     camRes: '720',
+    autoOverlay: true,
     noiseSuppression: true,
     echoCancellation: true,
     autoGainControl: true,
@@ -2029,7 +2082,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let tgBotUsername = '';
   let tgPollTimer = null;
 
-  // Кэш сообщений ВСЕХ каналов текущего сервера для переключения за 0 мс без перезагрузки
   let roomMessagesCache = {};
   let unreadByChannel = {};
   let cachedMessages = [];
@@ -2052,6 +2104,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let myPid = null, lastMembers = [], social = { friends: [], incoming: [], outgoing: [], servers: [] };
   let pendingChannelType = 'text';
   let micTestStream = null, micTestTimer = null;
+
+  // Переменные для фоновой работы звонка и плавающего оверлея поверх окон (PiP)
+  let callStartTime = 0, callDurationTimer = null;
+  let voiceLockRelease = null, wakeLockSentinel = null, keepAliveAudioEl = null;
+  let docPipWindow = null, canvasPipVideo = null, canvasPipTimer = null;
 
   function escapeHtml(s) {
     return String(s)
@@ -2082,6 +2139,399 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       osc.start();
       osc.stop(ctx.currentTime + (duration || 0.08));
     } catch (e) {}
+  }
+
+  function formatCallTime(sec) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+
+  // ---------- ЗАЩИТА ОТ ЗАСЫПАНИЯ ПРИ СВОРАЧИВАНИИ БРАУЗЕРА И ПЛАВАЮЩИЙ ОВЕРЛЕЙ ----------
+  function startBackgroundCallPersistence() {
+    // 1. Удерживаем Web Lock, чтобы браузер не замораживал свёрнутую вкладку
+    if (navigator.locks && navigator.locks.request && !voiceLockRelease) {
+      navigator.locks.request('signal_active_voice_call', { mode: 'exclusive' }, function () {
+        return new Promise(function (resolve) {
+          voiceLockRelease = resolve;
+        });
+      }).catch(function () {});
+    }
+
+    // 2. WakeLock для удержания активности на смартфонах
+    if (navigator.wakeLock && navigator.wakeLock.request && !wakeLockSentinel) {
+      navigator.wakeLock.request('screen').then(function (s) {
+        wakeLockSentinel = s;
+      }).catch(function () {});
+    }
+
+    // 3. Непрерывный фоновый аудио-мост + регистрация в системном MediaSession
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const dst = audioCtx.createMediaStreamDestination();
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.frequency.value = 40;
+      g.gain.value = 0.0001; // Неслышимый сигнал для поддержки аудиопроцесса ОС в фоне
+      osc.connect(g);
+      g.connect(dst);
+      osc.start();
+
+      if (!keepAliveAudioEl) {
+        keepAliveAudioEl = document.createElement('audio');
+        keepAliveAudioEl.loop = true;
+        keepAliveAudioEl.volume = 0.01;
+        document.body.appendChild(keepAliveAudioEl);
+      }
+      keepAliveAudioEl.srcObject = dst.stream;
+      keepAliveAudioEl.play().catch(function () {});
+    } catch (e) {}
+
+    if ('mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: '🔊 ' + currentVoiceChannel,
+          artist: 'СИГНАЛ // ' + (currentServerMeta.name || currentRoom),
+          album: 'Голосовой эфир активен'
+        });
+        navigator.mediaSession.playbackState = 'playing';
+        navigator.mediaSession.setActionHandler('play', function () {
+          if (isMuted) toggleMute();
+        });
+        navigator.mediaSession.setActionHandler('pause', function () {
+          toggleMute();
+        });
+        navigator.mediaSession.setActionHandler('hangup', function () {
+          if (inVoice) toggleVoiceCall();
+        });
+      } catch (e) {}
+    }
+
+    callStartTime = Date.now();
+    if (callDurationTimer) clearInterval(callDurationTimer);
+    callDurationTimer = setInterval(function () {
+      if (!inVoice) return;
+      const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+      const tStr = formatCallTime(elapsed);
+      const tEl = document.getElementById('fco-timer-label');
+      if (tEl) tEl.textContent = tStr;
+      if (docPipWindow && !docPipWindow.closed) {
+        const pt = docPipWindow.document.getElementById('pip-timer');
+        if (pt) pt.textContent = tStr;
+      }
+    }, 1000);
+
+    updateFloatingOverlayUI();
+  }
+
+  function stopBackgroundCallPersistence() {
+    if (voiceLockRelease) {
+      try { voiceLockRelease(); } catch (e) {}
+      voiceLockRelease = null;
+    }
+    if (wakeLockSentinel) {
+      try { wakeLockSentinel.release(); } catch (e) {}
+      wakeLockSentinel = null;
+    }
+    if (keepAliveAudioEl) {
+      try { keepAliveAudioEl.pause(); keepAliveAudioEl.srcObject = null; } catch (e) {}
+    }
+    if (callDurationTimer) {
+      clearInterval(callDurationTimer);
+      callDurationTimer = null;
+    }
+    if ('mediaSession' in navigator) {
+      try { navigator.mediaSession.playbackState = 'none'; } catch (e) {}
+    }
+    closeExternalOverlay();
+    updateFloatingOverlayUI();
+  }
+
+  // При сворачивании или разворачивании браузера поддерживаем AudioContext и потоки активными
+  document.addEventListener('visibilitychange', function () {
+    if (!inVoice) return;
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(function () {});
+    }
+    document.querySelectorAll('#audio-box audio').forEach(function (a) {
+      if (a.paused && !isDeafened) a.play().catch(function () {});
+    });
+    if (keepAliveAudioEl && keepAliveAudioEl.paused) {
+      keepAliveAudioEl.play().catch(function () {});
+    }
+  });
+
+  function getVoiceChannelMembers() {
+    const vUsers = (lastMembers || []).filter(function (u) {
+      return u.online && u.inVoice && (!u.voiceChannel || u.voiceChannel === currentVoiceChannel);
+    });
+    if (!vUsers.some(function (u) { return u.pid === myPid; }) && inVoice) {
+      vUsers.unshift({ pid: myPid, nick: myNick, online: true, inVoice: true, inCam: inWebcam, inScreen: inScreen });
+    }
+    return vUsers;
+  }
+
+  function updateFloatingOverlayUI() {
+    const box = document.getElementById('floating-call-overlay');
+    if (!box) return;
+    if (!inVoice || appSettings.autoOverlay === false) {
+      box.classList.remove('show');
+    } else {
+      box.classList.add('show');
+    }
+    document.getElementById('fco-channel-label').textContent = '🔊 ' + currentVoiceChannel;
+    document.getElementById('fco-mute-btn').textContent = isMuted ? '🔇 Выкл' : '🎤 Вкл';
+    document.getElementById('fco-deaf-btn').textContent = isDeafened ? '🔇 Глух' : '🎧 Вкл';
+
+    const peersBox = document.getElementById('fco-peers-box');
+    peersBox.innerHTML = '';
+    const vMembers = getVoiceChannelMembers();
+    vMembers.forEach(function (u) {
+      const chip = el('div', 'fco-peer-chip');
+      const dot = el('span', 'fco-pulse');
+      const label = el('span', '', u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : ''));
+      chip.appendChild(dot);
+      chip.appendChild(label);
+      peersBox.appendChild(chip);
+    });
+
+    // Обновляем открытое плавающее окно Document PiP (если активно)
+    if (docPipWindow && !docPipWindow.closed) {
+      renderDocPipContent();
+    }
+  }
+
+  // Перетаскивание встроенного оверлея мышью или пальцем
+  (function initDraggableOverlay() {
+    const card = document.getElementById('floating-call-overlay');
+    const handle = document.getElementById('fco-drag-handle');
+    if (!card || !handle) return;
+    let dragging = false, startX = 0, startY = 0, origRight = 18, origBottom = 72;
+
+    function onStart(clientX, clientY) {
+      dragging = true;
+      startX = clientX;
+      startY = clientY;
+      const rect = card.getBoundingClientRect();
+      origRight = window.innerWidth - rect.right;
+      origBottom = window.innerHeight - rect.bottom;
+    }
+    function onMove(clientX, clientY) {
+      if (!dragging) return;
+      const dx = clientX - startX;
+      const dy = clientY - startY;
+      card.style.left = 'auto';
+      card.style.right = Math.max(8, Math.min(window.innerWidth - 120, origRight - dx)) + 'px';
+      card.style.bottom = Math.max(8, Math.min(window.innerHeight - 80, origBottom - dy)) + 'px';
+    }
+    function onEnd() { dragging = false; }
+
+    handle.addEventListener('mousedown', function (e) { onStart(e.clientX, e.clientY); });
+    window.addEventListener('mousemove', function (e) { onMove(e.clientX, e.clientY); });
+    window.addEventListener('mouseup', onEnd);
+
+    handle.addEventListener('touchstart', function (e) {
+      if (e.touches[0]) onStart(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    window.addEventListener('touchmove', function (e) {
+      if (dragging && e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    window.addEventListener('touchend', onEnd);
+  })();
+
+  // ---------- ВЫНОСНОЙ ОВЕРЛЕЙ ПОВЕРХ ВСЕХ ОКОН И ИГР (Document PiP + Canvas PiP) ----------
+  async function toggleExternalOverlay() {
+    if (!inVoice) {
+      const ok = await ensureVoiceConnected();
+      if (!ok) return;
+    }
+    if ((docPipWindow && !docPipWindow.closed) || document.pictureInPictureElement) {
+      closeExternalOverlay();
+      return;
+    }
+    // 1. В браузерах Chrome / Edge / Яндекс открываем интерактивный Document Picture-in-Picture оверлей
+    if ('documentPictureInPicture' in window) {
+      try {
+        docPipWindow = await window.documentPictureInPicture.requestWindow({
+          width: 320,
+          height: 230
+        });
+        setupDocPipWindow(docPipWindow);
+        document.getElementById('pip-overlay-btn').classList.add('active-cam');
+        document.getElementById('fco-pip-btn').classList.add('active-pip');
+        return;
+      } catch (e) {}
+    }
+    // 2. Универсальный Canvas Video PiP оверлей (Safari, Firefox, мобильные браузеры)
+    await startCanvasVideoPipOverlay();
+  }
+
+  function closeExternalOverlay() {
+    if (docPipWindow && !docPipWindow.closed) {
+      try { docPipWindow.close(); } catch (e) {}
+    }
+    docPipWindow = null;
+    if (canvasPipTimer) {
+      clearInterval(canvasPipTimer);
+      canvasPipTimer = null;
+    }
+    if (document.pictureInPictureElement) {
+      try { document.exitPictureInPicture(); } catch (e) {}
+    }
+    const b1 = document.getElementById('pip-overlay-btn');
+    const b2 = document.getElementById('fco-pip-btn');
+    if (b1) b1.classList.remove('active-cam');
+    if (b2) b2.classList.remove('active-pip');
+  }
+
+  function setupDocPipWindow(pipWin) {
+    const doc = pipWin.document;
+    doc.head.innerHTML = '<meta charset="UTF-8"><title>СИГНАЛ Оверлей</title>' +
+      '<style>' +
+      '*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;user-select:none;}' +
+      'body{background:#060a10;color:#f1f5f9;padding:12px;height:100vh;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(45,212,191,0.4);}' +
+      '.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px;}' +
+      '.badge{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:#2dd4bf;}' +
+      '.dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;}' +
+      '.timer{font-family:monospace;font-size:11px;background:rgba(255,255,255,0.07);padding:2px 7px;border-radius:4px;color:#cbd5e1;}' +
+      '.peers{display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;overflow-y:auto;flex:1;align-content:flex-start;}' +
+      '.chip{display:inline-flex;align-items:center;gap:6px;background:#0f1722;border:1px solid rgba(45,212,191,0.3);padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;}' +
+      '.btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);}' +
+      'button{background:#131c28;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:8px 6px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;}' +
+      'button:hover{border-color:#2dd4bf;color:#2dd4bf;}' +
+      'button.off{background:rgba(244,63,94,0.2);border-color:#f43f5e;color:#fda4af;}' +
+      'button.hang{background:#ef4444;border-color:#ef4444;color:#fff;}' +
+      '</style>';
+
+    doc.body.innerHTML =
+      '<div class="top">' +
+      '  <div class="badge"><span class="dot"></span><span id="pip-ch"></span></div>' +
+      '  <span class="timer" id="pip-timer">00:00</span>' +
+      '</div>' +
+      '<div class="peers" id="pip-peers"></div>' +
+      '<div class="btns">' +
+      '  <button id="pip-mute"></button>' +
+      '  <button id="pip-deaf"></button>' +
+      '  <button class="hang" id="pip-hang">🛑 Выход</button>' +
+      '</div>';
+
+    doc.getElementById('pip-mute').onclick = function () { toggleMute(); };
+    doc.getElementById('pip-deaf').onclick = function () { toggleDeafen(); };
+    doc.getElementById('pip-hang').onclick = function () { toggleVoiceCall(); };
+
+    pipWin.addEventListener('pagehide', function () {
+      docPipWindow = null;
+      const b1 = document.getElementById('pip-overlay-btn');
+      const b2 = document.getElementById('fco-pip-btn');
+      if (b1) b1.classList.remove('active-cam');
+      if (b2) b2.classList.remove('active-pip');
+    });
+
+    renderDocPipContent();
+  }
+
+  function renderDocPipContent() {
+    if (!docPipWindow || docPipWindow.closed) return;
+    const doc = docPipWindow.document;
+    const chEl = doc.getElementById('pip-ch');
+    if (chEl) chEl.textContent = '🔊 ' + currentVoiceChannel;
+
+    const mBtn = doc.getElementById('pip-mute');
+    if (mBtn) {
+      mBtn.textContent = isMuted ? '🔇 Микр. выкл' : '🎤 Микр. вкл';
+      mBtn.className = isMuted ? 'off' : '';
+    }
+    const dBtn = doc.getElementById('pip-deaf');
+    if (dBtn) {
+      dBtn.textContent = isDeafened ? '🔇 Звук выкл' : '🎧 Звук вкл';
+      dBtn.className = isDeafened ? 'off' : '';
+    }
+
+    const peersBox = doc.getElementById('pip-peers');
+    if (peersBox) {
+      peersBox.innerHTML = '';
+      getVoiceChannelMembers().forEach(function (u) {
+        const c = doc.createElement('div');
+        c.className = 'chip';
+        c.textContent = '🟢 ' + u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '');
+        peersBox.appendChild(c);
+      });
+    }
+  }
+
+  async function startCanvasVideoPipOverlay() {
+    try {
+      // Если в канале уже есть активное видео (экран или камера), можем вывести его или живой кибер-виджет
+      const canvas = document.createElement('canvas');
+      canvas.width = 420;
+      canvas.height = 240;
+      const ctx = canvas.getContext('2d');
+
+      function drawOverlayFrame() {
+        ctx.fillStyle = '#060a11';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#14b8a6';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+
+        ctx.fillStyle = '#e11d48';
+        ctx.fillRect(16, 14, 78, 22);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText('СИГНАЛ', 26, 29);
+
+        ctx.fillStyle = '#2dd4bf';
+        ctx.font = 'bold 15px sans-serif';
+        ctx.fillText('🔊 ' + currentVoiceChannel, 106, 30);
+
+        const elapsed = callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '13px monospace';
+        ctx.fillText(formatCallTime(elapsed), 355, 29);
+
+        ctx.fillStyle = isMuted ? '#f43f5e' : '#34d399';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillText(isMuted ? '🔇 Микрофон выключен' : '🎤 Микрофон включён', 16, 62);
+
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '12px sans-serif';
+        ctx.fillText('Участники на связи:', 16, 92);
+
+        const vUsers = getVoiceChannelMembers();
+        vUsers.slice(0, 5).forEach(function (u, idx) {
+          const y = 118 + idx * 24;
+          ctx.fillStyle = '#22c55e';
+          ctx.beginPath();
+          ctx.arc(24, y - 4, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#f1f5f9';
+          ctx.font = 'bold 13px sans-serif';
+          ctx.fillText(u.nick + (u.inCam ? ' [Камера]' : '') + (u.inScreen ? ' [Экран]' : ''), 36, y);
+        });
+      }
+
+      drawOverlayFrame();
+      if (canvasPipTimer) clearInterval(canvasPipTimer);
+      canvasPipTimer = setInterval(drawOverlayFrame, 500);
+
+      if (!canvasPipVideo) {
+        canvasPipVideo = document.createElement('video');
+        canvasPipVideo.muted = true;
+        canvasPipVideo.playsInline = true;
+        canvasPipVideo.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;bottom:0;right:0;';
+        document.body.appendChild(canvasPipVideo);
+      }
+      canvasPipVideo.srcObject = canvas.captureStream(10);
+      await canvasPipVideo.play();
+      if (canvasPipVideo.requestPictureInPicture) {
+        await canvasPipVideo.requestPictureInPicture();
+        document.getElementById('pip-overlay-btn').classList.add('active-cam');
+        document.getElementById('fco-pip-btn').classList.add('active-pip');
+      }
+    } catch (e) {
+      alert('Плавающий виджет звонка уже закреплён в правом нижнем углу экрана!');
+    }
   }
 
   function switchAuthTab(mode) {
@@ -2181,7 +2631,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const srvName = currentServerMeta.name || 'Ночной клуб';
     document.getElementById('top-ch-name').textContent = ch;
     document.getElementById('top-ch-desc').textContent = 'Канал сервера «' + srvName + '»';
-    document.getElementById('banner-desc').textContent = 'Это #' + ch + ' на сервере «' + srvName + '». Делитесь мыслями, включайте камеру или демонстрацию экрана и приглашайте друзей.';
+    document.getElementById('banner-desc').textContent = 'Это #' + ch + ' на сервере «' + srvName + '». Делитесь мыслями, включайте камеру, экран или плавающий оверлей поверх игр.';
     document.getElementById('chat-input').placeholder = 'Написать сообщение в #' + ch + '...';
     document.querySelectorAll('.ch-btn').forEach(function (i) {
       i.classList.toggle('active', i.getAttribute('data-ch') === ch);
@@ -2190,9 +2640,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function updateVoicePanelUI() {
     document.getElementById('voice-panel-title').textContent = 'Общий разговор участников канала («' + currentVoiceChannel + '»)';
+    updateFloatingOverlayUI();
   }
 
-  // ---------- МГНОВЕННОЕ переключение серверов без перезагрузки страницы ----------
   async function switchServer(roomId) {
     const clean = String(roomId || '').trim();
     if (!clean || clean === currentRoom) {
@@ -2239,21 +2689,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         rerenderChatMessages();
         if (Array.isArray(data.users)) renderUsers(data.users);
       }
-    } catch (e) {
-      preloadAllChannelsOfRoom();
-    }
-  }
-
-  function preloadAllChannelsOfRoom() {
-    fetch('/api/room-data?room=' + encodeURIComponent(currentRoom))
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!data || data.room !== currentRoom) return;
-        roomMessagesCache = data.messagesByChannel || {};
-        cachedMessages = roomMessagesCache[currentChannel] || [];
-        rerenderChatMessages();
-      })
-      .catch(function () {});
+    } catch (e) {}
   }
 
   function connectEventStream() {
@@ -2302,6 +2738,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         }
       } else if (data.type === 'users') {
         renderUsers(data.payload);
+        updateFloatingOverlayUI();
       } else if (data.type === 'social') {
         myPid = data.payload.pid;
         social = data.payload;
@@ -2603,6 +3040,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('set-out-vol').value = appSettings.outVolume;
     document.getElementById('lbl-out-vol').textContent = appSettings.outVolume + '%';
     document.getElementById('set-cam-res').value = appSettings.camRes || '720';
+    document.getElementById('chk-auto-overlay').checked = appSettings.autoOverlay !== false;
     document.getElementById('chk-noise').checked = appSettings.noiseSuppression !== false;
     document.getElementById('chk-echo').checked = appSettings.echoCancellation !== false;
     document.getElementById('chk-agc').checked = appSettings.autoGainControl !== false;
@@ -2653,7 +3091,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     updateProfilePreview(false);
   }
 
-  // Живое обновление превью и автоматическая онлайн-синхронизация с сервером без перезагрузки
   function updateProfilePreview(skipOnlineSync) {
     const n = document.getElementById('prof-nick-inp').value.trim().slice(0, 24) || myNick;
     const pr = document.getElementById('prof-presence-sel').value || 'online';
@@ -2793,11 +3230,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (spkSel && spkSel.value) appSettings.spkDeviceId = spkSel.value;
     if (camSel && camSel.value) appSettings.camDeviceId = camSel.value;
     appSettings.camRes = document.getElementById('set-cam-res').value || '720';
+    appSettings.autoOverlay = document.getElementById('chk-auto-overlay').checked;
     appSettings.noiseSuppression = document.getElementById('chk-noise').checked;
     appSettings.echoCancellation = document.getElementById('chk-echo').checked;
     appSettings.autoGainControl = document.getElementById('chk-agc').checked;
     try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
     applyOutputVolumeToAll();
+    updateFloatingOverlayUI();
   }
 
   async function toggleMicTest() {
@@ -2918,7 +3357,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     inp.value = '';
   }
 
-  // ---------- МГНОВЕННОЕ переключение текстового канала из кэша (0 мс, без перезагрузки) ----------
   function setChannel(ch) {
     currentChannel = ch;
     unreadByChannel[ch] = 0;
@@ -3215,7 +3653,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function createProcessedAudioStream(rawStream) {
     try {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const src = audioCtx.createMediaStreamSource(rawStream);
       micGainNode = audioCtx.createGain();
       micGainNode.gain.value = (appSettings.micVolume || 100) / 100;
@@ -3258,6 +3696,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('voice-active-area').classList.remove('show');
     document.getElementById('audio-box').innerHTML = '';
     document.getElementById('screen-grid').innerHTML = '';
+    stopBackgroundCallPersistence();
     renderServerChannels();
   }
 
@@ -3290,6 +3729,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('deafen-btn').style.display = 'inline-block';
     document.getElementById('mute-btn').textContent = isMuted ? '🔇 Без микр.' : '🎤 Микр. вкл';
     document.getElementById('voice-active-area').classList.add('show');
+    startBackgroundCallPersistence();
     renderServerChannels();
 
     return new Promise(function (resolve) {
@@ -3428,6 +3868,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         callPeerWithWebcam(remotePid);
       });
     }
+    updateFloatingOverlayUI();
   }
 
   function stopWebcam(silent) {
@@ -3452,6 +3893,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         voiceChannel: currentVoiceChannel
       });
     }
+    updateFloatingOverlayUI();
   }
 
   function callPeerWithScreen(remotePid) {
@@ -3523,6 +3965,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         callPeerWithScreen(remotePid);
       });
     }
+    updateFloatingOverlayUI();
   }
 
   function stopScreenShare(silent) {
@@ -3547,6 +3990,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         voiceChannel: currentVoiceChannel
       });
     }
+    updateFloatingOverlayUI();
   }
 
   function renderMediaTile(id, stream, title, isLocal, kind) {
@@ -3573,6 +4017,18 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         blockBtn.onclick = function () { removeMediaTile(id); };
         right.appendChild(blockBtn);
       }
+
+      const pipVidBtn = el('button', 'btn-fs', '🪟 В окне');
+      pipVidBtn.title = 'Вынести это видео поверх всех окон';
+      pipVidBtn.onclick = function () {
+        const vid = card.querySelector('video');
+        if (vid && vid.requestPictureInPicture) {
+          vid.requestPictureInPicture().catch(function () {});
+        } else {
+          toggleExternalOverlay();
+        }
+      };
+      right.appendChild(pipVidBtn);
 
       const fsBtn = el('button', 'btn-fs', '⛶ Полный экран');
       fsBtn.onclick = function () {
@@ -3629,12 +4085,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     localStream.getAudioTracks().forEach(function (t) { t.enabled = !isMuted; });
     if (rawMicStream) rawMicStream.getAudioTracks().forEach(function (t) { t.enabled = !isMuted; });
     document.getElementById('mute-btn').textContent = isMuted ? '🔇 Микр. выкл' : '🎤 Микр. вкл';
+    updateFloatingOverlayUI();
   }
 
   function toggleDeafen() {
     isDeafened = !isDeafened;
     document.getElementById('deafen-btn').textContent = isDeafened ? '🔇 Звук выкл' : '🎧 Звук вкл';
     applyOutputVolumeToAll();
+    updateFloatingOverlayUI();
   }
 
   function playStream(id, stream) {
@@ -3643,8 +4101,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     audio.id = 'aud-' + id;
     audio.srcObject = stream;
     audio.autoplay = true;
+    audio.playsInline = true;
     document.getElementById('audio-box').appendChild(audio);
     applyOutputVolumeToAll();
+    audio.play().catch(function () {});
   }
 
   function removeAudio(id) {
@@ -3812,7 +4272,6 @@ const server = http.createServer(async (req, res) => {
       const client = { id, uid, room, nick: user.nick, inVoice: false, inScreen: false, inCam: false, peerId: null, voiceChannel: null, res };
       clients.push(client);
 
-      // Сразу передаём историю ВСЕХ каналов этого сервера в память браузера
       res.write('data: ' + JSON.stringify({
         type: 'server-meta',
         payload: {
@@ -3844,7 +4303,6 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Мгновенное переключение сервера без перезагрузки страницы
     if (req.method === 'POST' && url.pathname === '/api/switch-room') {
       const body = await readBody(req);
       const uid = body.uid;
