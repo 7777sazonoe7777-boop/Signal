@@ -23,14 +23,35 @@ const tgCodes = Object.create(null);
 const pendingTgTokens = Object.create(null);
 let clients = [];
 
-const users = Object.create(null);      // uid -> { pid, nick, tgId, tgUsername, passHash, verified, bio, interests, customStatus, presence, bannerColor, avatarColor, friends:[pid], incoming:[pid], outgoing:[pid], servers:[room] }
-const pidToUid = Object.create(null);   // pid -> uid
-const tgIdToUid = Object.create(null);  // String(tgId) -> uid
-const nickToUid = Object.create(null);  // nick.toLowerCase() -> uid
-const members = Object.create(null);    // room -> [uid]
+const users = Object.create(null);
+const pidToUid = Object.create(null);
+const tgIdToUid = Object.create(null);
+const nickToUid = Object.create(null);
+const members = Object.create(null);
 const MAX_MEMBERS = 500;
 const MAX_FRIENDS = 200;
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data.json');
+
+// Серверные словари для распознавания сексуального (NSFW) и шокирующего/насильственного (Gore) контента
+const SEXUAL_PATTERNS = [
+  /порн/i, /секс/i, /эротик/i, /интим/i, /хентай/i, /минет/i, /трах/i, /шлюх/i,
+  /проститут/i, /сиськ/i, /вагин/i, /член/i, /голая/i, /голые/i, /обнажен/i,
+  /porn/i, /nsfw/i, /xxx/i, /hentai/i, /onlyfans/i, /xvideos/i, /pornhub/i,
+  /redtube/i, /brazzers/i, /rule34/i, /nude/i, /boobs/i, /pussy/i, /dick/i
+];
+
+const GORE_PATTERNS = [
+  /расчлен/i, /кишки/i, /труп/i, /казнь/i, /пытк/i, /убийств/i, /самоубийств/i,
+  /суицид/i, /резня/i, /кровопролит/i, /увечь/i, /жесть/i, /насили/i, /теppоp/i,
+  /gore/i, /liveleak/i, /bestgore/i, /behead/i, /torture/i, /suicide/i, /deadbody/i, /murder/i
+];
+
+function detectContentFlags(text) {
+  const s = String(text || '');
+  const sexual = SEXUAL_PATTERNS.some(rx => rx.test(s));
+  const gore = GORE_PATTERNS.some(rx => rx.test(s));
+  return { sexual, gore };
+}
 
 function pidOf(uid) {
   return crypto.createHash('sha256').update(uid).digest('hex').slice(0, 10);
@@ -119,7 +140,7 @@ function initDefaultServers() {
     rooms[DEFAULT_ROOM]['игровая-комната'].push({
       author: 'СИСТЕМА СИГНАЛ',
       time: '00:00',
-      text: 'Добро пожаловать в «Ночной клуб»! Настройте свой профиль, интересы, микрофон и веб-камеру по кнопке «Профиль / ⚙️» слева внизу.'
+      text: 'Добро пожаловать в «Ночной клуб»! В настройках (кнопка «⚙️» слева внизу) доступны профиль, проверка микрофона, веб-камера и фильтр защиты от 18+ и шок-контента.'
     });
   }
 }
@@ -786,8 +807,8 @@ const HTML_PAGE = `<!DOCTYPE html>
   .top-logo b { color: #fff; font-size: 10px; opacity: 0.85; }
   .top-sub { color: var(--text-dim); }
   .top-right-group { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-  .btn-top-settings { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-main); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; }
-  .btn-top-settings:hover { border-color: var(--cyan-bright); color: var(--cyan-bright); }
+  .btn-top-settings { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-main); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.15s; }
+  .btn-top-settings:hover { border-color: var(--cyan-bright); color: var(--cyan-bright); background: rgba(45,212,191,0.08); }
   .btn-top-invite { background: #9d174d; border: 1px solid #f43f5e; color: #fff; padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
   .btn-top-invite:hover { background: #be185d; }
 
@@ -830,9 +851,8 @@ const HTML_PAGE = `<!DOCTYPE html>
   .off-badge { font-size: 9px; background: rgba(255,255,255,0.05); color: var(--text-muted); padding: 1px 6px; border-radius: 4px; font-weight: 700; }
   .off-badge.on { background: #064e3b; color: #34d399; }
 
-  /* Нижняя панель пользователя в стиле Discord */
   .user-bar { padding: 8px 10px; background: #030508; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-  .user-info { display: flex; align-items: center; gap: 8px; overflow: hidden; cursor: pointer; padding: 3px 5px; border-radius: 6px; flex: 1; }
+  .user-info { display: flex; align-items: center; gap: 8px; overflow: hidden; cursor: pointer; padding: 3px 5px; border-radius: 6px; flex: 1; min-width: 0; }
   .user-info:hover { background: rgba(255,255,255,0.04); }
   .user-ava-wrap { position: relative; flex-shrink: 0; }
   .user-ava { width: 30px; height: 30px; border-radius: 8px; background: #e11d48; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
@@ -845,10 +865,10 @@ const HTML_PAGE = `<!DOCTYPE html>
   .user-bar-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
   .btn-icon-bar { background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text-dim); width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; cursor: pointer; transition: 0.15s; }
   .btn-icon-bar:hover { color: var(--cyan-bright); border-color: var(--cyan-bright); background: rgba(45,212,191,0.1); }
-  .btn-login-mini { background: transparent; border: 1px solid var(--border); color: var(--cyan-bright); padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer; flex-shrink: 0; }
-  .btn-login-mini:hover { border-color: var(--cyan-bright); background: rgba(45,212,191,0.1); }
+  .btn-login-mini { background: rgba(20, 184, 166, 0.08); border: 1px solid var(--cyan-border); color: var(--cyan-bright); padding: 5px 10px; border-radius: 6px; font-size: 10px; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: 0.15s; white-space: nowrap; }
+  .btn-login-mini:hover { border-color: var(--cyan-bright); background: rgba(45,212,191,0.18); color: #fff; }
 
-  .main-chat { background: var(--bg-main); display: flex; flex-direction: column; overflow: hidden; }
+  .main-chat { background: var(--bg-main); display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
   .chat-topbar { height: 48px; padding: 0 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
   .chat-topbar-left { display: flex; align-items: center; gap: 8px; }
   .hash-large { color: var(--cyan-bright); font-size: 18px; font-weight: 800; }
@@ -866,7 +886,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   .pill-tags-row { display: flex; gap: 6px; flex-wrap: wrap; }
   .pill-tag { padding: 3px 8px; border-radius: 999px; font-size: 9px; font-weight: 700; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: #cbd5e1; cursor: pointer; }
   .pill-tag.pink { background: rgba(219,39,119,0.15); border-color: rgba(219,39,119,0.4); color: #f43f5e; }
-  .radar-box { width: 110px; height: 110px; display: flex; align-items: center; justify-content: center; }
+  .radar-box { width: 110px; height: 110px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
   .messages-container { display: flex; flex-direction: column; gap: 8px; }
   .msg-item { display: flex; gap: 10px; background: rgba(255,255,255,0.015); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); }
@@ -876,6 +896,25 @@ const HTML_PAGE = `<!DOCTYPE html>
   .msg-author { font-size: 12px; font-weight: 700; color: #fff; margin-right: 6px; }
   .msg-time { font-size: 9px; color: var(--text-muted); }
   .msg-text { font-size: var(--chat-font-size); color: #e2e8f0; margin-top: 2px; user-select: text; word-break: break-word; }
+
+  /* Защитные плашки фильтрации 18+ и шок-контента */
+  .filtered-block-card {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(225, 29, 72, 0.1); border: 1px dashed rgba(244, 63, 94, 0.45);
+    color: #fda4af; padding: 6px 10px; border-radius: 7px; font-size: 11px; font-weight: 600; margin-top: 4px;
+  }
+  .spoiler-blur-wrap {
+    position: relative; display: inline-block; width: 100%; background: rgba(15, 23, 34, 0.9);
+    border: 1px solid rgba(244, 63, 94, 0.4); border-radius: 8px; padding: 8px 10px; margin-top: 4px; cursor: pointer;
+  }
+  .spoiler-blur-content { filter: blur(8px); user-select: none; pointer-events: none; transition: 0.2s; }
+  .spoiler-blur-wrap.revealed .spoiler-blur-content { filter: none; user-select: text; pointer-events: auto; }
+  .spoiler-badge {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700;
+    color: #fda4af; background: rgba(225, 29, 72, 0.2); padding: 3px 8px; border-radius: 5px; margin-bottom: 4px;
+  }
+  .spoiler-blur-wrap.revealed .spoiler-badge { display: none; }
+  .chat-inline-media { max-width: 320px; max-height: 220px; border-radius: 8px; border: 1px solid var(--border); margin-top: 6px; display: block; object-fit: contain; background: #000; }
 
   .voice-panel { background: rgba(13, 148, 136, 0.06); border: 1px solid var(--cyan-border); border-radius: 10px; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
   .voice-panel-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -887,7 +926,6 @@ const HTML_PAGE = `<!DOCTYPE html>
   .voice-user-card { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); width: fit-content; }
   .vu-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
 
-  /* Сетка видеопотоков (Веб-камеры и Экраны) */
   .screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; width: 100%; }
   .screen-grid:empty { display: none; }
   .screen-card { background: #05080d; border: 1px solid var(--cyan-border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
@@ -907,14 +945,14 @@ const HTML_PAGE = `<!DOCTYPE html>
 
   .right-panel { background: var(--bg-sidebar); border-left: 1px solid var(--border); padding: 14px 12px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
   .right-sec-title { font-size: 9px; text-transform: uppercase; color: var(--cyan-bright); font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
-  .online-user-item { display: flex; align-items: center; gap: 7px; font-size: 11px; padding: 6px 7px; background: rgba(255,255,255,0.02); border-radius: 7px; border: 1px solid transparent; cursor: pointer; transition: 0.15s; }
+  .online-user-item { display: flex; align-items: center; gap: 7px; font-size: 11px; padding: 6px 7px; background: rgba(255,255,255,0.02); border-radius: 7px; border: 1px solid transparent; cursor: pointer; transition: 0.15s; min-width: 0; }
   .online-user-item:hover { background: rgba(255,255,255,0.05); border-color: var(--border); }
   .online-user-item.is-online { border-color: rgba(34, 197, 94, 0.14); }
   .online-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 6px #22c55e; flex-shrink: 0; }
   .online-dot.idle { background: #eab308; box-shadow: 0 0 6px #eab308; }
   .online-dot.dnd { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
   .online-dot.off, .online-dot.offline { background: #475569; box-shadow: none; }
-  .member-text-col { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .member-text-col { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
   .member-nick-row { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .member-status-sub { font-size: 9px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .status-pill { font-size: 8px; padding: 1px 5px; border-radius: 4px; font-weight: 700; text-transform: uppercase; flex-shrink: 0; }
@@ -927,61 +965,159 @@ const HTML_PAGE = `<!DOCTYPE html>
   .invite-banner-card h5 { font-size: 11px; font-weight: 700; margin-bottom: 3px; }
   .invite-banner-card p { font-size: 10px; color: var(--text-dim); margin-bottom: 8px; }
 
-  .btn-cyan { background: var(--cyan-bright); color: #042f2e; border: none; padding: 7px 14px; border-radius: 6px; font-weight: 700; font-size: 11px; cursor: pointer; }
-  .btn-danger { background: #ef4444; color: #fff; border: none; padding: 7px 12px; border-radius: 6px; font-weight: 700; font-size: 11px; cursor: pointer; }
-  .btn-mute { background: #1e293b; color: #fff; border: 1px solid var(--border); padding: 7px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; }
+  .btn-cyan { background: var(--cyan-bright); color: #042f2e; border: none; padding: 7px 14px; border-radius: 6px; font-weight: 700; font-size: 11px; cursor: pointer; transition: 0.15s; white-space: nowrap; }
+  .btn-cyan:hover { filter: brightness(1.08); box-shadow: 0 0 12px rgba(45,212,191,0.35); }
+  .btn-danger { background: rgba(239, 68, 68, 0.16); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.45); padding: 7px 12px; border-radius: 6px; font-weight: 700; font-size: 11px; cursor: pointer; transition: 0.15s; white-space: nowrap; }
+  .btn-danger:hover { background: #ef4444; color: #fff; }
+  .btn-mute { background: #131c28; color: #e2e8f0; border: 1px solid var(--border); padding: 7px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.15s; }
+  .btn-mute:hover { border-color: var(--cyan-bright); color: #fff; }
   .btn-mute.active-screen { background: rgba(219, 39, 119, 0.22); border-color: #f43f5e; color: #fda4af; }
   .btn-mute.active-cam { background: rgba(20, 184, 166, 0.22); border-color: var(--cyan-bright); color: var(--cyan-bright); }
   .btn-pink-card { background: #9d174d; color: #fff; border: none; width: 100%; padding: 7px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
   .btn-tg { background: #229ED9; color: #fff; border: none; width: 100%; padding: 10px 14px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; margin-bottom: 10px; }
   .btn-tg:hover { background: #1d8ec4; box-shadow: 0 0 14px rgba(34, 158, 217, 0.45); }
 
-  .modal-backdrop { position: fixed; inset: 0; background: rgba(2, 4, 8, 0.86); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 999; }
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(2, 4, 8, 0.86); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 999; padding: 12px; }
   .modal-backdrop.open { display: flex; }
-  .modal-box { background: var(--bg-card); border: 1px solid var(--cyan-border); border-radius: 12px; padding: 22px; width: 390px; max-width: 94vw; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
-  .modal-box input[type="text"], .modal-box input[type="password"], .modal-box textarea, .modal-box select { width: 100%; padding: 9px 11px; background: #04060a; border: 1px solid var(--border); border-radius: 6px; color: #fff; margin-bottom: 10px; font-size: 12px; outline: none; user-select: text; font-family: inherit; }
+  .modal-box { background: var(--bg-card); border: 1px solid var(--cyan-border); border-radius: 12px; padding: 22px; width: 390px; max-width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,0.8); overflow: hidden; }
+  .modal-box input[type="text"], .modal-box input[type="password"], .modal-box textarea, .modal-box select {
+    width: 100%; max-width: 100%; padding: 8px 11px; background: #04060a; border: 1px solid var(--border);
+    border-radius: 6px; color: #fff; margin-bottom: 10px; font-size: 12px; outline: none; user-select: text; font-family: inherit;
+  }
   .modal-box input:focus, .modal-box textarea:focus, .modal-box select:focus { border-color: var(--cyan-bright); }
   .link-box { background: #030508; border: 1px dashed var(--cyan-bright); padding: 8px; color: var(--cyan-bright); font-size: 11px; word-break: break-all; margin-bottom: 10px; border-radius: 6px; display: block; text-decoration: none; text-align: center; user-select: text; }
   .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; background: #06090f; padding: 4px; border-radius: 8px; border: 1px solid var(--border); }
   .auth-tab { padding: 6px 8px; font-size: 11px; font-weight: 700; text-align: center; border-radius: 6px; cursor: pointer; color: var(--text-dim); }
   .auth-tab.active { background: rgba(34, 158, 217, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
 
-  /* ---------- Панель Профиля и Настроек в стиле Discord ---------- */
-  .settings-modal-box { background: #0b1119; border: 1px solid var(--cyan-border); border-radius: 14px; width: 780px; max-width: 96vw; height: 560px; max-height: 92vh; display: grid; grid-template-columns: 210px 1fr; overflow: hidden; box-shadow: 0 25px 70px rgba(0,0,0,0.85); }
-  .settings-nav { background: #060a0f; border-right: 1px solid var(--border); padding: 16px 10px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
-  .settings-nav-label { font-size: 9px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); padding: 6px 10px 4px; letter-spacing: 0.8px; }
-  .settings-nav-btn { padding: 8px 10px; border-radius: 7px; font-size: 12px; font-weight: 600; color: var(--text-dim); cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.15s; }
+  /* ---------- Оптимизированная панель Настроек в едином кибер-стиле (без выходов за края) ---------- */
+  .settings-modal-box {
+    background: #0b1119; border: 1px solid var(--cyan-border); border-radius: 14px;
+    width: 820px; max-width: 100%; height: 590px; max-height: 92vh;
+    display: grid; grid-template-columns: 215px minmax(0, 1fr);
+    overflow: hidden; box-shadow: 0 25px 70px rgba(0,0,0,0.9);
+  }
+  .settings-nav {
+    background: #060a0f; border-right: 1px solid var(--border);
+    padding: 14px 10px; display: flex; flex-direction: column; gap: 4px;
+    overflow-y: auto; overflow-x: hidden; min-width: 0;
+  }
+  .settings-nav-label { font-size: 9px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); padding: 6px 8px 3px; letter-spacing: 0.7px; }
+  .settings-nav-btn {
+    padding: 8px 10px; border-radius: 7px; font-size: 11.5px; font-weight: 600;
+    color: var(--text-dim); cursor: pointer; display: flex; align-items: center; gap: 8px;
+    transition: 0.15s; border: 1px solid transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   .settings-nav-btn:hover { background: rgba(255,255,255,0.04); color: #fff; }
-  .settings-nav-btn.active { background: rgba(45, 212, 191, 0.14); color: var(--cyan-bright); border: 1px solid var(--cyan-border); }
-  .settings-content { padding: 20px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
-  .settings-pane { display: none; flex-direction: column; gap: 14px; }
+  .settings-nav-btn.active { background: rgba(45, 212, 191, 0.13); color: var(--cyan-bright); border-color: var(--cyan-border); }
+  .settings-content {
+    padding: 18px 22px; overflow-y: auto; overflow-x: hidden;
+    display: flex; flex-direction: column; gap: 14px; min-width: 0; max-width: 100%;
+  }
+  .settings-pane { display: none; flex-direction: column; gap: 12px; min-width: 0; max-width: 100%; }
   .settings-pane.active { display: flex; }
-  .settings-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
-  .settings-head h3 { font-size: 16px; font-weight: 800; color: #fff; }
-  .field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px; display: block; letter-spacing: 0.5px; }
-  .settings-card { background: #070b11; border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-  .toggle-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
-  .toggle-row:last-child { border-bottom: none; }
-  .toggle-title { font-size: 12px; font-weight: 600; color: #f1f5f9; }
-  .toggle-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-  .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; }
-  .color-swatch { width: 26px; height: 26px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; }
-  .color-swatch.active { border-color: #fff; transform: scale(1.1); }
+  .settings-head {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--border); padding-bottom: 10px; flex-wrap: wrap; min-width: 0;
+  }
+  .settings-head h3 { font-size: 15px; font-weight: 800; color: #fff; letter-spacing: 0.3px; }
+  .field-label { font-size: 9.5px; font-weight: 700; text-transform: uppercase; color: var(--text-dim); margin-bottom: 5px; display: block; letter-spacing: 0.5px; }
+  .settings-card {
+    background: #070b11; border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; max-width: 100%; overflow: hidden;
+  }
+  .settings-grid-2 {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; width: 100%; min-width: 0;
+  }
+  .settings-grid-2 > div { min-width: 0; max-width: 100%; }
+
+  /* Единый стиль полей ввода и списков внутри настроек */
+  .settings-card input[type="text"],
+  .settings-card input[type="password"],
+  .settings-card textarea,
+  .settings-card select {
+    width: 100%; max-width: 100%; min-width: 0; padding: 8px 10px;
+    background: #04060a; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text-main); font-size: 11.5px; outline: none; font-family: inherit;
+    margin: 0; transition: 0.15s; text-overflow: ellipsis;
+  }
+  .settings-card textarea { resize: vertical; min-height: 54px; max-height: 110px; }
+  .settings-card input:focus, .settings-card textarea:focus, .settings-card select:focus {
+    border-color: var(--cyan-bright); box-shadow: 0 0 8px rgba(45,212,191,0.18);
+  }
+
+  /* Кибер-тумблеры (переключатели в стиле Discord / Cyberpunk) */
+  .toggle-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.04); min-width: 0;
+  }
+  .toggle-row:last-child { border-bottom: none; padding-bottom: 2px; }
+  .toggle-text-col { flex: 1; min-width: 0; }
+  .toggle-title { font-size: 12px; font-weight: 600; color: #f1f5f9; line-height: 1.3; }
+  .toggle-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; line-height: 1.35; }
+
+  .cyber-switch { position: relative; display: inline-block; width: 38px; height: 20px; flex-shrink: 0; cursor: pointer; }
+  .cyber-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .cyber-slider {
+    position: absolute; inset: 0; background: #131c28; border: 1px solid var(--border);
+    border-radius: 999px; transition: 0.2s;
+  }
+  .cyber-slider::before {
+    content: ''; position: absolute; width: 14px; height: 14px; left: 2px; top: 2px;
+    background: #64748b; border-radius: 50%; transition: 0.2s;
+  }
+  .cyber-switch input:checked + .cyber-slider {
+    background: rgba(20, 184, 166, 0.25); border-color: var(--cyan-bright);
+    box-shadow: 0 0 10px rgba(45, 212, 191, 0.25);
+  }
+  .cyber-switch input:checked + .cyber-slider::before {
+    transform: translateX(18px); background: var(--cyan-bright);
+  }
+
+  /* Кибер-ползунки громкости */
+  .cyber-range {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
+    background: #04060a; border: 1px solid var(--border); border-radius: 999px; outline: none; margin-top: 4px;
+  }
+  .cyber-range::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 14px; height: 14px;
+    border-radius: 50%; background: var(--cyan-bright); cursor: pointer; box-shadow: 0 0 8px var(--cyan-bright);
+  }
+
+  .theme-pills-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+  .theme-pill-btn {
+    background: #04060a; border: 1px solid var(--border); color: var(--text-main);
+    padding: 8px 10px; border-radius: 7px; font-size: 11px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; transition: 0.15s; min-width: 0;
+  }
+  .theme-pill-btn:hover { border-color: var(--cyan-bright); background: rgba(45,212,191,0.08); }
+  .theme-dot-swatch { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+  .color-swatches { display: flex; gap: 7px; flex-wrap: wrap; }
+  .color-swatch { width: 24px; height: 24px; border-radius: 6px; cursor: pointer; border: 2px solid rgba(255,255,255,0.15); transition: 0.15s; }
+  .color-swatch:hover, .color-swatch.active { border-color: #fff; transform: scale(1.08); }
   .mic-meter-wrap { width: 100%; height: 10px; background: #04060a; border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
   .mic-meter-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #22c55e, #2dd4bf, #ec4899); transition: width 0.06s linear; }
 
   /* Карточка профиля в стиле Discord */
-  .discord-profile-card { background: #070b11; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-  .dp-banner { height: 74px; background: #0d9488; position: relative; }
-  .dp-body { padding: 34px 16px 16px; position: relative; }
-  .dp-ava { width: 58px; height: 58px; border-radius: 14px; background: #e11d48; border: 4px solid #070b11; position: absolute; top: -29px; left: 16px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; color: #fff; }
-  .dp-nick { font-size: 16px; font-weight: 800; color: #fff; }
-  .dp-status { font-size: 11px; color: var(--cyan-bright); margin-top: 2px; }
-  .dp-sec { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .discord-profile-card { background: #070b11; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; min-width: 0; max-width: 100%; }
+  .dp-banner { height: 64px; background: #0d9488; position: relative; }
+  .dp-body { padding: 30px 14px 14px; position: relative; min-width: 0; }
+  .dp-ava { width: 52px; height: 52px; border-radius: 12px; background: #e11d48; border: 4px solid #070b11; position: absolute; top: -26px; left: 14px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; color: #fff; }
+  .dp-nick { font-size: 15px; font-weight: 800; color: #fff; word-break: break-word; }
+  .dp-status { font-size: 11px; color: var(--cyan-bright); margin-top: 2px; word-break: break-word; }
+  .dp-sec { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
   .dp-sec-title { font-size: 9px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 0.6px; }
-  .dp-bio { font-size: 12px; color: #cbd5e1; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
-  .dp-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
-  .dp-tag { background: rgba(45, 212, 191, 0.12); border: 1px solid var(--cyan-border); color: var(--cyan-bright); padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; }
+  .dp-bio { font-size: 11.5px; color: #cbd5e1; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
+  .dp-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+  .dp-tag { background: rgba(45, 212, 191, 0.12); border: 1px solid var(--cyan-border); color: var(--cyan-bright); padding: 2px 8px; border-radius: 999px; font-size: 9.5px; font-weight: 700; }
+
+  @media (max-width: 720px) {
+    .settings-modal-box { grid-template-columns: 1fr; height: 90vh; }
+    .settings-nav { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 8px; }
+    .settings-nav-label { display: none; }
+    .settings-grid-2 { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -991,6 +1127,7 @@ const HTML_PAGE = `<!DOCTYPE html>
     <div class="top-sub">МЕСТО ДЛЯ СВОИХ // ГОЛОС, КАМЕРА И СТРИМЫ</div>
     <div class="top-right-group">
       <button class="btn-top-settings" onclick="openSettingsModal('profile')">👤 Мой профиль</button>
+      <button class="btn-top-settings" onclick="openSettingsModal('safety')">🛡️ Фильтр 18+</button>
       <button class="btn-top-settings" onclick="openSettingsModal('voice')">⚙️ Настройки</button>
       <button class="btn-top-invite" onclick="openInviteModal()">ПРИГЛАСИТЬ ДРУГА</button>
     </div>
@@ -1040,14 +1177,14 @@ const HTML_PAGE = `<!DOCTYPE html>
             <div class="user-ava" id="user-ava">ГО</div>
             <div class="user-presence-dot" id="user-presence-dot"></div>
           </div>
-          <div style="overflow:hidden;">
+          <div style="overflow:hidden;min-width:0;">
             <div class="user-name" id="user-name-label">Гость</div>
             <div class="user-sub" id="user-email-label">Настроить профиль</div>
           </div>
         </div>
         <div class="user-bar-actions">
           <button class="btn-login-mini" onclick="openSettingsModal('profile')">Профиль</button>
-          <button class="btn-icon-bar" onclick="openSettingsModal('voice')" title="Настройки голоса, камеры и звука">⚙️</button>
+          <button class="btn-icon-bar" onclick="openSettingsModal('voice')" title="Настройки голоса, камеры и безопасности">⚙️</button>
         </div>
       </div>
     </div>
@@ -1073,6 +1210,7 @@ const HTML_PAGE = `<!DOCTYPE html>
             <p id="banner-desc">Это #игровая-комната на сервере «Ночной клуб». Делитесь мыслями, включайте камеру или демонстрацию экрана и приглашайте друзей.</p>
             <div class="pill-tags-row">
               <span class="pill-tag" onclick="openSettingsModal('profile')">👤 ЗАПОЛНИТЬ ПРОФИЛЬ И ИНТЕРЕСЫ</span>
+              <span class="pill-tag" onclick="openSettingsModal('safety')">🛡️ ФИЛЬТР 18+ И ШОК-КОНТЕНТА</span>
               <span class="pill-tag pink" onclick="openInviteModal()">+ ПРИГЛАСИТЬ ДРУГА В КАНАЛ</span>
             </div>
           </div>
@@ -1146,14 +1284,16 @@ const HTML_PAGE = `<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- Большое окно Профиля и Настроек в стиле Discord -->
+  <!-- Большое окно Профиля и Настроек в едином стиле СИГНАЛ -->
   <div class="modal-backdrop" id="settings-modal" onclick="if(event.target===this)closeSettingsModal()">
     <div class="settings-modal-box">
       <div class="settings-nav">
-        <div class="settings-nav-label">Настройки пользователя</div>
+        <div class="settings-nav-label">Профиль</div>
         <div class="settings-nav-btn active" data-pane="profile" onclick="switchSettingsPane('profile')">👤 Мой профиль</div>
-        <div class="settings-nav-btn" data-pane="account" onclick="switchSettingsPane('account')">🛡️ Учётная запись</div>
-        <div class="settings-nav-label" style="margin-top:8px;">Настройки приложения</div>
+        <div class="settings-nav-btn" data-pane="account" onclick="switchSettingsPane('account')">🔑 Учётная запись</div>
+        <div class="settings-nav-label" style="margin-top:6px;">Безопасность</div>
+        <div class="settings-nav-btn" data-pane="safety" onclick="switchSettingsPane('safety')">🛡️ Фильтр контента</div>
+        <div class="settings-nav-label" style="margin-top:6px;">Приложение</div>
         <div class="settings-nav-btn" data-pane="voice" onclick="switchSettingsPane('voice')">🎙️ Голос и видео</div>
         <div class="settings-nav-btn" data-pane="appearance" onclick="switchSettingsPane('appearance')">🎨 Внешний вид</div>
         <div class="settings-nav-btn" data-pane="notifications" onclick="switchSettingsPane('notifications')">🔔 Уведомления</div>
@@ -1163,14 +1303,13 @@ const HTML_PAGE = `<!DOCTYPE html>
       </div>
 
       <div class="settings-content">
-        <!-- Вкладка 1: Мой профиль (как в Discord) -->
+        <!-- Вкладка 1: Мой профиль -->
         <div class="settings-pane active" id="pane-profile">
           <div class="settings-head">
             <h3>Мой профиль</h3>
-            <button class="btn-cyan" onclick="saveProfileSettings()">Сохранить профиль</button>
+            <button class="btn-cyan" onclick="saveProfileSettings()">✓ Сохранить профиль</button>
           </div>
 
-          <!-- Живое превью карточки профиля -->
           <div class="discord-profile-card">
             <div class="dp-banner" id="preview-banner"></div>
             <div class="dp-body">
@@ -1189,7 +1328,7 @@ const HTML_PAGE = `<!DOCTYPE html>
           </div>
 
           <div class="settings-card">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="settings-grid-2">
               <div>
                 <label class="field-label">Отображаемый позывной</label>
                 <input type="text" id="prof-nick-inp" maxlength="24" placeholder="Ваш позывной" oninput="updateProfilePreview()">
@@ -1212,7 +1351,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 
             <div>
               <label class="field-label">О себе</label>
-              <textarea id="prof-bio-inp" rows="3" maxlength="220" placeholder="Расскажите о себе, своих проектах, любимых играх или музыке..." oninput="updateProfilePreview()"></textarea>
+              <textarea id="prof-bio-inp" rows="2" maxlength="220" placeholder="Расскажите о себе, своих проектах, любимых играх или музыке..." oninput="updateProfilePreview()"></textarea>
             </div>
 
             <div>
@@ -1220,7 +1359,7 @@ const HTML_PAGE = `<!DOCTYPE html>
               <input type="text" id="prof-interests-inp" maxlength="160" placeholder="Киберпанк, Игры, Музыка, Программирование, Аниме" oninput="updateProfilePreview()">
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="settings-grid-2">
               <div>
                 <label class="field-label">Цвет баннера профиля</label>
                 <div class="color-swatches" id="banner-swatches">
@@ -1245,7 +1384,65 @@ const HTML_PAGE = `<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Вкладка 2: Голос и видео (РАБОЧИЕ настройки звука и веб-камеры) -->
+        <!-- Вкладка 2: Фильтр контента (Защита от сексуального и шокирующего медиаконтента) -->
+        <div class="settings-pane" id="pane-safety">
+          <div class="settings-head">
+            <h3>🛡️ Фильтр сексуального и шокирующего контента</h3>
+            <span class="status-pill on">ЗАЩИТА АКТИВНА</span>
+          </div>
+
+          <div class="settings-card">
+            <div class="toggle-row">
+              <div class="toggle-text-col">
+                <div class="toggle-title">🔞 Блокировать сексуальный и откровенный контент (18+ / NSFW)</div>
+                <div class="toggle-sub">Автоматически блокирует откровенные медиафайлы, 18+ ссылки и сообщения сексуального характера</div>
+              </div>
+              <label class="cyber-switch">
+                <input type="checkbox" id="chk-filter-sexual" checked onchange="saveSafetySettings()">
+                <span class="cyber-slider"></span>
+              </label>
+            </div>
+
+            <div class="toggle-row">
+              <div class="toggle-text-col">
+                <div class="toggle-title">🩸 Блокировать насилие и шокирующий контент (Gore / Шок-медиа)</div>
+                <div class="toggle-sub">Блокирует сцены жестокости, насилия, крови, увечий и шокирующие материалы</div>
+              </div>
+              <label class="cyber-switch">
+                <input type="checkbox" id="chk-filter-gore" checked onchange="saveSafetySettings()">
+                <span class="cyber-slider"></span>
+              </label>
+            </div>
+
+            <div class="toggle-row">
+              <div class="toggle-text-col">
+                <div class="toggle-title">🔗 Блокировать отправку запрещённых материалов с моего устройства</div>
+                <div class="toggle-sub">Предотвращает случайную отправку ссылок или текста с запрещённым контентом в чат</div>
+              </div>
+              <label class="cyber-switch">
+                <input type="checkbox" id="chk-filter-outgoing" checked onchange="saveSafetySettings()">
+                <span class="cyber-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <div>
+              <label class="field-label">Действие при обнаружении опасного контента или медиа</label>
+              <select id="sel-filter-action" onchange="saveSafetySettings()">
+                <option value="block">🚫 Полностью блокировать и удалять из чата (Рекомендуется)</option>
+                <option value="blur">👁️ Скрывать под размытым спойлером с предупреждением</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="field-label">Собственный чёрный список слов и доменов (через запятую)</label>
+              <input type="text" id="inp-custom-blocklist" maxlength="200" placeholder="Например: казино, спам, badsite.com" oninput="saveSafetySettings()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Вкладка 3: Голос и видео -->
         <div class="settings-pane" id="pane-voice">
           <div class="settings-head">
             <h3>Настройки голоса и видео</h3>
@@ -1253,30 +1450,30 @@ const HTML_PAGE = `<!DOCTYPE html>
           </div>
 
           <div class="settings-card">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="settings-grid-2">
               <div>
                 <label class="field-label">Устройство ввода (Микрофон)</label>
                 <select id="set-mic-select" onchange="saveAudioVideoSettings()"></select>
               </div>
               <div>
-                <label class="field-label">Устройство вывода (Динамики / Наушники)</label>
+                <label class="field-label">Устройство вывода (Наушники)</label>
                 <select id="set-spk-select" onchange="saveAudioVideoSettings()"></select>
               </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div class="settings-grid-2">
               <div>
-                <label class="field-label">Громкость микрофона: <span id="lbl-mic-vol">100%</span></label>
-                <input type="range" id="set-mic-vol" min="0" max="200" value="100" style="width:100%;" oninput="onAudioSlidersChange()">
+                <label class="field-label">Громкость микрофона: <span id="lbl-mic-vol" style="color:var(--cyan-bright);">100%</span></label>
+                <input type="range" class="cyber-range" id="set-mic-vol" min="0" max="200" value="100" oninput="onAudioSlidersChange()">
               </div>
               <div>
-                <label class="field-label">Громкость собеседников: <span id="lbl-out-vol">100%</span></label>
-                <input type="range" id="set-out-vol" min="0" max="200" value="100" style="width:100%;" oninput="onAudioSlidersChange()">
+                <label class="field-label">Громкость собеседников: <span id="lbl-out-vol" style="color:var(--cyan-bright);">100%</span></label>
+                <input type="range" class="cyber-range" id="set-out-vol" min="0" max="200" value="100" oninput="onAudioSlidersChange()">
               </div>
             </div>
 
             <div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
                 <label class="field-label" style="margin:0;">Проверка микрофона</label>
                 <button class="btn-login-mini" id="btn-mic-test" onclick="toggleMicTest()">🎙️ Проверить микрофон</button>
               </div>
@@ -1287,7 +1484,7 @@ const HTML_PAGE = `<!DOCTYPE html>
           </div>
 
           <div class="settings-card">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="settings-grid-2">
               <div>
                 <label class="field-label">Веб-камера</label>
                 <select id="set-cam-select" onchange="saveAudioVideoSettings()"></select>
@@ -1304,50 +1501,70 @@ const HTML_PAGE = `<!DOCTYPE html>
 
           <div class="settings-card">
             <div class="toggle-row">
-              <div>
+              <div class="toggle-text-col">
                 <div class="toggle-title">Шумоподавление (Noise Suppression)</div>
                 <div class="toggle-sub">Фильтрует фоновый шум вентиляторов и клавиатуры</div>
               </div>
-              <input type="checkbox" id="chk-noise" checked onchange="saveAudioVideoSettings()">
+              <label class="cyber-switch">
+                <input type="checkbox" id="chk-noise" checked onchange="saveAudioVideoSettings()">
+                <span class="cyber-slider"></span>
+              </label>
             </div>
             <div class="toggle-row">
-              <div>
+              <div class="toggle-text-col">
                 <div class="toggle-title">Эхоподавление (Echo Cancellation)</div>
                 <div class="toggle-sub">Предотвращает повтор звука из динамиков в микрофон</div>
               </div>
-              <input type="checkbox" id="chk-echo" checked onchange="saveAudioVideoSettings()">
+              <label class="cyber-switch">
+                <input type="checkbox" id="chk-echo" checked onchange="saveAudioVideoSettings()">
+                <span class="cyber-slider"></span>
+              </label>
             </div>
             <div class="toggle-row">
-              <div>
+              <div class="toggle-text-col">
                 <div class="toggle-title">Авторегулировка усиления (Auto Gain Control)</div>
                 <div class="toggle-sub">Автоматически выравнивает громкость вашего голоса</div>
               </div>
-              <input type="checkbox" id="chk-agc" checked onchange="saveAudioVideoSettings()">
+              <label class="cyber-switch">
+                <input type="checkbox" id="chk-agc" checked onchange="saveAudioVideoSettings()">
+                <span class="cyber-slider"></span>
+              </label>
             </div>
           </div>
         </div>
 
-        <!-- Вкладка 3: Внешний вид -->
+        <!-- Вкладка 4: Внешний вид -->
         <div class="settings-pane" id="pane-appearance">
           <div class="settings-head">
-            <h3>Внешний вид (как в Discord)</h3>
+            <h3>Внешний вид интерфейса</h3>
           </div>
           <div class="settings-card">
             <div>
-              <label class="field-label">Неоновый акцент интерфейса</label>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
-                <button class="btn-login-mini" onclick="setAccentTheme('#14b8a6', '#2dd4bf')">Бирюзовый Кибер</button>
-                <button class="btn-login-mini" onclick="setAccentTheme('#db2777', '#f43f5e')">Розовый Неон</button>
-                <button class="btn-login-mini" onclick="setAccentTheme('#7c3aed', '#a78bfa')">Фиолетовый Синт</button>
-                <button class="btn-login-mini" onclick="setAccentTheme('#d97706', '#fbbf24')">Золотой Кибер</button>
+              <label class="field-label">Неоновый акцент СИГНАЛ</label>
+              <div class="theme-pills-grid">
+                <button class="theme-pill-btn" onclick="setAccentTheme('#14b8a6', '#2dd4bf')">
+                  <span class="theme-dot-swatch" style="background:#2dd4bf;"></span><span>Бирюзовый Кибер</span>
+                </button>
+                <button class="theme-pill-btn" onclick="setAccentTheme('#db2777', '#f43f5e')">
+                  <span class="theme-dot-swatch" style="background:#f43f5e;"></span><span>Розовый Неон</span>
+                </button>
+                <button class="theme-pill-btn" onclick="setAccentTheme('#7c3aed', '#a78bfa')">
+                  <span class="theme-dot-swatch" style="background:#a78bfa;"></span><span>Фиолетовый Синт</span>
+                </button>
+                <button class="theme-pill-btn" onclick="setAccentTheme('#d97706', '#fbbf24')">
+                  <span class="theme-dot-swatch" style="background:#fbbf24;"></span><span>Золотой Кибер</span>
+                </button>
               </div>
             </div>
             <div class="toggle-row">
-              <div>
+              <div class="toggle-text-col">
                 <div class="toggle-title">Компактный режим сообщений</div>
                 <div class="toggle-sub">Уменьшает отступы в чате, чтобы помещалось больше текста</div>
               </div>
-              <input type="checkbox" id="chk-compact" onchange="applyAppearanceSettings()">
+              <label class="cyber-switch">
+                <input type="checkbox" id="chk-compact" onchange="applyAppearanceSettings()">
+                <span class="cyber-slider"></span>
+              </label>
             </div>
             <div>
               <label class="field-label">Масштаб шрифта чата</label>
@@ -1360,25 +1577,31 @@ const HTML_PAGE = `<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Вкладка 4: Уведомления -->
+        <!-- Вкладка 5: Уведомления -->
         <div class="settings-pane" id="pane-notifications">
           <div class="settings-head">
             <h3>Звуки и уведомления</h3>
           </div>
           <div class="settings-card">
             <div class="toggle-row">
-              <div>
+              <div class="toggle-text-col">
                 <div class="toggle-title">Звук при новом сообщении в чате</div>
                 <div class="toggle-sub">Воспроизводить мягкий кибер-сигнал при входящем сообщении</div>
               </div>
-              <input type="checkbox" id="chk-snd-msg" checked onchange="saveNotificationSettings()">
+              <label class="cyber-switch">
+                <input type="checkbox" id="chk-snd-msg" checked onchange="saveNotificationSettings()">
+                <span class="cyber-slider"></span>
+              </label>
             </div>
             <div class="toggle-row">
-              <div>
+              <div class="toggle-text-col">
                 <div class="toggle-title">Звук подключения к голосовому каналу</div>
                 <div class="toggle-sub">Звуковой сигнал при входе/выходе из голосового эфира</div>
               </div>
-              <input type="checkbox" id="chk-snd-voice" checked onchange="saveNotificationSettings()">
+              <label class="cyber-switch">
+                <input type="checkbox" id="chk-snd-voice" checked onchange="saveNotificationSettings()">
+                <span class="cyber-slider"></span>
+              </label>
             </div>
             <div>
               <button class="btn-login-mini" onclick="playUiBeep(660, 0.08)">🔊 Проверить звук уведомления</button>
@@ -1386,7 +1609,7 @@ const HTML_PAGE = `<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Вкладка 5: Учётная запись -->
+        <!-- Вкладка 6: Учётная запись -->
         <div class="settings-pane" id="pane-account">
           <div class="settings-head">
             <h3>Учётная запись и сессия</h3>
@@ -1395,8 +1618,8 @@ const HTML_PAGE = `<!DOCTYPE html>
             <div style="font-size:12px;color:#cbd5e1;line-height:1.5;">
               Ваш аккаунт автоматически сохранён в этом браузере — повторный вход при перезагрузке страницы не требуется.
             </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn-cyan" onclick="closeSettingsModal();openAuthModal(false)">Сменить аккаунт / Привязать Telegram</button>
+            <div class="settings-grid-2">
+              <button class="btn-cyan" onclick="closeSettingsModal();openAuthModal(false)">✈️ Сменить аккаунт / Telegram</button>
               <button class="btn-danger" onclick="logoutAccount()">Выйти из аккаунта</button>
             </div>
           </div>
@@ -1405,14 +1628,14 @@ const HTML_PAGE = `<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- Модальное окно просмотра чужого профиля (при клике на участника справа) -->
+  <!-- Модальное окно просмотра чужого профиля -->
   <div class="modal-backdrop" id="view-profile-modal" onclick="if(event.target===this)closeViewProfileModal()">
     <div class="modal-box" style="padding:0;overflow:hidden;width:360px;">
       <div class="discord-profile-card" style="border:none;">
         <div class="dp-banner" id="vp-banner"></div>
         <div class="dp-body">
           <div class="dp-ava" id="vp-ava">УЧ</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
             <div class="dp-nick" id="vp-nick">Участник</div>
             <span class="status-pill on" id="vp-online-pill">в сети</span>
           </div>
@@ -1445,7 +1668,7 @@ const HTML_PAGE = `<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- Модальное окно первой авторизации (больше не открывается повторно после входа) -->
+  <!-- Модальное окно первой авторизации -->
   <div class="modal-backdrop" id="auth-modal" onclick="if(!authLocked && event.target===this)closeAuthModal()">
     <div class="modal-box">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -1510,7 +1733,6 @@ const HTML_PAGE = `<!DOCTYPE html>
 <script>
   const params = new URLSearchParams(window.location.search);
 
-  // ---------- Сохранение сессии в localStorage + Cookie (чтобы повторный вход не требовался) ----------
   function setPersistCookie(name, val) {
     try {
       document.cookie = name + '=' + encodeURIComponent(val) + '; path=/; max-age=31536000; SameSite=Lax';
@@ -1560,7 +1782,6 @@ const HTML_PAGE = `<!DOCTYPE html>
   } catch (e) {}
   let authLocked = !myVerified;
 
-  // Данные профиля пользователя
   let myProfile = {
     bio: '',
     interests: '',
@@ -1574,7 +1795,6 @@ const HTML_PAGE = `<!DOCTYPE html>
     myProfile = Object.assign(myProfile, savedProf);
   } catch (e) {}
 
-  // Настройки звука, видео и уведомлений
   let appSettings = {
     micDeviceId: '',
     spkDeviceId: '',
@@ -1588,18 +1808,60 @@ const HTML_PAGE = `<!DOCTYPE html>
     compactChat: false,
     fontSize: '12px',
     soundMsg: true,
-    soundVoice: true
+    soundVoice: true,
+    filterSexual: true,
+    filterGore: true,
+    filterOutgoing: true,
+    filterAction: 'block',
+    customBlockedWords: ''
   };
   try {
     const savedSet = JSON.parse(localStorage.getItem('cyber_settings') || '{}');
     appSettings = Object.assign(appSettings, savedSet);
   } catch (e) {}
 
+  // Клиентский фильтр сексуального (18+) и шокирующего/насильственного контента
+  const CLIENT_SEXUAL_RX = [
+    /порн/i, /секс/i, /эротик/i, /интим/i, /хентай/i, /минет/i, /трах/i, /шлюх/i,
+    /проститут/i, /сиськ/i, /вагин/i, /член/i, /голая/i, /голые/i, /обнажен/i,
+    /porn/i, /nsfw/i, /xxx/i, /hentai/i, /onlyfans/i, /xvideos/i, /pornhub/i,
+    /redtube/i, /brazzers/i, /rule34/i, /nude/i, /boobs/i, /pussy/i, /dick/i
+  ];
+  const CLIENT_GORE_RX = [
+    /расчлен/i, /кишки/i, /труп/i, /казнь/i, /пытк/i, /убийств/i, /самоубийств/i,
+    /суицид/i, /резня/i, /кровопролит/i, /увечь/i, /жесть/i, /насили/i, /террор/i,
+    /gore/i, /liveleak/i, /bestgore/i, /behead/i, /torture/i, /suicide/i, /deadbody/i, /murder/i
+  ];
+
+  function checkContentViolation(text, serverFlags) {
+    const s = String(text || '');
+    const reasons = [];
+    if (appSettings.filterSexual) {
+      if ((serverFlags && serverFlags.sexual) || CLIENT_SEXUAL_RX.some(function (rx) { return rx.test(s); })) {
+        reasons.push('Сексуальный контент (18+)');
+      }
+    }
+    if (appSettings.filterGore) {
+      if ((serverFlags && serverFlags.gore) || CLIENT_GORE_RX.some(function (rx) { return rx.test(s); })) {
+        reasons.push('Насилие / Шокирующий контент');
+      }
+    }
+    if (appSettings.customBlockedWords) {
+      const list = String(appSettings.customBlockedWords).split(',').map(function (w) { return w.trim().toLowerCase(); }).filter(Boolean);
+      const lower = s.toLowerCase();
+      if (list.some(function (w) { return lower.includes(w); })) {
+        reasons.push('Чёрный список слов');
+      }
+    }
+    return reasons;
+  }
+
   let clientId = Math.random().toString(36).substring(2, 10);
   let evtSource = null;
   let tgSessionToken = '';
   let tgBotUsername = '';
   let tgPollTimer = null;
+  let cachedMessages = [];
 
   let serversList = [];
   let currentServerMeta = {
@@ -1666,8 +1928,10 @@ const HTML_PAGE = `<!DOCTYPE html>
     const pDot = document.getElementById('user-presence-dot');
     pDot.className = 'user-presence-dot ' + (myProfile.presence || 'online');
     document.getElementById('voice-my-name').textContent = myNick + ' (Вы)';
-    if (myProfile.customStatus) {
-      document.getElementById('user-email-label').textContent = myProfile.customStatus;
+    const stViolations = checkContentViolation(myProfile.customStatus || '');
+    const safeStatus = stViolations.length ? '' : myProfile.customStatus;
+    if (safeStatus) {
+      document.getElementById('user-email-label').textContent = safeStatus;
       document.getElementById('user-email-label').style.color = '#cbd5e1';
     } else if (myVerified) {
       document.getElementById('user-email-label').textContent = '✓ В сети';
@@ -1774,7 +2038,6 @@ const HTML_PAGE = `<!DOCTYPE html>
         renderServersRail();
         renderServerChannels();
         loadHistory();
-        // Если профиль был сохранён в браузере, синхронизируем его с сервером
         if (myVerified) syncProfileToServer();
       } else if (data.type === 'servers') {
         serversList = data.payload.list || [];
@@ -1783,6 +2046,7 @@ const HTML_PAGE = `<!DOCTYPE html>
         renderServersRail();
         renderServerChannels();
       } else if (data.type === 'msg' && data.payload.channel === currentChannel) {
+        cachedMessages.push(data.payload.msg);
         addMsgToDOM(data.payload.msg);
         if (appSettings.soundMsg && data.payload.msg && data.payload.msg.author !== myNick) {
           playUiBeep(540, 0.06);
@@ -1849,7 +2113,6 @@ const HTML_PAGE = `<!DOCTYPE html>
   renderServerChannels();
   connectEventStream();
 
-  // Показываем окно входа ТОЛЬКО если пользователь ни разу не входил
   if (!myVerified) {
     openAuthModal(true);
   }
@@ -1860,28 +2123,55 @@ const HTML_PAGE = `<!DOCTYPE html>
       .then(function (r) { return r.json(); })
       .then(function (msgs) {
         if (ch !== currentChannel) return;
-        const box = document.getElementById('messages-list');
-        box.innerHTML = '';
-        if (!Array.isArray(msgs) || msgs.length === 0) {
-          box.innerHTML = '<div id="empty-hint" style="font-size:11px;color:var(--text-muted);">Здесь пока тихо. Напишите первым.</div>';
-          return;
-        }
-        msgs.forEach(addMsgToDOM);
+        cachedMessages = Array.isArray(msgs) ? msgs : [];
+        rerenderChatMessages();
       })
       .catch(function () {});
   }
   loadHistory();
+
+  function rerenderChatMessages() {
+    const box = document.getElementById('messages-list');
+    box.innerHTML = '';
+    if (!cachedMessages.length) {
+      box.innerHTML = '<div id="empty-hint" style="font-size:11px;color:var(--text-muted);">Здесь пока тихо. Напишите первым.</div>';
+      return;
+    }
+    cachedMessages.forEach(addMsgToDOM);
+  }
+
+  function buildMessageBodyHTML(text, violations) {
+    const safeText = escapeHtml(text);
+    const imgMatch = String(text || '').match(/https?:\/\/[^\s"'<>]+\.(?:png|jpe?g|gif|webp)(\?[^\s"'<>]*)?/i);
+    let innerHtml = '<div>' + safeText + '</div>';
+    if (imgMatch) {
+      innerHtml += '<img class="chat-inline-media" src="' + escapeHtml(imgMatch[0]) + '" alt="media" loading="lazy">';
+    }
+
+    if (!violations || violations.length === 0) {
+      return innerHtml;
+    }
+    const reasonStr = escapeHtml(violations.join(', '));
+    if (appSettings.filterAction === 'blur') {
+      return '<div class="spoiler-blur-wrap" onclick="this.classList.toggle(\'revealed\')" title="Нажмите, чтобы показать или скрыть">' +
+        '<div class="spoiler-badge">🛡️ Скрыто фильтром (' + reasonStr + ') — нажмите, чтобы показать</div>' +
+        '<div class="spoiler-blur-content">' + innerHtml + '</div>' +
+        '</div>';
+    }
+    return '<div class="filtered-block-card">🛡️ Сообщение или медиа заблокировано фильтром безопасности (' + reasonStr + ')</div>';
+  }
 
   function addMsgToDOM(m) {
     const box = document.getElementById('messages-list');
     const hint = document.getElementById('empty-hint');
     if (hint) hint.remove();
     const author = String(m.author || '?');
+    const violations = checkContentViolation(m.text, m.flags);
     const div = document.createElement('div');
     div.className = 'msg-item';
     div.innerHTML = '<div class="msg-ava">' + escapeHtml(author.charAt(0).toUpperCase()) + '</div>' +
-      '<div><div><span class="msg-author">' + escapeHtml(author) + '</span><span class="msg-time">' + escapeHtml(m.time) + '</span></div>' +
-      '<div class="msg-text">' + escapeHtml(m.text) + '</div></div>';
+      '<div style="flex:1;min-width:0;"><div><span class="msg-author">' + escapeHtml(author) + '</span><span class="msg-time">' + escapeHtml(m.time) + '</span></div>' +
+      '<div class="msg-text">' + buildMessageBodyHTML(m.text, violations) + '</div></div>';
     box.appendChild(div);
     const scrollArea = document.getElementById('chat-scroll');
     scrollArea.scrollTop = scrollArea.scrollHeight;
@@ -1927,7 +2217,8 @@ const HTML_PAGE = `<!DOCTYPE html>
       nameRow.style.fontWeight = u.online ? '600' : '400';
       col.appendChild(nameRow);
       if (u.customStatus) {
-        col.appendChild(el('div', 'member-status-sub', u.customStatus));
+        const stViol = checkContentViolation(u.customStatus);
+        col.appendChild(el('div', 'member-status-sub', stViol.length ? '🛡️ [Статус скрыт фильтром]' : u.customStatus));
       }
       d.appendChild(col);
 
@@ -2007,7 +2298,6 @@ const HTML_PAGE = `<!DOCTYPE html>
     });
   }
 
-  // ---------- Просмотр чужой карточки профиля в стиле Discord ----------
   function openUserProfileCard(u) {
     if (!u) return;
     document.getElementById('vp-banner').style.background = u.bannerColor || '#0d9488';
@@ -2018,8 +2308,11 @@ const HTML_PAGE = `<!DOCTYPE html>
     const pill = document.getElementById('vp-online-pill');
     pill.className = 'status-pill ' + (u.online ? 'on' : 'off');
     pill.textContent = u.online ? 'в сети' : 'не в сети';
-    document.getElementById('vp-status').textContent = u.customStatus || '';
-    document.getElementById('vp-bio').textContent = u.bio || 'Участник пока ничего о себе не указал.';
+
+    const stViol = checkContentViolation(u.customStatus || '');
+    const bioViol = checkContentViolation(u.bio || '');
+    document.getElementById('vp-status').textContent = stViol.length ? '🛡️ [Статус скрыт фильтром]' : (u.customStatus || '');
+    document.getElementById('vp-bio').textContent = bioViol.length ? '🛡️ [Информация скрыта фильтром безопасности]' : (u.bio || 'Участник пока ничего о себе не указал.');
 
     const tagsBox = document.getElementById('vp-tags');
     tagsBox.innerHTML = '';
@@ -2028,7 +2321,9 @@ const HTML_PAGE = `<!DOCTYPE html>
       tagsBox.innerHTML = '<span style="font-size:10px;color:var(--text-muted);">Интересы не указаны</span>';
     } else {
       rawTags.forEach(function (tg) {
-        tagsBox.appendChild(el('span', 'dp-tag', tg));
+        if (!checkContentViolation(tg).length) {
+          tagsBox.appendChild(el('span', 'dp-tag', tg));
+        }
       });
     }
 
@@ -2051,7 +2346,6 @@ const HTML_PAGE = `<!DOCTYPE html>
     document.getElementById('view-profile-modal').classList.remove('open');
   }
 
-  // ---------- Панель Профиля и Настроек в стиле Discord ----------
   function openSettingsModal(pane) {
     document.getElementById('prof-nick-inp').value = myNick;
     document.getElementById('prof-presence-sel').value = myProfile.presence || 'online';
@@ -2059,6 +2353,12 @@ const HTML_PAGE = `<!DOCTYPE html>
     document.getElementById('prof-bio-inp').value = myProfile.bio || '';
     document.getElementById('prof-interests-inp').value = myProfile.interests || '';
     updateProfilePreview();
+
+    document.getElementById('chk-filter-sexual').checked = appSettings.filterSexual !== false;
+    document.getElementById('chk-filter-gore').checked = appSettings.filterGore !== false;
+    document.getElementById('chk-filter-outgoing').checked = appSettings.filterOutgoing !== false;
+    document.getElementById('sel-filter-action').value = appSettings.filterAction || 'block';
+    document.getElementById('inp-custom-blocklist').value = appSettings.customBlockedWords || '';
 
     document.getElementById('set-mic-vol').value = appSettings.micVolume;
     document.getElementById('lbl-mic-vol').textContent = appSettings.micVolume + '%';
@@ -2091,6 +2391,17 @@ const HTML_PAGE = `<!DOCTYPE html>
       p.classList.toggle('active', p.id === 'pane-' + paneId);
     });
     if (paneId !== 'voice') stopMicTest();
+  }
+
+  function saveSafetySettings() {
+    appSettings.filterSexual = document.getElementById('chk-filter-sexual').checked;
+    appSettings.filterGore = document.getElementById('chk-filter-gore').checked;
+    appSettings.filterOutgoing = document.getElementById('chk-filter-outgoing').checked;
+    appSettings.filterAction = document.getElementById('sel-filter-action').value || 'block';
+    appSettings.customBlockedWords = document.getElementById('inp-custom-blocklist').value.trim();
+    try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
+    rerenderChatMessages();
+    renderUsers(lastMembers);
   }
 
   function selectBannerColor(col) {
@@ -2163,7 +2474,6 @@ const HTML_PAGE = `<!DOCTYPE html>
     closeSettingsModal();
   }
 
-  // ---------- Рабочие настройки звука и видео ----------
   async function refreshMediaDevices() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
     try {
@@ -2341,6 +2651,15 @@ const HTML_PAGE = `<!DOCTYPE html>
     const inp = document.getElementById('chat-input');
     const text = inp.value.trim();
     if (!text) return;
+
+    if (appSettings.filterOutgoing !== false) {
+      const myViol = checkContentViolation(text);
+      if (myViol.length > 0) {
+        alert('🛡️ Отправка заблокирована вашим фильтром безопасности (' + myViol.join(', ') + ').');
+        return;
+      }
+    }
+
     fetch('/api/message', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2475,7 +2794,6 @@ const HTML_PAGE = `<!DOCTYPE html>
     }
   }
 
-  // ---------- Авторизация через Telegram (однократная) ----------
   async function initTelegramSession() {
     try {
       const res = await fetch('/api/tg-init');
@@ -2620,7 +2938,6 @@ const HTML_PAGE = `<!DOCTYPE html>
     }
   }
 
-  // ---------- Голосовой канал, Веб-камера и Трансляция экрана ----------
   function postVoiceState(state) {
     return fetch('/api/voice', {
       method: 'POST',
@@ -2772,7 +3089,6 @@ const HTML_PAGE = `<!DOCTYPE html>
     await ensureVoiceConnected();
   }
 
-  // ---------- Веб-камера при разговоре ----------
   function callPeerWithWebcam(remotePid) {
     if (!peer || !webcamStream || !remotePid || remotePid === myPeerId) return;
     if (camCalls[remotePid]) {
@@ -2873,7 +3189,6 @@ const HTML_PAGE = `<!DOCTYPE html>
     }
   }
 
-  // ---------- Демонстрация экрана и отдельных окон ----------
   function callPeerWithScreen(remotePid) {
     if (!peer || !screenStream || !remotePid || remotePid === myPeerId) return;
     if (screenCalls[remotePid]) {
@@ -2986,6 +3301,13 @@ const HTML_PAGE = `<!DOCTYPE html>
 
       const right = el('div', '');
       right.style.cssText = 'display:flex;gap:6px;align-items:center;';
+
+      if (!isLocal) {
+        const blockBtn = el('button', 'btn-fs', '🛡️ Скрыть 18+');
+        blockBtn.title = 'Скрыть этот видеопоток (фильтр безопасности)';
+        blockBtn.onclick = function () { removeMediaTile(id); };
+        right.appendChild(blockBtn);
+      }
 
       const fsBtn = el('button', 'btn-fs', '⛶ На весь экран');
       fsBtn.onclick = function () {
@@ -3250,7 +3572,6 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Сохранение расширенного профиля (о себе, интересы, кастомный статус, цвета)
     if (req.method === 'POST' && url.pathname === '/api/profile') {
       const body = await readBody(req);
       const uid = body.uid;
@@ -3435,7 +3756,8 @@ const server = http.createServer(async (req, res) => {
 
       const now = new Date();
       const time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-      const msg = { author, time, text };
+      const flags = detectContentFlags(text);
+      const msg = { author, time, text, flags };
 
       const rObj = getRoom(room);
       if (!rObj[channel]) rObj[channel] = [];
