@@ -32,7 +32,6 @@ const MAX_MEMBERS = 500;
 const MAX_FRIENDS = 200;
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data.json');
 
-// Словари для распознавания сексуального (18+) и шокирующего/насильственного контента
 const SEXUAL_PATTERNS = [
   /порн/i, /секс/i, /эротик/i, /интим/i, /хентай/i, /минет/i, /трах/i, /шлюх/i,
   /проститут/i, /сиськ/i, /вагин/i, /член/i, /голая/i, /голые/i, /обнажен/i,
@@ -140,7 +139,7 @@ function initDefaultServers() {
     rooms[DEFAULT_ROOM]['игровая-комната'].push({
       author: 'СИСТЕМА СИГНАЛ',
       time: '00:00',
-      text: 'Добро пожаловать в «Ночной клуб»! Все друзья, серверы и каналы защищены от сброса при обновлениях, а системный оверлей звонка работает поверх всех окон даже при свёрнутом браузере.'
+      text: 'Добро пожаловать в «Ночной клуб»! Кнопка «🪟 Поверх / Оверлей» теперь мгновенно открывает окно звонка поверх экрана, а скрытие 18+ на камере можно включать и выключать в любой момент.'
     });
   }
 }
@@ -499,7 +498,6 @@ function applyData(d) {
 
 async function loadData() {
   if (USE_REDIS) {
-    // Загружаем данные как из основного префикса signal:, так и из резервного signal:v3:, чтобы ничего не терялось
     const first = await redis([
       ['GET', KEY + 'users'],
       ['GET', KEY + 'members'],
@@ -540,18 +538,16 @@ async function loadData() {
   console.log('💾 Хранилище: ' + (USE_REDIS ? 'Upstash Redis' : 'файл ' + DATA_FILE) + ', пользователей: ' + Object.keys(users).length);
 }
 
-// Синхронизация резервной копии из браузера пользователя (чтобы после замены server.js на Render друзья и серверы мгновенно восстанавливались)
 function restoreClientVault(v) {
   if (!v || typeof v !== 'object') return false;
   let updated = false;
 
-  // 1. Восстанавливаем известные профили друзей и участников (по их pid/uid)
   if (Array.isArray(v.knownUsers)) {
     v.knownUsers.forEach(ku => {
       if (!ku || !validPid(ku.pid)) return;
       let targetUid = pidToUid[ku.pid];
       if (!targetUid) {
-        targetUid = validUid(ku.uid) ? ku.uid : crypto.createHash('sha256').update(' ghost-pid:' + ku.pid).digest('hex').slice(0, 32);
+        targetUid = validUid(ku.uid) ? ku.uid : crypto.createHash('sha256').update('ghost-pid:' + ku.pid).digest('hex').slice(0, 32);
       }
       if (!users[targetUid]) {
         users[targetUid] = {
@@ -578,7 +574,6 @@ function restoreClientVault(v) {
     });
   }
 
-  // 2. Восстанавливаем владельца хранилища и все его связи с друзьями
   if (validUid(v.uid)) {
     const me = ensureUser(v.uid, v.nick || 'Участник', true);
     if (v.profile && typeof v.profile === 'object') {
@@ -620,7 +615,6 @@ function restoreClientVault(v) {
     }
   }
 
-  // 3. Восстанавливаем созданные серверы, каналы и историю сообщений
   if (Array.isArray(v.servers)) {
     const serversObj = {};
     v.servers.forEach(s => {
@@ -914,7 +908,6 @@ function broadcastServers() {
 setInterval(() => {
   clients.forEach(c => c.res.write(': ping\n\n'));
 }, 25000);
-
 // String.raw гарантирует, что ни один обратный слэш (\) внутри HTML/JS не будет повреждён Node.js
 const HTML_PAGE = String.raw`<!DOCTYPE html>
 <html lang="ru">
@@ -1095,7 +1088,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .voice-user-card { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); width: fit-content; }
   .vu-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
 
-  /* ---------- ПЛАВАЮЩИЙ МИНИ-ОВЕРЛЕЙ ЗВОНКА (ВНУТРИ ВКЛАДКИ И ПОВЕРХ ОКОН) ---------- */
+  /* ---------- ПЛАВАЮЩИЙ МИНИ-ОВЕРЛЕЙ ЗВОНКА ---------- */
   .floating-call-overlay {
     position: fixed; right: 18px; bottom: 72px; width: 300px;
     background: rgba(8, 13, 20, 0.96); border: 1px solid var(--cyan-border);
@@ -1116,16 +1109,25 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .fco-btn.danger { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.5); color: #fca5a5; }
   .fco-btn.active-pip { background: rgba(20,184,166,0.22); border-color: var(--cyan-bright); color: var(--cyan-bright); }
 
+  /* Сетка камер и стримов с обратимой шторкой 18+ */
   .screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; width: 100%; }
   .screen-grid:empty { display: none; }
   .screen-card { background: #05080d; border: 1px solid var(--cyan-border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
   .screen-card-head { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: rgba(15, 23, 34, 0.95); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--cyan-bright); gap: 6px; flex-wrap: wrap; }
   .screen-live-pill { background: #e11d48; color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
   .screen-live-pill.cam { background: #0d9488; }
-  .screen-video-wrap { position: relative; width: 100%; background: #000; display: flex; align-items: center; justify-content: center; min-height: 160px; max-height: 380px; }
-  .screen-video-wrap video { width: 100%; max-height: 380px; object-fit: contain; background: #000; display: block; }
+  .screen-video-wrap { position: relative; width: 100%; background: #000; display: flex; align-items: center; justify-content: center; min-height: 160px; max-height: 380px; overflow: hidden; }
+  .screen-video-wrap video { width: 100%; max-height: 380px; object-fit: contain; background: #000; display: block; transition: filter 0.25s ease; }
+  .screen-card.nsfw-masked .screen-video-wrap video { filter: blur(26px) brightness(0.3); }
+  .media-nsfw-shield {
+    position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px; background: rgba(4, 7, 13, 0.72); color: #fda4af; font-size: 12px; font-weight: 700;
+    text-align: center; padding: 14px; z-index: 5; cursor: pointer;
+  }
+  .screen-card.nsfw-masked .media-nsfw-shield { display: flex; }
   .btn-fs { background: rgba(255,255,255,0.08); border: 1px solid var(--border); color: #fff; padding: 3px 8px; border-radius: 5px; font-size: 10px; font-weight: 600; cursor: pointer; }
   .btn-fs:hover { border-color: var(--cyan-bright); color: var(--cyan-bright); }
+  .btn-fs.active-shield { background: rgba(225, 29, 72, 0.25); border-color: #f43f5e; color: #fda4af; }
 
   .chat-bottom { padding: 8px 18px 12px; border-top: 1px solid var(--border); background: #070b12; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
   .input-row { display: flex; gap: 8px; align-items: center; }
@@ -1492,7 +1494,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div>
               <div class="voice-label">ГОЛОСОВОЙ КАНАЛ, КАМЕРА И ОВЕРЛЕЙ // WEBRTC P2P</div>
               <div class="voice-title" id="voice-panel-title">Общий разговор участников канала («Ночной эфир»)</div>
-              <div class="voice-sub" id="voice-sub-status">Нажмите «🪟 Оверлей (Не пропадает)», чтобы закрепить системное мини-окно поверх всех игр и рабочего стола даже при сворачивании браузера.</div>
+              <div class="voice-sub" id="voice-sub-status">Нажмите «🪟 Оверлей», чтобы закрепить системное мини-окно поверх всех игр и рабочего стола даже при сворачивании браузера.</div>
             </div>
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
               <button class="btn-mute" id="mute-btn" style="display:none;" onclick="toggleMute()">🎤 Микр. вкл</button>
@@ -1546,7 +1548,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- Встроенный перетаскиваемый виджет + быстрый запуск неубиваемого системного PiP-оверлея -->
+  <!-- Встроенный перетаскиваемый виджет + мгновенный запуск системного PiP-оверлея -->
   <div class="floating-call-overlay" id="floating-call-overlay">
     <div class="fco-head" id="fco-drag-handle">
       <div class="fco-live">
@@ -2091,7 +2093,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     }
   }
 
-  // ---------- Сохранение сессии и обновление URL без перезагрузки ----------
+  // ---------- Сохранение сессии и локального хранилища (защита от сброса при обновлении server.js) ----------
   function setPersistCookie(name, val) {
     try {
       document.cookie = name + '=' + encodeURIComponent(val) + '; path=/; max-age=31536000; SameSite=Lax';
@@ -2187,6 +2189,99 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     appSettings = Object.assign(appSettings, savedSet);
   } catch (e) {}
 
+  // ---------- Резервный слепок друзей, серверов и истории в браузере ----------
+  let localVault = {
+    knownUsers: {},
+    friends: [],
+    incoming: [],
+    outgoing: [],
+    servers: [],
+    messages: {}
+  };
+  try {
+    const rawVault = JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}');
+    if (rawVault && typeof rawVault === 'object') {
+      localVault = Object.assign(localVault, rawVault);
+    }
+  } catch (e) {}
+
+  function rememberUserInVault(u) {
+    if (!u || !u.pid || u.nick === '?') return;
+    const prev = localVault.knownUsers[u.pid] || {};
+    localVault.knownUsers[u.pid] = {
+      pid: u.pid,
+      nick: u.nick || prev.nick || 'Участник',
+      bio: u.bio !== undefined ? u.bio : (prev.bio || ''),
+      interests: u.interests !== undefined ? u.interests : (prev.interests || ''),
+      customStatus: u.customStatus !== undefined ? u.customStatus : (prev.customStatus || ''),
+      presence: u.presence || prev.presence || 'online',
+      bannerColor: u.bannerColor || prev.bannerColor || '#0d9488',
+      avatarColor: u.avatarColor || prev.avatarColor || '#e11d48'
+    };
+  }
+
+  function saveLocalVault() {
+    try {
+      if (Array.isArray(social.friends) && social.friends.length > 0) {
+        localVault.friends = social.friends.map(function (f) {
+          rememberUserInVault(f);
+          return f.pid;
+        });
+      }
+      if (Array.isArray(social.incoming)) {
+        localVault.incoming = social.incoming.map(function (inc) {
+          rememberUserInVault(inc);
+          return inc.pid;
+        });
+      }
+      if (Array.isArray(social.outgoing)) {
+        localVault.outgoing = social.outgoing.slice();
+      }
+      if (Array.isArray(lastMembers)) {
+        lastMembers.forEach(rememberUserInVault);
+      }
+      if (Array.isArray(serversList) && serversList.length > 0) {
+        localVault.servers = serversList.slice(0, 40);
+      }
+      if (!localVault.messages) localVault.messages = {};
+      if (currentRoom && roomMessagesCache) {
+        const roomCopy = {};
+        Object.keys(roomMessagesCache).forEach(function (ch) {
+          const arr = roomMessagesCache[ch];
+          if (Array.isArray(arr) && arr.length) {
+            roomCopy[ch] = arr.slice(-80);
+          }
+        });
+        localVault.messages[currentRoom] = roomCopy;
+      }
+      localStorage.setItem('cyber_vault_v1', JSON.stringify(localVault));
+    } catch (e) {}
+  }
+
+  async function pushLocalVaultToServer() {
+    try {
+      const knownArr = Object.values(localVault.knownUsers || {});
+      const payload = {
+        uid: myUid,
+        nick: myNick,
+        profile: myProfile,
+        friends: localVault.friends || [],
+        incoming: localVault.incoming || [],
+        outgoing: localVault.outgoing || [],
+        knownUsers: knownArr,
+        servers: localVault.servers || [],
+        room: currentRoom,
+        roomMembersPids: knownArr.map(function (u) { return u.pid; }),
+        messages: localVault.messages || {}
+      };
+      await fetch('/api/vault-restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {}
+  }
+
   const CLIENT_SEXUAL_RX = [
     /порн/i, /секс/i, /эротик/i, /интим/i, /хентай/i, /минет/i, /трах/i, /шлюх/i,
     /проститут/i, /сиськ/i, /вагин/i, /член/i, /голая/i, /голые/i, /обнажен/i,
@@ -2198,7 +2293,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     /суицид/i, /резня/i, /кровопролит/i, /увечь/i, /жесть/i, /насили/i, /террор/i,
     /gore/i, /liveleak/i, /bestgore/i, /behead/i, /torture/i, /suicide/i, /deadbody/i, /murder/i
   ];
-  const IMAGE_URL_RX = new RegExp('https?://' + '[^\\s"\'<>]+\\.(?:png|jpe?g|gif|webp)(?:\\?[^\\s"\'<>]*)?', 'i');
+  const IMAGE_URL_RX = /https?:\/\/[^\s"'<>]+\.(?:png|jpe?g|gif|webp)(?:\?[^\s"'<>]*)?/i;
 
   function checkContentViolation(text, serverFlags) {
     const s = String(text || '');
@@ -2234,8 +2329,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let tgPollTimer = null;
 
   let roomMessagesCache = {};
-  let allRoomsMessagesVault = {};
-  let knownUsersByPid = {};
   let unreadByChannel = {};
   let cachedMessages = [];
   let profileSyncTimer = null;
@@ -2258,116 +2351,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let pendingChannelType = 'text';
   let micTestStream = null, micTestTimer = null;
 
-  // Переменные для фоновой работы звонка и системного PiP-оверлея, не исчезающего при сворачивании браузера
+  // Переменные для фоновой работы звонка и системного PiP-оверлея + резервного попап-оверлея
   let callStartTime = 0;
   let voiceLockRelease = null, wakeLockSentinel = null, keepAliveAudioEl = null;
-  let pipCanvas = null, pipCtx = null, canvasPipVideo = null, pipWorker = null;
-
-  // ---------- АВТО-СОХРАНЕНИЕ И ВОССТАНОВЛЕНИЕ ДРУЗЕЙ И СЕРВЕРОВ (VAULT AUTO-RESTORE) ----------
-  function loadLocalVault() {
-    try {
-      const raw = JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}');
-      if (raw.knownUsers && typeof raw.knownUsers === 'object') {
-        knownUsersByPid = raw.knownUsers;
-      }
-      if (raw.messages && typeof raw.messages === 'object') {
-        allRoomsMessagesVault = raw.messages;
-      }
-      if (Array.isArray(raw.servers) && raw.servers.length) {
-        serversList = raw.servers;
-      }
-      if (Array.isArray(raw.friendsPids) && (!social.friends || !social.friends.length)) {
-        social.friends = raw.friendsPids.map(function (pid) {
-          return knownUsersByPid[pid] || { pid: pid, nick: 'Друг', online: false };
-        });
-      }
-    } catch (e) {}
-  }
-  loadLocalVault();
-
-  function saveLocalVault() {
-    try {
-      (lastMembers || []).forEach(function (u) {
-        if (u && u.pid) {
-          knownUsersByPid[u.pid] = Object.assign({}, knownUsersByPid[u.pid] || {}, u);
-        }
-      });
-      (social.friends || []).forEach(function (f) {
-        if (f && f.pid && f.nick && !f.nick.startsWith('Друг (')) {
-          knownUsersByPid[f.pid] = Object.assign({}, knownUsersByPid[f.pid] || {}, f);
-        }
-      });
-      if (currentRoom && Object.keys(roomMessagesCache).length) {
-        allRoomsMessagesVault[currentRoom] = roomMessagesCache;
-      }
-      const prevRaw = JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}');
-      const currentFriendsPids = (social.friends || []).map(function (f) { return f.pid; });
-      const mergedFriendsPids = currentFriendsPids.length ? currentFriendsPids : (prevRaw.friendsPids || []);
-
-      const vault = {
-        uid: myUid,
-        nick: myNick,
-        profile: myProfile,
-        friendsPids: mergedFriendsPids,
-        incomingPids: (social.incoming || []).map(function (i) { return i.pid; }),
-        outgoingPids: social.outgoing || [],
-        knownUsers: knownUsersByPid,
-        servers: serversList,
-        room: currentRoom,
-        roomMembersPids: (lastMembers || []).map(function (m) { return m.pid; }),
-        messages: allRoomsMessagesVault
-      };
-      localStorage.setItem('cyber_vault_v1', JSON.stringify(vault));
-    } catch (e) {}
-  }
-
-  async function syncLocalVaultToServer() {
-    try {
-      const raw = JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}');
-      if (!raw || !raw.uid) return;
-      const knownArr = Object.keys(raw.knownUsers || {}).map(function (k) { return raw.knownUsers[k]; });
-      const res = await fetch('/api/vault-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid: myUid,
-          nick: myNick,
-          profile: myProfile,
-          friends: raw.friendsPids || [],
-          incoming: raw.incomingPids || [],
-          outgoing: raw.outgoingPids || [],
-          knownUsers: knownArr,
-          servers: raw.servers || [],
-          room: currentRoom,
-          roomMembersPids: raw.roomMembersPids || [],
-          messages: raw.messages || {}
-        })
-      });
-      const data = await res.json();
-      if (data && data.ok) {
-        if (data.list && data.list.length) {
-          serversList = data.list;
-          const found = serversList.find(function (s) { return s.id === currentRoom; });
-          if (found) currentServerMeta = found;
-          renderServersRail();
-          renderServerChannels();
-        }
-        if (data.messagesByChannel) {
-          roomMessagesCache = data.messagesByChannel;
-          cachedMessages = roomMessagesCache[currentChannel] || [];
-          rerenderChatMessages();
-        }
-        if (data.social) {
-          myPid = data.social.pid;
-          social = data.social;
-          renderSocial();
-        }
-        if (Array.isArray(data.users)) {
-          renderUsers(data.users);
-        }
-      }
-    } catch (e) {}
-  }
+  let bgWorker = null;
+  let pipCanvas = null, pipCtx = null, canvasPipVideo = null;
+  let popupOverlayWin = null;
 
   function escapeHtml(s) {
     return String(s)
@@ -2406,23 +2395,30 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
   }
 
-  // ---------- НЕУБИВАЕМЫЙ СИСТЕМНЫЙ ОВЕРЛЕЙ УРОВНЯ ОС (РАБОТАЕТ ПРИ СВОРАЧИВАНИИ БРАУЗЕРА) ----------
-  function ensurePipRenderEngine() {
+  // ---------- МГНОВЕННО ОТКРЫВАЕМЫЙ СИСТЕМНЫЙ ОВЕРЛЕЙ (Native Video PiP + Popup Fallback) ----------
+  // Чтобы при клике на «🪟 Поверх / Оверлей» окно открывалось мгновенно без блокировки браузером,
+  // мы создаём и запускаем видео-холст заранее.
+  function ensurePipCanvasAndVideo() {
     if (!pipCanvas) {
       pipCanvas = document.createElement('canvas');
       pipCanvas.width = 460;
       pipCanvas.height = 260;
       pipCtx = pipCanvas.getContext('2d');
+      drawSystemPipOverlayFrame();
     }
     if (!canvasPipVideo) {
       canvasPipVideo = document.createElement('video');
       canvasPipVideo.muted = true;
       canvasPipVideo.autoplay = true;
       canvasPipVideo.playsInline = true;
-      // Включаем авто-вывод системного оверлея при сворачивании браузера в поддерживаемых браузерах
       canvasPipVideo.autoPictureInPicture = true;
-      canvasPipVideo.style.cssText = 'position:fixed;width:2px;height:2px;opacity:0.01;pointer-events:none;bottom:0;right:0;z-index:-1;';
+      canvasPipVideo.style.cssText = 'position:fixed;right:0;bottom:0;width:4px;height:4px;opacity:0.01;pointer-events:none;z-index:1;';
       document.body.appendChild(canvasPipVideo);
+
+      try {
+        canvasPipVideo.srcObject = pipCanvas.captureStream(15);
+        canvasPipVideo.play().catch(function () {});
+      } catch (e) {}
 
       canvasPipVideo.addEventListener('enterpictureinpicture', function () {
         const b1 = document.getElementById('pip-overlay-btn');
@@ -2436,131 +2432,203 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         if (b1) b1.classList.remove('active-cam');
         if (b2) b2.classList.remove('active-pip');
       });
-    }
-    if (!pipWorker) {
-      // Web Worker работает в отдельном потоке и НЕ замораживается при сворачивании окна браузера
-      try {
-        const blob = new Blob([
-          'setInterval(function(){ postMessage(Date.now()); }, 250);'
-        ], { type: 'application/javascript' });
-        pipWorker = new Worker(URL.createObjectURL(blob));
-        pipWorker.onmessage = function () {
-          if (!inVoice) return;
-          const elapsed = callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
-          const tEl = document.getElementById('fco-timer-label');
-          if (tEl) tEl.textContent = formatCallTime(elapsed);
-          drawSystemPipOverlayFrame();
-        };
-      } catch (e) {
-        setInterval(function () {
-          if (!inVoice) return;
-          drawSystemPipOverlayFrame();
-        }, 300);
-      }
+    } else if (canvasPipVideo.paused) {
+      canvasPipVideo.play().catch(function () {});
     }
   }
+
+  // Инициализируем видео-холст при первом же клике по странице, чтобы жест пользователя никогда не терялся
+  document.addEventListener('pointerdown', function initPipOnce() {
+    ensurePipCanvasAndVideo();
+  }, { once: true });
 
   function drawSystemPipOverlayFrame() {
-    if (!pipCtx || !pipCanvas) return;
+    if (!pipCanvas || !pipCtx) return;
     const ctx = pipCtx;
-    const W = pipCanvas.width;
-    const H = pipCanvas.height;
+    const w = pipCanvas.width;
+    const h = pipCanvas.height;
 
     ctx.fillStyle = '#05080f';
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0, 0, w, h);
 
-    // Если кто-то транслирует экран или камеру, рисуем живое видео на фоне системного оверлея
-    const activeVideo = document.querySelector('#screen-grid video');
-    if (activeVideo && activeVideo.readyState >= 2) {
+    // Если в канале есть незаблокированное видео (камера или стрим), транслируем его прямо в оверлей
+    const activeVideoEl = document.querySelector('#screen-grid .screen-card:not(.nsfw-masked) video');
+    if (activeVideoEl && activeVideoEl.readyState >= 2) {
       try {
-        ctx.drawImage(activeVideo, 0, 42, W, H - 82);
-        ctx.fillStyle = 'rgba(4, 7, 13, 0.55)';
-        ctx.fillRect(0, 42, W, H - 82);
+        ctx.drawImage(activeVideoEl, 0, 38, w, h - 38);
       } catch (e) {}
+      ctx.fillStyle = 'rgba(4, 7, 13, 0.85)';
+      ctx.fillRect(0, 0, w, 38);
+    } else {
+      ctx.fillStyle = isMuted ? 'rgba(244, 63, 94, 0.14)' : 'rgba(20, 184, 166, 0.12)';
+      ctx.fillRect(14, 48, w - 28, 34);
+      ctx.strokeStyle = isMuted ? '#f43f5e' : '#2dd4bf';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(14, 48, w - 28, 34);
+
+      ctx.fillStyle = isMuted ? '#fda4af' : '#5eead4';
+      ctx.font = 'bold 13px sans-serif';
+      const micText = isMuted ? '🔇 Микрофон выкл' : '🎤 Микрофон вкл';
+      const deafText = isDeafened ? '  •  🔇 Звук выкл' : '  •  🎧 Звук вкл';
+      ctx.fillText(micText + deafText, 26, 70);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('УЧАСТНИКИ В КАНАЛЕ:', 16, 104);
+
+      const vUsers = getVoiceChannelMembers();
+      vUsers.slice(0, 5).forEach(function (u, idx) {
+        const y = 128 + idx * 25;
+        ctx.fillStyle = 'rgba(255,255,255,0.03)';
+        ctx.fillRect(14, y - 16, w - 28, 22);
+
+        ctx.fillStyle = '#22c55e';
+        ctx.beginPath();
+        ctx.arc(26, y - 5, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#f1f5f9';
+        ctx.font = 'bold 13px sans-serif';
+        const badges = (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '');
+        ctx.fillText(u.nick + (u.pid === myPid ? ' (Вы)' : '') + badges, 38, y);
+      });
     }
 
-    // Неоновая рамка
-    ctx.strokeStyle = isMuted ? '#f43f5e' : '#2dd4bf';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(2, 2, W - 4, H - 4);
-
-    // Верхняя шапка оверлея
-    ctx.fillStyle = '#09101a';
-    ctx.fillRect(4, 4, W - 8, 38);
+    ctx.strokeStyle = '#2dd4bf';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, w - 2, h - 2);
 
     ctx.fillStyle = '#e11d48';
-    ctx.fillRect(14, 11, 74, 24);
+    ctx.fillRect(14, 9, 72, 20);
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.fillText('СИГНАЛ', 24, 27);
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('СИГНАЛ', 23, 23);
 
     ctx.fillStyle = '#2dd4bf';
-    ctx.font = 'bold 15px sans-serif';
-    ctx.fillText('🔊 ' + currentVoiceChannel, 98, 28);
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillText('🔊 ' + String(currentVoiceChannel || 'Эфир').slice(0, 20), 96, 24);
 
     const elapsed = callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
+    const tStr = formatCallTime(elapsed);
     ctx.fillStyle = '#e2e8f0';
-    ctx.font = 'bold 14px monospace';
-    ctx.fillText(formatCallTime(elapsed), W - 64, 28);
-
-    // Список участников голосового канала
-    const vUsers = getVoiceChannelMembers();
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = 'bold 11px sans-serif';
-    ctx.fillText('УЧАСТНИКИ В КАНАЛЕ (' + vUsers.length + '):', 16, 64);
-
-    vUsers.slice(0, 5).forEach(function (u, idx) {
-      const y = 88 + idx * 25;
-      ctx.fillStyle = 'rgba(15, 23, 34, 0.85)';
-      ctx.fillRect(14, y - 16, W - 28, 22);
-
-      ctx.fillStyle = '#22c55e';
-      ctx.beginPath();
-      ctx.arc(26, y - 5, 5, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#f8fafc';
-      ctx.font = 'bold 13px sans-serif';
-      const tags = (u.pid === myPid ? ' (Вы)' : '') + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '');
-      ctx.fillText(u.nick + tags, 38, y);
-    });
-
-    // Нижняя панель статуса микрофона и звука
-    ctx.fillStyle = '#09101a';
-    ctx.fillRect(4, H - 38, W - 8, 34);
-
-    ctx.fillStyle = isMuted ? '#fda4af' : '#4ade80';
-    ctx.font = 'bold 13px sans-serif';
-    ctx.fillText(isMuted ? '🔇 МИКРОФОН ВЫКЛ' : '🎤 МИКРОФОН ВКЛ', 16, H - 16);
-
-    ctx.fillStyle = isDeafened ? '#fda4af' : '#38bdf8';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.fillText(isDeafened ? '🔇 ЗВУК ОТКЛ' : '🎧 В ЭФИРЕ', W - 120, H - 16);
+    ctx.font = 'bold 13px monospace';
+    ctx.fillText(tStr, w - 58, 24);
   }
 
-  async function toggleExternalOverlay() {
-    if (!inVoice) {
-      const ok = await ensureVoiceConnected();
-      if (!ok) return;
+  // Резервное отдельное мини-окно ОС (если браузер не поддерживает Video PiP)
+  function openStandalonePopupOverlay() {
+    if (popupOverlayWin && !popupOverlayWin.closed) {
+      popupOverlayWin.focus();
+      renderPopupOverlayContent();
+      return;
     }
+    popupOverlayWin = window.open('', 'SignalCallOverlay', 'width=340,height=250,menubar=no,toolbar=no,location=no,status=no,resizable=yes');
+    if (!popupOverlayWin) {
+      alert('Разрешите всплывающие окна или используйте кнопку «🪟 В окне» на видеопотоке.');
+      return;
+    }
+    const doc = popupOverlayWin.document;
+    doc.open();
+    doc.write(
+      '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>СИГНАЛ — Оверлей звонка</title>' +
+      '<style>' +
+      '*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;user-select:none;}' +
+      'body{background:#060a10;color:#f1f5f9;padding:12px;height:100vh;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(45,212,191,0.45);}' +
+      '.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px;}' +
+      '.badge{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#2dd4bf;}' +
+      '.dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;}' +
+      '.timer{font-family:monospace;font-size:11px;background:rgba(255,255,255,0.07);padding:2px 7px;border-radius:4px;color:#cbd5e1;}' +
+      '.peers{display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;overflow-y:auto;flex:1;align-content:flex-start;}' +
+      '.chip{display:inline-flex;align-items:center;gap:6px;background:#0f1722;border:1px solid rgba(45,212,191,0.3);padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;}' +
+      '.btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);}' +
+      'button{background:#131c28;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:8px 6px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;}' +
+      'button:hover{border-color:#2dd4bf;color:#2dd4bf;}' +
+      'button.off{background:rgba(244,63,94,0.2);border-color:#f43f5e;color:#fda4af;}' +
+      'button.hang{background:#ef4444;border-color:#ef4444;color:#fff;}' +
+      '</style></head><body>' +
+      '<div class="top"><div class="badge"><span class="dot"></span><span id="pop-ch"></span></div><span class="timer" id="pop-timer">00:00</span></div>' +
+      '<div class="peers" id="pop-peers"></div>' +
+      '<div class="btns"><button id="pop-mute"></button><button id="pop-deaf"></button><button class="hang" id="pop-hang">🛑 Выход</button></div>' +
+      '</body></html>'
+    );
+    doc.close();
+    doc.getElementById('pop-mute').onclick = function () { toggleMute(); };
+    doc.getElementById('pop-deaf').onclick = function () { toggleDeafen(); };
+    doc.getElementById('pop-hang').onclick = function () { toggleVoiceCall(); popupOverlayWin.close(); };
+    renderPopupOverlayContent();
+  }
+
+  function renderPopupOverlayContent() {
+    if (!popupOverlayWin || popupOverlayWin.closed) return;
+    try {
+      const doc = popupOverlayWin.document;
+      const chEl = doc.getElementById('pop-ch');
+      if (chEl) chEl.textContent = '🔊 ' + currentVoiceChannel;
+      const mBtn = doc.getElementById('pop-mute');
+      if (mBtn) {
+        mBtn.textContent = isMuted ? '🔇 Микр. выкл' : '🎤 Микр. вкл';
+        mBtn.className = isMuted ? 'off' : '';
+      }
+      const dBtn = doc.getElementById('pop-deaf');
+      if (dBtn) {
+        dBtn.textContent = isDeafened ? '🔇 Звук выкл' : '🎧 Звук вкл';
+        dBtn.className = isDeafened ? 'off' : '';
+      }
+      const peersBox = doc.getElementById('pop-peers');
+      if (peersBox) {
+        peersBox.innerHTML = '';
+        getVoiceChannelMembers().forEach(function (u) {
+          const c = doc.createElement('div');
+          c.className = 'chip';
+          c.textContent = '🟢 ' + u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '');
+          peersBox.appendChild(c);
+        });
+      }
+    } catch (e) {}
+  }
+
+  // Синхронный запуск оверлея прямо внутри пользовательского клика (чтобы окно открывалось с 1-го нажатия!)
+  function toggleExternalOverlay() {
     if (document.pictureInPictureElement) {
       closeExternalOverlay();
       return;
     }
-    try {
-      ensurePipRenderEngine();
-      drawSystemPipOverlayFrame();
-      if (!canvasPipVideo.srcObject) {
-        canvasPipVideo.srcObject = pipCanvas.captureStream(15);
-      }
-      await canvasPipVideo.play();
-      if (canvasPipVideo.requestPictureInPicture) {
-        await canvasPipVideo.requestPictureInPicture();
-      } else if (canvasPipVideo.webkitSetPresentationMode) {
+    if (popupOverlayWin && !popupOverlayWin.closed) {
+      closeExternalOverlay();
+      return;
+    }
+
+    ensurePipCanvasAndVideo();
+    drawSystemPipOverlayFrame();
+
+    // Вызываем requestPictureInPicture СИНХРОННО без await перед ним, чтобы браузер не терял жест клика
+    if (canvasPipVideo && typeof canvasPipVideo.requestPictureInPicture === 'function') {
+      canvasPipVideo.requestPictureInPicture()
+        .then(function () {
+          document.getElementById('pip-overlay-btn').classList.add('active-cam');
+          document.getElementById('fco-pip-btn').classList.add('active-pip');
+        })
+        .catch(function () {
+          // Если видео ещё прогревается — запускаем play и открываем отдельное системное окно
+          canvasPipVideo.play().then(function () {
+            return canvasPipVideo.requestPictureInPicture();
+          }).catch(function () {
+            openStandalonePopupOverlay();
+          });
+        });
+    } else if (canvasPipVideo && typeof canvasPipVideo.webkitSetPresentationMode === 'function') {
+      try {
         canvasPipVideo.webkitSetPresentationMode('picture-in-picture');
+      } catch (e) {
+        openStandalonePopupOverlay();
       }
-    } catch (e) {
-      alert('Нажмите кнопку «🪟 Оверлей» ещё раз для закрепления окна поверх экрана.');
+    } else {
+      openStandalonePopupOverlay();
+    }
+
+    // Если звонок ещё не был запущен — параллельно подключаем к голосовому каналу
+    if (!inVoice) {
+      ensureVoiceConnected();
     }
   }
 
@@ -2568,6 +2636,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (document.pictureInPictureElement) {
       try { document.exitPictureInPicture(); } catch (e) {}
     }
+    if (popupOverlayWin && !popupOverlayWin.closed) {
+      try { popupOverlayWin.close(); } catch (e) {}
+    }
+    popupOverlayWin = null;
     const b1 = document.getElementById('pip-overlay-btn');
     const b2 = document.getElementById('fco-pip-btn');
     if (b1) b1.classList.remove('active-cam');
@@ -2575,7 +2647,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function startBackgroundCallPersistence() {
-    // 1. Web Lock API запрещает браузеру замораживать вкладку при сворачивании
     if (navigator.locks && navigator.locks.request && !voiceLockRelease) {
       navigator.locks.request('signal_active_voice_call', { mode: 'exclusive' }, function () {
         return new Promise(function (resolve) {
@@ -2584,22 +2655,19 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       }).catch(function () {});
     }
 
-    // 2. WakeLock удерживает устройство активным
     if (navigator.wakeLock && navigator.wakeLock.request && !wakeLockSentinel) {
       navigator.wakeLock.request('screen').then(function (s) {
         wakeLockSentinel = s;
       }).catch(function () {});
     }
 
-    // 3. Непрерывный аудио-мост + подготовка системного PiP видеопотока
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') audioCtx.resume();
       const dst = audioCtx.createMediaStreamDestination();
       const osc = audioCtx.createOscillator();
-      const g = audioCtx.createGain();
+      const g = ctxGain(audioCtx, 0.0001);
       osc.frequency.value = 40;
-      g.gain.value = 0.0001;
       osc.connect(g);
       g.connect(dst);
       osc.start();
@@ -2614,17 +2682,34 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       keepAliveAudioEl.play().catch(function () {});
     } catch (e) {}
 
-    callStartTime = Date.now();
-    ensurePipRenderEngine();
+    ensurePipCanvasAndVideo();
     drawSystemPipOverlayFrame();
+
+    callStartTime = Date.now();
+    if (bgWorker) {
+      try { bgWorker.terminate(); } catch (e) {}
+    }
     try {
-      if (!canvasPipVideo.srcObject) {
-        canvasPipVideo.srcObject = pipCanvas.captureStream(15);
-      }
-      canvasPipVideo.play().catch(function () {});
+      const blob = new Blob([
+        'setInterval(function(){ postMessage("tick"); }, 500);'
+      ], { type: 'application/javascript' });
+      bgWorker = new Worker(URL.createObjectURL(blob));
+      bgWorker.onmessage = function () {
+        if (!inVoice) return;
+        const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+        const tStr = formatCallTime(elapsed);
+        const tEl = document.getElementById('fco-timer-label');
+        if (tEl) tEl.textContent = tStr;
+        if (popupOverlayWin && !popupOverlayWin.closed) {
+          try {
+            const pt = popupOverlayWin.document.getElementById('pop-timer');
+            if (pt) pt.textContent = tStr;
+          } catch (e) {}
+        }
+        drawSystemPipOverlayFrame();
+      };
     } catch (e) {}
 
-    // 4. Интеграция с системными кнопками MediaSession (управление микрофоном прямо из мини-окна PiP)
     if ('mediaSession' in navigator) {
       try {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -2635,19 +2720,28 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         navigator.mediaSession.playbackState = 'playing';
         navigator.mediaSession.setActionHandler('play', function () {
           if (isMuted) toggleMute();
-          if (canvasPipVideo) canvasPipVideo.play().catch(function () {});
+          if (canvasPipVideo && canvasPipVideo.paused) canvasPipVideo.play().catch(function () {});
         });
         navigator.mediaSession.setActionHandler('pause', function () {
           toggleMute();
-          if (canvasPipVideo) canvasPipVideo.play().catch(function () {});
+          if (canvasPipVideo && canvasPipVideo.paused) canvasPipVideo.play().catch(function () {});
         });
         navigator.mediaSession.setActionHandler('hangup', function () {
           if (inVoice) toggleVoiceCall();
+        });
+        navigator.mediaSession.setActionHandler('enterpictureinpicture', function () {
+          toggleExternalOverlay();
         });
       } catch (e) {}
     }
 
     updateFloatingOverlayUI();
+  }
+
+  function ctxGain(ctx, val) {
+    const g = ctx.createGain();
+    g.gain.value = val;
+    return g;
   }
 
   function stopBackgroundCallPersistence() {
@@ -2661,6 +2755,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     }
     if (keepAliveAudioEl) {
       try { keepAliveAudioEl.pause(); keepAliveAudioEl.srcObject = null; } catch (e) {}
+    }
+    if (bgWorker) {
+      try { bgWorker.terminate(); } catch (e) {}
+      bgWorker = null;
     }
     if ('mediaSession' in navigator) {
       try { navigator.mediaSession.playbackState = 'none'; } catch (e) {}
@@ -2683,6 +2781,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (canvasPipVideo && canvasPipVideo.paused) {
       canvasPipVideo.play().catch(function () {});
     }
+    drawSystemPipOverlayFrame();
   });
 
   function getVoiceChannelMembers() {
@@ -2720,6 +2819,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     });
 
     drawSystemPipOverlayFrame();
+    renderPopupOverlayContent();
   }
 
   (function initDraggableOverlay() {
@@ -2879,7 +2979,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     }
     currentRoom = clean;
     unreadByChannel = {};
-    roomMessagesCache = allRoomsMessagesVault[currentRoom] || {};
+    roomMessagesCache = {};
     try { localStorage.setItem('cyber_last_room', currentRoom); } catch (e) {}
 
     const found = serversList.find(function (s) { return s.id === currentRoom; });
@@ -2939,8 +3039,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         renderServerChannels();
         cachedMessages = roomMessagesCache[currentChannel] || [];
         rerenderChatMessages();
-        // Мгновенно синхронизируем сохранённое хранилище браузера с сервером (чтобы после замены server.js на Render друзья и серверы не пропадали)
-        syncLocalVaultToServer();
+        pushLocalVaultToServer();
       } else if (data.type === 'servers') {
         serversList = data.payload.list || [];
         const found = serversList.find(function (s) { return s.id === currentRoom; });
@@ -3028,7 +3127,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   applyAppearanceFromStorage();
   renderServersRail();
   renderServerChannels();
-  renderSocial();
   connectEventStream();
 
   if (!myVerified) {
@@ -3087,16 +3185,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       openAuthModal(true);
       return Promise.resolve();
     }
+    if (action === 'remove') {
+      localVault.friends = (localVault.friends || []).filter(function (x) { return x !== pid; });
+      saveLocalVault();
+    }
     return fetch('/api/friend', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uid: myUid, action: action, target: pid })
     })
       .then(function (r) { return r.json(); })
-      .then(function (d) {
-        if (d.error) alert(d.error);
-        else saveLocalVault();
-      })
+      .then(function (d) { if (d.error) alert(d.error); })
       .catch(function () { alert('Ошибка соединения с сервером.'); });
   }
 
@@ -3184,12 +3283,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       fb.appendChild(hint);
     }
     friends.forEach(function (f) {
-      const cachedF = knownUsersByPid[f.pid] || {};
-      const dispNick = (f.nick && !f.nick.startsWith('Друг (')) ? f.nick : (cachedF.nick || f.nick);
       const d = el('div', 'online-user-item' + (f.online ? ' is-online' : ''));
       if (!f.online) d.style.opacity = '0.68';
       d.appendChild(el('span', 'online-dot ' + (f.online ? (f.presence || 'online') : 'off')));
-      const name = el('span', '', dispNick);
+      const name = el('span', '', f.nick);
       name.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
       d.appendChild(name);
 
@@ -3200,20 +3297,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       rmb.title = 'Удалить из друзей';
       rmb.onclick = function (ev) {
         ev.stopPropagation();
-        if (confirm('Удалить ' + dispNick + ' из друзей?')) {
-          social.friends = (social.friends || []).filter(function (x) { return x.pid !== f.pid; });
-          try {
-            const v = JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}');
-            if (Array.isArray(v.friendsPids)) {
-              v.friendsPids = v.friendsPids.filter(function (p) { return p !== f.pid; });
-              localStorage.setItem('cyber_vault_v1', JSON.stringify(v));
-            }
-          } catch (e) {}
-          friendAction('remove', f.pid);
-        }
+        if (confirm('Удалить ' + f.nick + ' из друзей?')) friendAction('remove', f.pid);
       };
       d.appendChild(rmb);
-      d.onclick = function () { openUserProfileCard(Object.assign({}, cachedF, f, { nick: dispNick })); };
+      d.onclick = function () { openUserProfileCard(f); };
       fb.appendChild(d);
     });
   }
@@ -3375,8 +3462,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         localStorage.setItem('cyber_profile', JSON.stringify(myProfile));
       } catch (e) {}
       setPersistCookie('cyber_nick', myNick);
-      applyNickUI();
       saveLocalVault();
+      applyNickUI();
 
       if (profileSyncTimer) clearTimeout(profileSyncTimer);
       profileSyncTimer = setTimeout(function () {
@@ -3840,7 +3927,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     setPersistCookie('cyber_nick', myNick);
     setPersistCookie('cyber_verified', '1');
 
-    saveLocalVault();
     applyNickUI();
     closeAuthModal();
     connectEventStream();
@@ -4244,6 +4330,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     updateFloatingOverlayUI();
   }
 
+  // Переключаемая защитная шторка 18+ для веб-камер и стримов (видео НЕ удаляется, а размывается и возвращается обратно в 1 клик)
+  function toggleMediaNsfwShield(card, toggleBtn) {
+    if (!card) return;
+    const isMasked = card.classList.toggle('nsfw-masked');
+    if (toggleBtn) {
+      toggleBtn.textContent = isMasked ? '👁️ Показать видео' : '🛡️ Скрыть 18+';
+      toggleBtn.classList.toggle('active-shield', isMasked);
+    }
+    drawSystemPipOverlayFrame();
+  }
+
   function renderMediaTile(id, stream, title, isLocal, kind) {
     const grid = document.getElementById('screen-grid');
     let card = document.getElementById('media-tile-' + id);
@@ -4260,21 +4357,23 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       left.appendChild(pill);
 
       const right = el('div', '');
-      right.style.cssText = 'display:flex;gap:6px;align-items:center;';
+      right.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;';
 
-      if (!isLocal) {
-        const blockBtn = el('button', 'btn-fs', '🛡️ Скрыть 18+');
-        blockBtn.title = 'Скрыть этот видеопоток (фильтр безопасности)';
-        blockBtn.onclick = function () { removeMediaTile(id); };
-        right.appendChild(blockBtn);
-      }
+      const shieldBtn = el('button', 'btn-fs', '🛡️ Скрыть 18+');
+      shieldBtn.title = 'Скрыть или снова показать это видео (фильтр 18+)';
+      shieldBtn.onclick = function () {
+        toggleMediaNsfwShield(card, shieldBtn);
+      };
+      right.appendChild(shieldBtn);
 
-      const pipVidBtn = el('button', 'btn-fs', '🪟 Поверх окон');
-      pipVidBtn.title = 'Закрепить это видео поверх всех окон (не пропадает при сворачивании браузера)';
+      const pipVidBtn = el('button', 'btn-fs', '🪟 В окне');
+      pipVidBtn.title = 'Вынести это видео поверх всех окон (не пропадает при сворачивании браузера)';
       pipVidBtn.onclick = function () {
         const vid = card.querySelector('video');
         if (vid && vid.requestPictureInPicture) {
-          vid.requestPictureInPicture().catch(function () {});
+          vid.requestPictureInPicture().catch(function () {
+            toggleExternalOverlay();
+          });
         } else {
           toggleExternalOverlay();
         }
@@ -4309,7 +4408,18 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       video.autoplay = true;
       video.playsInline = true;
       if (isLocal) video.muted = true;
+
+      // Защитная шторка поверх видео, по клику на которую камера мгновенно возвращается обратно
+      const shieldOverlay = el('div', 'media-nsfw-shield');
+      shieldOverlay.innerHTML =
+        '<div>🔞 Видеопоток скрыт фильтром 18+</div>' +
+        '<span class="btn-cyan" style="padding:5px 12px;font-size:10px;">👁️ Показать камеру обратно</span>';
+      shieldOverlay.onclick = function () {
+        toggleMediaNsfwShield(card, shieldBtn);
+      };
+
       wrap.appendChild(video);
+      wrap.appendChild(shieldOverlay);
 
       card.appendChild(head);
       card.appendChild(wrap);
@@ -4417,27 +4527,18 @@ const server = http.createServer(async (req, res) => {
       return res.end('ok');
     }
 
-    // Двусторонняя синхронизация хранилища (мгновенно восстанавливает друзей, серверы и каналы после обновления server.js)
-    if (req.method === 'POST' && url.pathname === '/api/vault-sync') {
+    if (req.method === 'POST' && url.pathname === '/api/vault-restore') {
       const body = await readBody(req);
-      const uid = body.uid;
-      if (!validUid(uid)) return sendJson(res, 400, { error: 'Invalid UID' });
-      const room = safeRoom(body.room);
-      restoreClientVault(body);
-      const meta = ensureServer(room);
-      addMember(room, uid);
-      broadcastServers();
-      notifyAllRoomsOfUser(uid);
-      notifyFriendsOf(uid);
-      sendSocial(uid);
-      return sendJson(res, 200, {
-        ok: true,
-        current: meta,
-        list: Object.values(serversMeta),
-        messagesByChannel: getRoom(room),
-        users: memberList(room),
-        social: socialState(uid)
-      });
+      const changed = restoreClientVault(body);
+      if (changed) {
+        broadcastServers();
+        if (validUid(body.uid)) {
+          notifyAllRoomsOfUser(body.uid);
+          notifyFriendsOf(body.uid);
+          sendSocial(body.uid);
+        }
+      }
+      return sendJson(res, 200, { ok: true });
     }
 
     if (req.method === 'GET' && url.pathname === '/api/tg-init') {
