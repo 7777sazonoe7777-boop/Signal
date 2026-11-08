@@ -140,7 +140,7 @@ function initDefaultServers() {
     rooms[DEFAULT_ROOM]['игровая-комната'].push({
       author: 'СИСТЕМА СИГНАЛ',
       time: '00:00',
-      text: 'Добро пожаловать в «Ночной клуб»! В настройках (кнопка «⚙️» слева внизу) доступны профиль, проверка микрофона, веб-камера и фильтр защиты от 18+ и шок-контента.'
+      text: 'Добро пожаловать в «Ночной клуб»! Сайт полностью адаптирован под ПК и смартфоны в стиле Discord.'
     });
   }
 }
@@ -769,7 +769,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>СИГНАЛ — Ночной клуб</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
@@ -791,24 +791,24 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     --chat-font-size: 12px;
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background-color: var(--bg-darkest); color: var(--text-main);
-    height: 100vh; display: flex; flex-direction: column; overflow: hidden; user-select: none;
+    height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; user-select: none;
   }
 
-  .top-header { height: 38px; background: #030508; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 12px; font-size: 12px; }
-  .top-logo { display: flex; align-items: center; gap: 6px; font-weight: 800; color: #fff; background: #e11d48; padding: 3px 8px; border-radius: 4px; font-size: 11px; }
+  .top-header { height: 38px; background: #030508; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 12px; font-size: 12px; flex-shrink: 0; }
+  .top-logo { display: flex; align-items: center; gap: 6px; font-weight: 800; color: #fff; background: #e11d48; padding: 3px 8px; border-radius: 4px; font-size: 11px; flex-shrink: 0; }
   .top-logo b { color: #fff; font-size: 10px; opacity: 0.85; }
-  .top-sub { color: var(--text-dim); }
-  .top-right-group { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .top-sub { color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top-right-group { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .btn-top-settings { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-main); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.15s; }
   .btn-top-settings:hover { border-color: var(--cyan-bright); color: var(--cyan-bright); background: rgba(45,212,191,0.08); }
   .btn-top-invite { background: #9d174d; border: 1px solid #f43f5e; color: #fff; padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
   .btn-top-invite:hover { background: #be185d; }
 
-  .workspace { flex: 1; display: grid; grid-template-columns: 68px 250px 1fr 260px; overflow: hidden; }
+  .workspace { flex: 1; display: grid; grid-template-columns: 68px 250px 1fr 260px; overflow: hidden; position: relative; min-height: 0; }
 
   .servers-rail { background: #030508; border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 10px; overflow-y: auto; }
   .bolt-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--cyan-bright); font-size: 18px; margin-bottom: 4px; flex-shrink: 0; }
@@ -832,16 +832,16 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   .channels-scroll { flex: 1; overflow-y: auto; padding: 0 8px; }
   .cat-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 6px 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); }
-  .cat-add-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--cyan-bright); width: 18px; height: 18px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; cursor: pointer; line-height: 1; }
+  .cat-add-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--cyan-bright); width: 20px; height: 20px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; cursor: pointer; line-height: 1; }
   .cat-add-btn:hover { background: rgba(45, 212, 191, 0.2); color: #fff; border-color: var(--cyan-bright); }
 
-  .ch-btn { display: flex; align-items: center; justify-content: space-between; padding: 7px 8px; border-radius: 6px; font-size: 12px; color: var(--text-dim); cursor: pointer; margin-bottom: 2px; }
+  .ch-btn { display: flex; align-items: center; justify-content: space-between; padding: 8px 9px; border-radius: 6px; font-size: 12px; color: var(--text-dim); cursor: pointer; margin-bottom: 2px; }
   .ch-btn:hover { background: rgba(255,255,255,0.03); color: #fff; }
   .ch-btn.active { background: rgba(20, 184, 166, 0.12); color: #fff; font-weight: 600; }
   .ch-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--cyan-bright); display: none; }
   .ch-btn.active .ch-dot { display: block; }
 
-  .voice-ch-box { display: flex; align-items: center; justify-content: space-between; padding: 7px 8px; border-radius: 6px; font-size: 12px; color: var(--text-dim); cursor: pointer; margin-bottom: 2px; }
+  .voice-ch-box { display: flex; align-items: center; justify-content: space-between; padding: 8px 9px; border-radius: 6px; font-size: 12px; color: var(--text-dim); cursor: pointer; margin-bottom: 2px; }
   .voice-ch-box:hover { background: rgba(255,255,255,0.03); color: #fff; }
   .voice-ch-box.active { background: rgba(20, 184, 166, 0.12); color: #4ade80; font-weight: 600; }
   .off-badge { font-size: 9px; background: rgba(255,255,255,0.05); color: var(--text-muted); padding: 1px 6px; border-radius: 4px; font-weight: 700; }
@@ -864,23 +864,46 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .btn-login-mini { background: rgba(20, 184, 166, 0.08); border: 1px solid var(--cyan-border); color: var(--cyan-bright); padding: 5px 10px; border-radius: 6px; font-size: 10px; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: 0.15s; white-space: nowrap; }
   .btn-login-mini:hover { border-color: var(--cyan-bright); background: rgba(45,212,191,0.18); color: #fff; }
 
-  .main-chat { background: var(--bg-main); display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
-  .chat-topbar { height: 48px; padding: 0 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .chat-topbar-left { display: flex; align-items: center; gap: 8px; }
-  .hash-large { color: var(--cyan-bright); font-size: 18px; font-weight: 800; }
-  .top-ch-name { font-size: 13px; font-weight: 700; }
-  .top-ch-desc { font-size: 10px; color: var(--text-muted); }
-  .btn-top-right-share { background: #0d9488; color: #fff; border: none; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
+  .main-chat { background: var(--bg-main); display: flex; flex-direction: column; overflow: hidden; min-width: 0; min-height: 0; }
+  .chat-topbar { height: 48px; padding: 0 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0; }
+  .chat-topbar-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+  .chat-topbar-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .hash-large { color: var(--cyan-bright); font-size: 18px; font-weight: 800; flex-shrink: 0; }
+  .top-ch-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top-ch-desc { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .btn-top-right-share { background: #0d9488; color: #fff; border: none; padding: 6px 11px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 
-  .chat-scroll-area { flex: 1; overflow-y: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 12px; }
-  .hero-banner { background: linear-gradient(135deg, #0f1726 0%, #080e17 100%); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; }
-  .hero-banner-left { max-width: 440px; }
+  /* Кнопки мобильных штор (скрыты на ПК, видны на смартфонах как в Discord) */
+  .mob-top-btn {
+    display: none; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+    color: var(--text-main); width: 34px; height: 34px; border-radius: 8px;
+    align-items: center; justify-content: center; font-size: 15px; cursor: pointer; flex-shrink: 0;
+  }
+  .mob-top-btn:active { background: rgba(45,212,191,0.18); border-color: var(--cyan-bright); }
+  .mob-drawer-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(2, 5, 10, 0.72);
+    backdrop-filter: blur(3px); z-index: 940;
+  }
+  .mob-bottom-nav {
+    display: none; height: 54px; background: #04070c; border-top: 1px solid var(--border);
+    grid-template-columns: repeat(5, 1fr); align-items: center; flex-shrink: 0; z-index: 960;
+  }
+  .mob-nav-item {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; height: 100%; color: var(--text-dim); font-size: 9.5px; font-weight: 700; cursor: pointer;
+  }
+  .mob-nav-item span.ico { font-size: 15px; line-height: 1; }
+  .mob-nav-item.active { color: var(--cyan-bright); background: rgba(45,212,191,0.07); }
+
+  .chat-scroll-area { flex: 1; overflow-y: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .hero-banner { background: linear-gradient(135deg, #0f1726 0%, #080e17 100%); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .hero-banner-left { max-width: 440px; min-width: 0; }
   .hash-badge { width: 30px; height: 30px; border-radius: 8px; background: rgba(45, 212, 191, 0.12); border: 1px solid var(--cyan-border); color: var(--cyan-bright); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; margin-bottom: 8px; }
   .welcome-tag { font-size: 9px; text-transform: uppercase; color: var(--cyan-bright); font-weight: 700; margin-bottom: 4px; }
   .hero-banner h2 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
   .hero-banner p { font-size: 11px; color: var(--text-dim); margin-bottom: 10px; line-height: 1.4; }
   .pill-tags-row { display: flex; gap: 6px; flex-wrap: wrap; }
-  .pill-tag { padding: 3px 8px; border-radius: 999px; font-size: 9px; font-weight: 700; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: #cbd5e1; cursor: pointer; }
+  .pill-tag { padding: 4px 9px; border-radius: 999px; font-size: 9px; font-weight: 700; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: #cbd5e1; cursor: pointer; }
   .pill-tag.pink { background: rgba(219,39,119,0.15); border-color: rgba(219,39,119,0.4); color: #f43f5e; }
   .radar-box { width: 110px; height: 110px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
@@ -909,7 +932,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     color: #fda4af; background: rgba(225, 29, 72, 0.2); padding: 3px 8px; border-radius: 5px; margin-bottom: 4px;
   }
   .spoiler-blur-wrap.revealed .spoiler-badge { display: none; }
-  .chat-inline-media { max-width: 320px; max-height: 220px; border-radius: 8px; border: 1px solid var(--border); margin-top: 6px; display: block; object-fit: contain; background: #000; }
+  .chat-inline-media { max-width: 100%; width: auto; max-height: 220px; border-radius: 8px; border: 1px solid var(--border); margin-top: 6px; display: block; object-fit: contain; background: #000; }
 
   .voice-panel { background: rgba(13, 148, 136, 0.06); border: 1px solid var(--cyan-border); border-radius: 10px; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
   .voice-panel-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -921,20 +944,20 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .voice-user-card { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); width: fit-content; }
   .vu-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
 
-  .screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; width: 100%; }
+  .screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; width: 100%; }
   .screen-grid:empty { display: none; }
   .screen-card { background: #05080d; border: 1px solid var(--cyan-border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-  .screen-card-head { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: rgba(15, 23, 34, 0.95); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--cyan-bright); }
+  .screen-card-head { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: rgba(15, 23, 34, 0.95); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--cyan-bright); gap: 6px; flex-wrap: wrap; }
   .screen-live-pill { background: #e11d48; color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
   .screen-live-pill.cam { background: #0d9488; }
-  .screen-video-wrap { position: relative; width: 100%; background: #000; display: flex; align-items: center; justify-content: center; min-height: 170px; max-height: 400px; }
-  .screen-video-wrap video { width: 100%; max-height: 400px; object-fit: contain; background: #000; display: block; }
+  .screen-video-wrap { position: relative; width: 100%; background: #000; display: flex; align-items: center; justify-content: center; min-height: 160px; max-height: 380px; }
+  .screen-video-wrap video { width: 100%; max-height: 380px; object-fit: contain; background: #000; display: block; }
   .btn-fs { background: rgba(255,255,255,0.08); border: 1px solid var(--border); color: #fff; padding: 3px 8px; border-radius: 5px; font-size: 10px; font-weight: 600; cursor: pointer; }
   .btn-fs:hover { border-color: var(--cyan-bright); color: var(--cyan-bright); }
 
-  .chat-bottom { padding: 8px 18px 12px; border-top: 1px solid var(--border); background: #070b12; display: flex; flex-direction: column; gap: 6px; }
+  .chat-bottom { padding: 8px 18px 12px; border-top: 1px solid var(--border); background: #070b12; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
   .input-row { display: flex; gap: 8px; align-items: center; }
-  .chat-inp { flex: 1; background: var(--bg-input); border: 1px solid var(--border); padding: 9px 12px; border-radius: 6px; color: #fff; font-size: 12px; outline: none; }
+  .chat-inp { flex: 1; min-width: 0; background: var(--bg-input); border: 1px solid var(--border); padding: 9px 12px; border-radius: 6px; color: #fff; font-size: 13px; outline: none; }
   .chat-inp:focus { border-color: var(--cyan-bright); }
   .bottom-hint { font-size: 9px; color: var(--text-muted); }
 
@@ -985,7 +1008,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .auth-tab { padding: 6px 8px; font-size: 11px; font-weight: 700; text-align: center; border-radius: 6px; cursor: pointer; color: var(--text-dim); }
   .auth-tab.active { background: rgba(34, 158, 217, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
 
-  /* Панель Настроек в едином кибер-стиле без выходов за края */
+  /* Панель Настроек в едином кибер-стиле */
   .settings-modal-box {
     background: #0b1119; border: 1px solid var(--cyan-border); border-radius: 14px;
     width: 820px; max-width: 100%; height: 590px; max-height: 92vh;
@@ -1103,11 +1126,81 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .dp-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
   .dp-tag { background: rgba(45, 212, 191, 0.12); border: 1px solid var(--cyan-border); color: var(--cyan-bright); padding: 2px 8px; border-radius: 999px; font-size: 9.5px; font-weight: 700; }
 
-  @media (max-width: 720px) {
-    .settings-modal-box { grid-template-columns: 1fr; height: 90vh; }
-    .settings-nav { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 8px; }
+  /* ---------- МОБИЛЬНАЯ ВЕРСИЯ В СТИЛЕ DISCORD (<= 900px) ---------- */
+  @media (max-width: 900px) {
+    .top-header { padding: 0 10px; height: 36px; }
+    .top-sub { display: none; }
+    .top-right-group .btn-top-settings { display: none; }
+
+    .workspace { display: flex; flex-direction: column; flex: 1; width: 100%; }
+    .main-chat { flex: 1; width: 100%; height: 100%; }
+
+    .mob-top-btn { display: inline-flex; }
+    .mob-bottom-nav { display: grid; }
+
+    /* Выдвижная левая штора (Серверы + Каналы, как в Discord Mobile) */
+    .servers-rail {
+      position: fixed; top: 0; bottom: 54px; left: 0; width: 64px; z-index: 955;
+      transform: translateX(-360px); transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+      box-shadow: none;
+    }
+    .channels-panel {
+      position: fixed; top: 0; bottom: 54px; left: 64px; width: calc(100vw - 64px); max-width: 270px; z-index: 955;
+      transform: translateX(-360px); transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+      box-shadow: 12px 0 35px rgba(0,0,0,0.85);
+    }
+    body.mob-left-open .servers-rail,
+    body.mob-left-open .channels-panel {
+      transform: translateX(0);
+    }
+
+    /* Выдвижная правая штора (Участники и Друзья) */
+    .right-panel {
+      position: fixed; top: 0; bottom: 54px; right: 0; width: min(86vw, 300px); z-index: 955;
+      transform: translateX(105%); transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+      box-shadow: -12px 0 35px rgba(0,0,0,0.85);
+    }
+    body.mob-right-open .right-panel {
+      transform: translateX(0);
+    }
+
+    body.mob-left-open .mob-drawer-backdrop,
+    body.mob-right-open .mob-drawer-backdrop {
+      display: block;
+    }
+
+    .chat-topbar { height: 46px; padding: 0 10px; }
+    .top-ch-desc { display: none; }
+    .btn-top-right-share { padding: 6px 9px; font-size: 10px; }
+
+    .chat-scroll-area { padding: 10px 12px; gap: 10px; }
+    .hero-banner { padding: 12px 14px; }
+    .hero-banner h2 { font-size: 17px; }
+    .radar-box { display: none; }
+
+    .voice-panel { padding: 10px 12px; }
+    .voice-panel-top { flex-direction: column; align-items: stretch; gap: 8px; }
+    .screen-grid { grid-template-columns: 1fr; }
+
+    .chat-bottom { padding: 6px 10px 8px; }
+    .chat-inp { font-size: 16px; padding: 8px 11px; } /* 16px предотвращает авто-зум в iOS Safari */
+    .bottom-hint { display: none; }
+
+    /* Адаптация модального окна Настроек и Профиля под экран телефона */
+    .modal-backdrop { padding: 6px; }
+    .settings-modal-box {
+      grid-template-columns: 1fr; grid-template-rows: auto 1fr;
+      width: 100%; height: 92dvh; max-height: 92dvh; border-radius: 12px;
+    }
+    .settings-nav {
+      flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden;
+      border-right: none; border-bottom: 1px solid var(--border); padding: 8px; gap: 6px;
+    }
     .settings-nav-label { display: none; }
+    .settings-nav-btn { padding: 7px 10px; font-size: 11px; flex-shrink: 0; }
+    .settings-content { padding: 14px; }
     .settings-grid-2 { grid-template-columns: 1fr; }
+    .theme-pills-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -1120,18 +1213,20 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       <button class="btn-top-settings" onclick="openSettingsModal('profile')">👤 Мой профиль</button>
       <button class="btn-top-settings" onclick="openSettingsModal('safety')">🛡️ Фильтр 18+</button>
       <button class="btn-top-settings" onclick="openSettingsModal('voice')">⚙️ Настройки</button>
-      <button class="btn-top-invite" onclick="openInviteModal()">ПРИГЛАСИТЬ ДРУГА</button>
+      <button class="btn-top-invite" onclick="openInviteModal()">+ ПРИГЛАСИТЬ</button>
     </div>
   </div>
 
   <div class="workspace">
+    <div class="mob-drawer-backdrop" id="mob-backdrop" onclick="closeMobileDrawers()"></div>
+
     <div class="servers-rail" id="servers-rail">
       <div class="bolt-icon">⚡</div>
       <div id="servers-list-box" style="display:flex;flex-direction:column;gap:10px;align-items:center;"></div>
       <div class="srv-ico-add" title="Создать новый сервер" onclick="openCreateServerModal()">+</div>
     </div>
 
-    <div class="channels-panel">
+    <div class="channels-panel" id="channels-panel">
       <div class="srv-header">
         <div>
           <div class="srv-label">СЕРВЕР СООБЩЕСТВА</div>
@@ -1183,13 +1278,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     <div class="main-chat">
       <div class="chat-topbar">
         <div class="chat-topbar-left">
+          <button class="mob-top-btn" onclick="toggleMobileLeft()" title="Серверы и каналы">☰</button>
           <span class="hash-large">#</span>
-          <div>
+          <div style="min-width:0;">
             <div class="top-ch-name" id="top-ch-name">игровая-комната</div>
             <div class="top-ch-desc" id="top-ch-desc">Знакомимся, общаемся, строим планы</div>
           </div>
         </div>
-        <button class="btn-top-right-share" onclick="openInviteModal()">🔗 ДАТЬ ССЫЛКУ ДРУГУ</button>
+        <div class="chat-topbar-right">
+          <button class="btn-top-right-share" onclick="openInviteModal()">🔗 ССЫЛКА</button>
+          <button class="mob-top-btn" onclick="toggleMobileRight()" title="Участники и друзья">👥</button>
+        </div>
       </div>
 
       <div class="chat-scroll-area" id="chat-scroll">
@@ -1200,9 +1299,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <h2>Кто сегодня на связи?</h2>
             <p id="banner-desc">Это #игровая-комната на сервере «Ночной клуб». Делитесь мыслями, включайте камеру или демонстрацию экрана и приглашайте друзей.</p>
             <div class="pill-tags-row">
-              <span class="pill-tag" onclick="openSettingsModal('profile')">👤 ЗАПОЛНИТЬ ПРОФИЛЬ И ИНТЕРЕСЫ</span>
-              <span class="pill-tag" onclick="openSettingsModal('safety')">🛡️ ФИЛЬТР 18+ И ШОК-КОНТЕНТА</span>
-              <span class="pill-tag pink" onclick="openInviteModal()">+ ПРИГЛАСИТЬ ДРУГА В КАНАЛ</span>
+              <span class="pill-tag" onclick="openSettingsModal('profile')">👤 ПРОФИЛЬ И ИНТЕРЕСЫ</span>
+              <span class="pill-tag" onclick="openSettingsModal('safety')">🛡️ ФИЛЬТР 18+</span>
+              <span class="pill-tag pink" onclick="openInviteModal()">+ ПРИГЛАСИТЬ ДРУГА</span>
             </div>
           </div>
           <div class="radar-box">
@@ -1217,7 +1316,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
         <div class="messages-container" id="messages-list"></div>
 
-        <div class="voice-panel">
+        <div class="voice-panel" id="voice-panel-card">
           <div class="voice-panel-top">
             <div>
               <div class="voice-label">ГОЛОСОВОЙ КАНАЛ, КАМЕРА И СТРИМ // WEBRTC P2P</div>
@@ -1253,7 +1352,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       </div>
     </div>
 
-    <div class="right-panel">
+    <div class="right-panel" id="right-panel">
       <div class="right-sec-title">
         <span>УЧАСТНИКИ СЕРВЕРА</span>
         <span>В СЕТИ: <b id="online-count">1</b> / <span id="total-members-count">1</span></span>
@@ -1275,6 +1374,30 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- Нижняя навигационная панель для смартфонов (как в мобильном приложении Discord) -->
+  <div class="mob-bottom-nav" id="mob-bottom-nav">
+    <div class="mob-nav-item" id="mob-tab-left" onclick="toggleMobileLeft()">
+      <span class="ico">☰</span>
+      <span>Каналы</span>
+    </div>
+    <div class="mob-nav-item active" id="mob-tab-chat" onclick="closeMobileDrawers()">
+      <span class="ico">💬</span>
+      <span>Чат</span>
+    </div>
+    <div class="mob-nav-item" id="mob-tab-voice" onclick="scrollToVoiceMobile()">
+      <span class="ico">🔊</span>
+      <span>Голос</span>
+    </div>
+    <div class="mob-nav-item" id="mob-tab-right" onclick="toggleMobileRight()">
+      <span class="ico">👥</span>
+      <span>Друзья</span>
+    </div>
+    <div class="mob-nav-item" id="mob-tab-profile" onclick="openSettingsModal('profile')">
+      <span class="ico">👤</span>
+      <span>Профиль</span>
+    </div>
+  </div>
+
   <!-- Большое окно Профиля и Настроек в едином стиле СИГНАЛ -->
   <div class="modal-backdrop" id="settings-modal" onclick="if(event.target===this)closeSettingsModal()">
     <div class="settings-modal-box">
@@ -1288,8 +1411,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div class="settings-nav-btn" data-pane="voice" onclick="switchSettingsPane('voice')">🎙️ Голос и видео</div>
         <div class="settings-nav-btn" data-pane="appearance" onclick="switchSettingsPane('appearance')">🎨 Внешний вид</div>
         <div class="settings-nav-btn" data-pane="notifications" onclick="switchSettingsPane('notifications')">🔔 Уведомления</div>
-        <div style="margin-top:auto;padding-top:10px;border-top:1px solid var(--border);">
-          <button class="btn-login-mini" style="width:100%;text-align:center;" onclick="closeSettingsModal()">✕ Закрыть (ESC)</button>
+        <div style="margin-top:auto;padding-top:10px;border-top:1px solid var(--border);flex-shrink:0;">
+          <button class="btn-login-mini" style="width:100%;text-align:center;" onclick="closeSettingsModal()">✕ Закрыть</button>
         </div>
       </div>
 
@@ -1375,7 +1498,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Вкладка 2: Фильтр контента (Защита от сексуального и шокирующего медиаконтента) -->
+        <!-- Вкладка 2: Фильтр контента -->
         <div class="settings-pane" id="pane-safety">
           <div class="settings-head">
             <h3>🛡️ Фильтр сексуального и шокирующего контента</h3>
@@ -1720,10 +1843,55 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       <button class="btn-login-mini" style="width:100%;text-align:center;" onclick="closeCreateChannelModal()">Закрыть</button>
     </div>
   </div>
-
 <script>
   const params = new URLSearchParams(window.location.search);
 
+  // ---------- Мобильная навигация в стиле Discord ----------
+  function setMobActiveTab(tabId) {
+    document.querySelectorAll('#mob-bottom-nav .mob-nav-item').forEach(function (el) {
+      el.classList.toggle('active', el.id === tabId);
+    });
+  }
+
+  function closeMobileDrawers() {
+    document.body.classList.remove('mob-left-open', 'mob-right-open');
+    setMobActiveTab('mob-tab-chat');
+  }
+
+  function toggleMobileLeft() {
+    const isOpen = document.body.classList.contains('mob-left-open');
+    document.body.classList.remove('mob-right-open');
+    if (isOpen) {
+      document.body.classList.remove('mob-left-open');
+      setMobActiveTab('mob-tab-chat');
+    } else {
+      document.body.classList.add('mob-left-open');
+      setMobActiveTab('mob-tab-left');
+    }
+  }
+
+  function toggleMobileRight() {
+    const isOpen = document.body.classList.contains('mob-right-open');
+    document.body.classList.remove('mob-left-open');
+    if (isOpen) {
+      document.body.classList.remove('mob-right-open');
+      setMobActiveTab('mob-tab-chat');
+    } else {
+      document.body.classList.add('mob-right-open');
+      setMobActiveTab('mob-tab-right');
+    }
+  }
+
+  function scrollToVoiceMobile() {
+    closeMobileDrawers();
+    setMobActiveTab('mob-tab-voice');
+    const vp = document.getElementById('voice-panel-card');
+    if (vp && vp.scrollIntoView) {
+      vp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  // ---------- Сохранение сессии в localStorage + Cookie ----------
   function setPersistCookie(name, val) {
     try {
       document.cookie = name + '=' + encodeURIComponent(val) + '; path=/; max-age=31536000; SameSite=Lax';
@@ -2342,6 +2510,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function openSettingsModal(pane) {
+    closeMobileDrawers();
+    setMobActiveTab('mob-tab-profile');
     document.getElementById('prof-nick-inp').value = myNick;
     document.getElementById('prof-presence-sel').value = myProfile.presence || 'online';
     document.getElementById('prof-status-inp').value = myProfile.customStatus || '';
@@ -2376,6 +2546,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function closeSettingsModal() {
     stopMicTest();
     document.getElementById('settings-modal').classList.remove('open');
+    setMobActiveTab('mob-tab-chat');
   }
 
   function switchSettingsPane(paneId) {
@@ -2667,6 +2838,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     currentChannel = ch;
     applyChannelUI(ch);
     loadHistory();
+    closeMobileDrawers();
   }
 
   function selectVoiceChannel(vch) {
@@ -2677,6 +2849,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     currentVoiceChannel = vch;
     updateVoicePanelUI();
     renderServerChannels();
+    closeMobileDrawers();
     if (!inVoice) {
       toggleVoiceCall();
     } else {
@@ -2694,6 +2867,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function openCreateServerModal() {
     if (!myVerified) return openAuthModal(true);
+    closeMobileDrawers();
     document.getElementById('new-srv-name').value = '';
     document.getElementById('new-srv-desc').value = '';
     document.getElementById('create-server-modal').classList.add('open');
@@ -2723,6 +2897,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function openCreateChannelModal(type) {
     if (!myVerified) return openAuthModal(true);
+    closeMobileDrawers();
     pendingChannelType = type === 'voice' ? 'voice' : 'text';
     document.getElementById('create-ch-title').textContent = pendingChannelType === 'voice' ? 'Создать голосовой канал' : 'Создать текстовый канал';
     document.getElementById('create-ch-sub').textContent = pendingChannelType === 'voice' ? 'Участники смогут созваниваться, включать камеру и стрим экрана:' : 'Участники смогут переписываться в этом канале:';
@@ -2773,6 +2948,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     linkEl.href = finalUrl;
   }
   function openInviteModal() {
+    closeMobileDrawers();
     document.getElementById('invite-modal').classList.add('open');
     refreshInviteLink();
   }
@@ -3206,7 +3382,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       return;
     }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-      alert('Ваш браузер не поддерживает трансляцию экрана.');
+      alert('На этом устройстве или в мобильном браузере демонстрация экрана не поддерживается (используйте кнопку «📷 Камера»).');
       return;
     }
     let displayStream;
@@ -3304,7 +3480,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         right.appendChild(blockBtn);
       }
 
-      const fsBtn = el('button', 'btn-fs', '⛶ На весь экран');
+      const fsBtn = el('button', 'btn-fs', '⛶ Полный экран');
       fsBtn.onclick = function () {
         const vid = card.querySelector('video');
         if (!vid) return;
@@ -3387,6 +3563,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       closeSettingsModal();
       closeViewProfileModal();
       closeInviteModal();
+      closeMobileDrawers();
     }
   });
 </script>
