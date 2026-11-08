@@ -71,7 +71,7 @@ ensureServer('ma-club', 'Мастерская', 'Музыка, творчест�
 if (!rooms[DEFAULT_ROOM]['игровая-комната'].length) {
   rooms[DEFAULT_ROOM]['игровая-комната'].push({
     author: 'СИСТЕМА СИГНАЛ', time: '00:00',
-    text: 'Добро пожаловать в «Ночной клуб»! Активирован мобильный фоновый режим звонка (PWA + Base64 WAV + Web Worker + WakeLock/MediaSession).'
+    text: 'Добро пожаловать в «Ночной клуб»! Полная синхронизация, оверлей и фоновый режим активны.'
   });
 }
 
@@ -79,7 +79,6 @@ const safeChannel = (r, c) => { const m = ensureServer(r); return m.textChannels
 const safeVoiceChannel = (r, c) => { const m = ensureServer(r); return m.voiceChannels.includes(String(c || '').trim()) ? String(c).trim() : m.voiceChannels[0]; };
 const getRoom = r => (ensureServer(r), rooms[r]);
 
-// ---------- Telegram Bot API ----------
 async function tgApi(method, body) {
   if (!TELEGRAM_BOT_TOKEN) return null;
   const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/${method}`, {
@@ -122,7 +121,7 @@ async function startTelegramBotPolling() {
                 if (pend && pend.expires > Date.now()) pend.completed = { tgId, firstName, username, code };
               }
             }
-            await tgApi('sendMessage', { chat_id: m.chat.id, parse_mode: 'Markdown', text: `⚡ *СИГНАЛ // CYBER.NET*\n\n✅ Аккаунт подтверждён!\n🔑 Код: *${code}*\n\nВернитесь в браузер — вход выполнится автоматически.` }).catch(() => {});
+            await tgApi('sendMessage', { chat_id: m.chat.id, parse_mode: 'Markdown', text: `⚡ *СИГНАЛ // CYBER.NET*\n\n✅ Аккаунт подтверждён!\n🔑 Код: *${code}*\n\nВернитесь в браузер.` }).catch(() => {});
           }
         }
       } catch (e) { await new Promise(r => setTimeout(r, 3000)); }
@@ -130,7 +129,6 @@ async function startTelegramBotPolling() {
   })();
 }
 
-// ---------- Хранилище: Redis / data.json / Vault Auto-Restore ----------
 const REDIS_URL = String(process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/+$/, '');
 const REDIS_TOKEN = String(process.env.UPSTASH_REDIS_REST_TOKEN || '');
 const USE_REDIS = !!(REDIS_URL && REDIS_TOKEN);
@@ -800,211 +798,72 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 <script>
   const params = new URLSearchParams(window.location.search);
 
-  // ---------- Мобильная навигация в стиле Discord ----------
   function setMobActiveTab(tabId) {
-    document.querySelectorAll('#mob-bottom-nav .mob-nav-item').forEach(function (el) {
-      el.classList.toggle('active', el.id === tabId);
-    });
+    document.querySelectorAll('#mob-bottom-nav .mob-nav-item').forEach(el => el.classList.toggle('active', el.id === tabId));
   }
-
   function closeMobileDrawers() {
     document.body.classList.remove('mob-left-open', 'mob-right-open');
     setMobActiveTab('mob-tab-chat');
   }
-
   function toggleMobileLeft() {
-    const isOpen = document.body.classList.contains('mob-left-open');
+    const open = document.body.classList.contains('mob-left-open');
     document.body.classList.remove('mob-right-open');
-    if (isOpen) {
-      document.body.classList.remove('mob-left-open');
-      setMobActiveTab('mob-tab-chat');
-    } else {
-      document.body.classList.add('mob-left-open');
-      setMobActiveTab('mob-tab-left');
-    }
+    if (open) { document.body.classList.remove('mob-left-open'); setMobActiveTab('mob-tab-chat'); }
+    else { document.body.classList.add('mob-left-open'); setMobActiveTab('mob-tab-left'); }
   }
-
   function toggleMobileRight() {
-    const isOpen = document.body.classList.contains('mob-right-open');
+    const open = document.body.classList.contains('mob-right-open');
     document.body.classList.remove('mob-left-open');
-    if (isOpen) {
-      document.body.classList.remove('mob-right-open');
-      setMobActiveTab('mob-tab-chat');
-    } else {
-      document.body.classList.add('mob-right-open');
-      setMobActiveTab('mob-tab-right');
-    }
+    if (open) { document.body.classList.remove('mob-right-open'); setMobActiveTab('mob-tab-chat'); }
+    else { document.body.classList.add('mob-right-open'); setMobActiveTab('mob-tab-right'); }
   }
-
   function scrollToVoiceMobile() {
-    closeMobileDrawers();
-    setMobActiveTab('mob-tab-voice');
-    const vp = document.getElementById('voice-panel-card');
-    if (vp && vp.scrollIntoView) {
-      vp.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    closeMobileDrawers(); setMobActiveTab('mob-tab-voice');
+    document.getElementById('voice-panel-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  // ---------- Сохранение сессии и локального хранилища (защита от сброса при обновлении server.js) ----------
-  function setPersistCookie(name, val) {
-    try {
-      document.cookie = name + '=' + encodeURIComponent(val) + '; path=/; max-age=31536000; SameSite=Lax';
-    } catch (e) {}
-  }
-  function getPersistCookie(name) {
-    try {
-      const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
-      return m ? decodeURIComponent(m[1]) : '';
-    } catch (e) { return ''; }
-  }
-  function makeUid() {
-    const a = new Uint8Array(16);
-    (window.crypto || window.msCrypto).getRandomValues(a);
-    return Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
-  }
+  function setPersistCookie(n, v) { try { document.cookie = `${n}=${encodeURIComponent(v)}; path=/; max-age=31536000; SameSite=Lax`; } catch (e) {} }
+  function getPersistCookie(n) { try { const m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; } catch (e) { return ''; } }
 
-  let myUid = '';
-  try { myUid = localStorage.getItem('cyber_uid') || ''; } catch (e) {}
+  let myUid = localStorage.getItem('cyber_uid') || getPersistCookie('cyber_uid');
   if (!myUid || !/^[a-f0-9]{32}$/.test(myUid)) {
-    myUid = getPersistCookie('cyber_uid');
-  }
-  if (!myUid || !/^[a-f0-9]{32}$/.test(myUid)) {
-    myUid = makeUid();
+    const a = new Uint8Array(16); (window.crypto || window.msCrypto).getRandomValues(a);
+    myUid = Array.prototype.map.call(a, b => ('0' + b.toString(16)).slice(-2)).join('');
   }
   try { localStorage.setItem('cyber_uid', myUid); } catch (e) {}
   setPersistCookie('cyber_uid', myUid);
 
-  let currentRoom = params.get('room') || params.get('server');
-  if (!currentRoom) {
-    try { currentRoom = localStorage.getItem('cyber_last_room'); } catch (e) {}
-  }
-  currentRoom = currentRoom || 'cy-4371';
+  let currentRoom = params.get('room') || params.get('server') || localStorage.getItem('cyber_last_room') || 'cy-4371';
   try { localStorage.setItem('cyber_last_room', currentRoom); } catch (e) {}
-
-  let currentChannel = params.get('channel') || 'игровая-комната';
-  let currentVoiceChannel = 'Ночной эфир';
-  let myNick = 'Гость_' + Math.floor(100 + Math.random() * 899);
-  try {
-    const savedNick = localStorage.getItem('cyber_nick') || getPersistCookie('cyber_nick');
-    if (savedNick) myNick = savedNick;
-  } catch (e) {}
-
-  let myVerified = false;
-  try {
-    myVerified = localStorage.getItem('cyber_verified') === '1' || getPersistCookie('cyber_verified') === '1';
-  } catch (e) {}
-  let authLocked = !myVerified;
+  let currentChannel = params.get('channel') || 'игровая-комната', currentVoiceChannel = 'Ночной эфир';
+  let myNick = localStorage.getItem('cyber_nick') || getPersistCookie('cyber_nick') || ('Гость_' + Math.floor(100 + Math.random() * 899));
+  let myVerified = localStorage.getItem('cyber_verified') === '1' || getPersistCookie('cyber_verified') === '1', authLocked = !myVerified;
 
   function updateBrowserUrl() {
-    try {
-      const newUrl = window.location.pathname + '?room=' + encodeURIComponent(currentRoom) + '&channel=' + encodeURIComponent(currentChannel);
-      window.history.replaceState({ room: currentRoom, channel: currentChannel }, '', newUrl);
-    } catch (e) {}
+    try { window.history.replaceState({}, '', `${window.location.pathname}?room=${encodeURIComponent(currentRoom)}&channel=${encodeURIComponent(currentChannel)}`); } catch (e) {}
   }
 
-  let myProfile = {
-    bio: '',
-    interests: '',
-    customStatus: '',
-    presence: 'online',
-    bannerColor: '#0d9488',
-    avatarColor: '#e11d48'
-  };
-  try {
-    const savedProf = JSON.parse(localStorage.getItem('cyber_profile') || '{}');
-    myProfile = Object.assign(myProfile, savedProf);
-  } catch (e) {}
+  let myProfile = Object.assign({ bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#0d9488', avatarColor: '#e11d48' }, JSON.parse(localStorage.getItem('cyber_profile') || '{}'));
+  let appSettings = Object.assign({ micVolume: 100, outVolume: 100, camRes: '720', autoOverlay: true, noiseSuppression: true, echoCancellation: true, autoGainControl: true, compactChat: false, fontSize: '12px', soundMsg: true, soundVoice: true, filterSexual: true, filterGore: true, filterOutgoing: true, filterAction: 'block', customBlockedWords: '' }, JSON.parse(localStorage.getItem('cyber_settings') || '{}'));
 
-  let appSettings = {
-    micDeviceId: '',
-    spkDeviceId: '',
-    camDeviceId: '',
-    micVolume: 100,
-    outVolume: 100,
-    camRes: '720',
-    autoOverlay: true,
-    noiseSuppression: true,
-    echoCancellation: true,
-    autoGainControl: true,
-    compactChat: false,
-    fontSize: '12px',
-    soundMsg: true,
-    soundVoice: true,
-    filterSexual: true,
-    filterGore: true,
-    filterOutgoing: true,
-    filterAction: 'block',
-    customBlockedWords: ''
-  };
-  try {
-    const savedSet = JSON.parse(localStorage.getItem('cyber_settings') || '{}');
-    appSettings = Object.assign(appSettings, savedSet);
-  } catch (e) {}
-
-  // ---------- Резервный слепок друзей, серверов и истории в браузере ----------
-  let localVault = {
-    knownUsers: {},
-    friends: [],
-    incoming: [],
-    outgoing: [],
-    servers: [],
-    messages: {}
-  };
-  try {
-    const rawVault = JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}');
-    if (rawVault && typeof rawVault === 'object') {
-      localVault = Object.assign(localVault, rawVault);
-    }
-  } catch (e) {}
+  let localVault = Object.assign({ knownUsers: {}, friends: [], incoming: [], outgoing: [], servers: [], messages: {} }, JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}'));
 
   function rememberUserInVault(u) {
     if (!u || !u.pid || u.nick === '?') return;
-    const prev = localVault.knownUsers[u.pid] || {};
-    localVault.knownUsers[u.pid] = {
-      pid: u.pid,
-      nick: u.nick || prev.nick || 'Участник',
-      bio: u.bio !== undefined ? u.bio : (prev.bio || ''),
-      interests: u.interests !== undefined ? u.interests : (prev.interests || ''),
-      customStatus: u.customStatus !== undefined ? u.customStatus : (prev.customStatus || ''),
-      presence: u.presence || prev.presence || 'online',
-      bannerColor: u.bannerColor || prev.bannerColor || '#0d9488',
-      avatarColor: u.avatarColor || prev.avatarColor || '#e11d48'
-    };
+    localVault.knownUsers[u.pid] = { pid: u.pid, nick: u.nick, bio: u.bio || '', interests: u.interests || '', customStatus: u.customStatus || '', presence: u.presence || 'online', bannerColor: u.bannerColor || '#0d9488', avatarColor: u.avatarColor || '#e11d48' };
   }
 
   function saveLocalVault() {
     try {
-      if (Array.isArray(social.friends) && social.friends.length > 0) {
-        localVault.friends = social.friends.map(function (f) {
-          rememberUserInVault(f);
-          return f.pid;
-        });
-      }
-      if (Array.isArray(social.incoming)) {
-        localVault.incoming = social.incoming.map(function (inc) {
-          rememberUserInVault(inc);
-          return inc.pid;
-        });
-      }
-      if (Array.isArray(social.outgoing)) {
-        localVault.outgoing = social.outgoing.slice();
-      }
-      if (Array.isArray(lastMembers)) {
-        lastMembers.forEach(rememberUserInVault);
-      }
-      if (Array.isArray(serversList) && serversList.length > 0) {
-        localVault.servers = serversList.slice(0, 40);
-      }
-      if (!localVault.messages) localVault.messages = {};
+      if (social.friends?.length) localVault.friends = social.friends.map(f => { rememberUserInVault(f); return f.pid; });
+      if (social.incoming?.length) localVault.incoming = social.incoming.map(i => { rememberUserInVault(i); return i.pid; });
+      if (social.outgoing) localVault.outgoing = social.outgoing.slice();
+      if (lastMembers) lastMembers.forEach(rememberUserInVault);
+      if (serversList?.length) localVault.servers = serversList.slice(0, 40);
       if (currentRoom && roomMessagesCache) {
-        const roomCopy = {};
-        Object.keys(roomMessagesCache).forEach(function (ch) {
-          const arr = roomMessagesCache[ch];
-          if (Array.isArray(arr) && arr.length) {
-            roomCopy[ch] = arr.slice(-80);
-          }
-        });
-        localVault.messages[currentRoom] = roomCopy;
+        if (!localVault.messages) localVault.messages = {};
+        const rc = {}; Object.keys(roomMessagesCache).forEach(ch => { if (roomMessagesCache[ch]?.length) rc[ch] = roomMessagesCache[ch].slice(-80); });
+        localVault.messages[currentRoom] = rc;
       }
       localStorage.setItem('cyber_vault_v1', JSON.stringify(localVault));
     } catch (e) {}
@@ -1012,24 +871,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   async function pushLocalVaultToServer() {
     try {
-      const knownArr = Object.values(localVault.knownUsers || {});
-      const payload = {
-        uid: myUid,
-        nick: myNick,
-        profile: myProfile,
-        friends: localVault.friends || [],
-        incoming: localVault.incoming || [],
-        outgoing: localVault.outgoing || [],
-        knownUsers: knownArr,
-        servers: localVault.servers || [],
-        room: currentRoom,
-        roomMembersPids: knownArr.map(function (u) { return u.pid; }),
-        messages: localVault.messages || {}
-      };
       await fetch('/api/vault-restore', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: myUid, nick: myNick, profile: myProfile, friends: localVault.friends, incoming: localVault.incoming, outgoing: localVault.outgoing, knownUsers: Object.values(localVault.knownUsers), servers: localVault.servers, room: currentRoom, roomMembersPids: Object.keys(localVault.knownUsers), messages: localVault.messages })
       });
     } catch (e) {}
   }
@@ -1037,136 +881,56 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   const IMAGE_URL_RX = /https?:\/\/[^\s"'<>]+\.(?:png|jpe?g|gif|webp)(?:\?[^\s"'<>]*)?/i;
 
   function checkContentViolation(text, serverFlags) {
-    const s = String(text || '');
-    const reasons = [];
-    if (appSettings.filterSexual) {
-      if ((serverFlags && serverFlags.sexual) || SEXUAL_RX.some(function (rx) { return rx.test(s); })) {
-        reasons.push('Сексуальный контент 18+');
-      }
-    }
-    if (appSettings.filterGore) {
-      if ((serverFlags && serverFlags.gore) || GORE_RX.some(function (rx) { return rx.test(s); })) {
-        reasons.push('Насилие / Шокирующий контент');
-      }
-    }
+    const s = String(text || ''); const reasons = [];
+    if (appSettings.filterSexual && ((serverFlags && serverFlags.sexual) || SEXUAL_RX.some(rx => rx.test(s)))) reasons.push('Сексуальный контент 18+');
+    if (appSettings.filterGore && ((serverFlags && serverFlags.gore) || GORE_RX.some(rx => rx.test(s)))) reasons.push('Насилие / Шокирующий контент');
     if (appSettings.customBlockedWords) {
-      const list = String(appSettings.customBlockedWords).split(',').map(function (w) { return w.trim().toLowerCase(); }).filter(Boolean);
-      const lower = s.toLowerCase();
-      if (list.some(function (w) { return lower.includes(w); })) {
-        reasons.push('Чёрный список слов');
-      }
+      const list = String(appSettings.customBlockedWords).split(',').map(w => w.trim().toLowerCase()).filter(Boolean), lower = s.toLowerCase();
+      if (list.some(w => lower.includes(w))) reasons.push('Чёрный список слов');
     }
     return reasons;
   }
 
-  function toggleSpoiler(wrapEl) {
-    if (wrapEl) wrapEl.classList.toggle('revealed');
-  }
+  function toggleSpoiler(w) { w?.classList.toggle('revealed'); }
 
-  let clientId = Math.random().toString(36).substring(2, 10);
-  let evtSource = null;
-  let tgSessionToken = '';
-  let tgBotUsername = '';
-  let tgPollTimer = null;
-
-  let roomMessagesCache = {};
-  let unreadByChannel = {};
-  let cachedMessages = [];
-  let profileSyncTimer = null;
-
-  let serversList = [];
-  let currentServerMeta = {
-    id: currentRoom,
-    name: 'Ночной клуб',
-    icon: 'НК',
-    desc: 'Игры, идеи и разговоры после полуночи',
-    textChannels: ['игровая-комната', 'общий', 'знакомства', 'музыка'],
-    voiceChannels: ['Ночной эфир']
-  };
-
+  let clientId = Math.random().toString(36).substring(2, 10), evtSource = null, tgSessionToken = '', tgBotUsername = '', tgPollTimer = null;
+  let roomMessagesCache = {}, unreadByChannel = {}, cachedMessages = [], profileSyncTimer = null;
+  let serversList = [], currentServerMeta = { id: currentRoom, name: 'Ночной клуб', icon: 'НК', desc: 'Игры, идеи и разговоры после полуночи', textChannels: ['игровая-комната', 'общий', 'знакомства', 'музыка'], voiceChannels: ['Ночной эфир'] };
   let rawMicStream = null, localStream = null, micGainNode = null, audioCtx = null;
   let screenStream = null, webcamStream = null, peer = null, myPeerId = null;
   let inVoice = false, inScreen = false, inWebcam = false, isMuted = false, isDeafened = false;
-  let screenCalls = {}, camCalls = {};
-  let myPid = null, lastMembers = [], social = { friends: [], incoming: [], outgoing: [], servers: [] };
-  let pendingChannelType = 'text';
-  let micTestStream = null, micTestTimer = null;
+  let screenCalls = {}, camCalls = {}, myPid = null, lastMembers = [], social = { friends: [], incoming: [], outgoing: [], servers: [] };
+  let pendingChannelType = 'text', micTestStream = null, micTestTimer = null;
 
-  // Мобильные переменные для удержания фона (Base64 WAV + Web Worker + WakeLock)
-  let callStartTime = 0;
-  let voiceLockRelease = null, wakeLockSentinel = null, keepAliveAudioEl = null;
-  let bgWorker = null;
-  let pipCanvas = null, pipCtx = null, canvasPipVideo = null;
-  let popupOverlayWin = null;
-  let subsonicWavUrl = null;
+  let callStartTime = 0, voiceLockRelease = null, wakeLockSentinel = null, keepAliveAudioEl = null, bgWorker = null;
+  let pipCanvas = null, pipCtx = null, canvasPipVideo = null, popupOverlayWin = null, subsonicWavUrl = null;
 
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+  function formatCallTime(sec) { return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'); }
 
-  function el(tag, cls, text) {
-    const e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (text !== undefined) e.textContent = text;
-    return e;
-  }
-
-  function formatCallTime(sec) {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-  }
-
-  // Генератор инфразвукового WAV для обхода 30-секундного засыпания на Android/iOS
   function getSubsonicWavUrl() {
     if (subsonicWavUrl) return subsonicWavUrl;
-    const sampleRate = 8000, duration = 2, numSamples = sampleRate * duration;
-    const buffer = new ArrayBuffer(44 + numSamples * 2), view = new DataView(buffer);
-    const writeStr = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
-    writeStr(0, 'RIFF'); view.setUint32(4, 36 + numSamples * 2, true); writeStr(8, 'WAVE');
-    writeStr(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
-    view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
-    writeStr(36, 'data'); view.setUint32(40, numSamples * 2, true);
-    for (let i = 0; i < numSamples; i++) {
-      view.setInt16(44 + i * 2, Math.sin(2 * Math.PI * 20 * (i / sampleRate)) * 45, true);
-    }
-    subsonicWavUrl = URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
+    const sr = 8000, dur = 2, num = sr * dur, buf = new ArrayBuffer(44 + num * 2), view = new DataView(buf);
+    const wr = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+    wr(0, 'RIFF'); view.setUint32(4, 36 + num * 2, true); wr(8, 'WAVE'); wr(12, 'fmt ');
+    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); view.setUint32(24, sr, true); view.setUint32(28, sr * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true); wr(36, 'data'); view.setUint32(40, num * 2, true);
+    for (let i = 0; i < num; i++) view.setInt16(44 + i * 2, Math.sin(2 * Math.PI * 20 * (i / sr)) * 45, true);
+    subsonicWavUrl = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
     return subsonicWavUrl;
   }
 
-  // Системный оверлей (Picture-in-Picture)
   function ensurePipCanvasAndVideo() {
-    if (!pipCanvas) {
-      pipCanvas = document.createElement('canvas');
-      pipCanvas.width = 460; pipCanvas.height = 260;
-      pipCtx = pipCanvas.getContext('2d', { alpha: false });
-      drawSystemPipOverlayFrame();
-    }
+    if (!pipCanvas) { pipCanvas = document.createElement('canvas'); pipCanvas.width = 460; pipCanvas.height = 260; pipCtx = pipCanvas.getContext('2d', { alpha: false }); drawSystemPipOverlayFrame(); }
     if (!canvasPipVideo) {
-      canvasPipVideo = document.createElement('video');
-      canvasPipVideo.muted = true; canvasPipVideo.autoplay = true; canvasPipVideo.playsInline = true; canvasPipVideo.autoPictureInPicture = true;
+      canvasPipVideo = document.createElement('video'); canvasPipVideo.muted = true; canvasPipVideo.autoplay = true; canvasPipVideo.playsInline = true; canvasPipVideo.autoPictureInPicture = true;
       canvasPipVideo.style.cssText = 'position:fixed;right:0;bottom:0;width:4px;height:4px;opacity:0.01;pointer-events:none;z-index:1;';
       document.body.appendChild(canvasPipVideo);
       try { canvasPipVideo.srcObject = pipCanvas.captureStream(25); canvasPipVideo.play().catch(() => {}); } catch (e) {}
-      canvasPipVideo.addEventListener('enterpictureinpicture', () => {
-        document.getElementById('pip-overlay-btn')?.classList.add('active-cam');
-        document.getElementById('fco-pip-btn')?.classList.add('active-pip');
-      });
-      canvasPipVideo.addEventListener('leavepictureinpicture', () => {
-        document.getElementById('pip-overlay-btn')?.classList.remove('active-cam');
-        document.getElementById('fco-pip-btn')?.classList.remove('active-pip');
-      });
-    } else if (canvasPipVideo.paused) {
-      canvasPipVideo.play().catch(() => {});
-    }
+      canvasPipVideo.addEventListener('enterpictureinpicture', () => { document.getElementById('pip-overlay-btn')?.classList.add('active-cam'); document.getElementById('fco-pip-btn')?.classList.add('active-pip'); });
+      canvasPipVideo.addEventListener('leavepictureinpicture', () => { document.getElementById('pip-overlay-btn')?.classList.remove('active-cam'); document.getElementById('fco-pip-btn')?.classList.remove('active-pip'); });
+    } else if (canvasPipVideo.paused) { canvasPipVideo.play().catch(() => {}); }
   }
 
-  document.addEventListener('pointerdown', () => { ensurePipCanvasAndVideo(); }, { once: true });
+  document.addEventListener('pointerdown', () => ensurePipCanvasAndVideo(), { once: true });
 
   function drawSystemPipOverlayFrame() {
     if (!pipCanvas || !pipCtx) return;
@@ -1181,10 +945,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       ctx.fillRect(14, 48, w - 28, 34); ctx.strokeStyle = isMuted ? '#f43f5e' : '#2dd4bf'; ctx.lineWidth = 1.5; ctx.strokeRect(14, 48, w - 28, 34);
       ctx.fillStyle = isMuted ? '#fda4af' : '#5eead4'; ctx.font = 'bold 13px sans-serif';
       ctx.fillText((isMuted ? '🔇 Микрофон выкл' : '🎤 Микрофон вкл') + (isDeafened ? ' • 🔇 Звук выкл' : ' • 🎧 Звук вкл'), 26, 70);
-      ctx.fillStyle = '#64748b'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('УЧАСТНИКИ В КАНАЛЕ:', 16, 104);
+      ctx.fillStyle = '#64748b'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('УЧАСТНИКИ:', 16, 104);
       getVoiceChannelMembers().slice(0, 5).forEach((u, i) => {
-        const y = 128 + i * 25;
-        ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(14, y - 16, w - 28, 22);
+        const y = 128 + i * 25; ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(14, y - 16, w - 28, 22);
         ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(26, y - 5, 4.5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#f1f5f9'; ctx.font = 'bold 13px sans-serif';
         ctx.fillText(u.nick + (u.pid === myPid ? ' (Вы)' : '') + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : ''), 38, y);
@@ -1197,11 +960,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function openStandalonePopupOverlay() {
-    if (popupOverlayWin && !popupOverlayWin.closed) { popupOverlayWin.focus(); renderPopupOverlayContent(); return; }
+    if (popupOverlayWin && !popupOverlayWin.closed) { popupOverlayWin.focus(); return; }
     popupOverlayWin = window.open('', 'SignalCallOverlay', 'width=340,height=250,menubar=no,toolbar=no,location=no,status=no,resizable=yes');
     if (!popupOverlayWin) return;
-    const doc = popupOverlayWin.document;
-    doc.open();
+    const doc = popupOverlayWin.document; doc.open();
     doc.write('<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>СИГНАЛ — Оверлей</title><style>*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;}body{background:#060a10;color:#f1f5f9;padding:12px;height:100vh;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(45,212,191,0.45);}.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px;}.badge{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#2dd4bf;}.dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;}.timer{font-family:monospace;font-size:11px;background:rgba(255,255,255,0.07);padding:2px 7px;border-radius:4px;color:#cbd5e1;}.peers{display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;overflow-y:auto;flex:1;align-content:flex-start;}.chip{display:inline-flex;align-items:center;gap:6px;background:#0f1722;border:1px solid rgba(45,212,191,0.3);padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;}.btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);}button{background:#131c28;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:8px 6px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;}button.off{background:rgba(244,63,94,0.2);border-color:#f43f5e;color:#fda4af;}button.hang{background:#ef4444;border-color:#ef4444;color:#fff;}</style></head><body><div class="top"><div class="badge"><span class="dot"></span><span id="pop-ch"></span></div><span class="timer" id="pop-timer">00:00</span></div><div class="peers" id="pop-peers"></div><div class="btns"><button id="pop-mute"></button><button id="pop-deaf"></button><button class="hang" id="pop-hang">🛑 Выход</button></div></body></html>');
     doc.close();
     doc.getElementById('pop-mute').onclick = () => toggleMute();
@@ -1218,9 +980,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const m = doc.getElementById('pop-mute'); m.textContent = isMuted ? '🔇 Микр. выкл' : '🎤 Микр. вкл'; m.className = isMuted ? 'off' : '';
       const d = doc.getElementById('pop-deaf'); d.textContent = isDeafened ? '🔇 Звук выкл' : '🎧 Звук вкл'; d.className = isDeafened ? 'off' : '';
       const pb = doc.getElementById('pop-peers'); pb.innerHTML = '';
-      getVoiceChannelMembers().forEach(u => {
-        const c = doc.createElement('div'); c.className = 'chip'; c.textContent = '🟢 ' + u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : ''); pb.appendChild(c);
-      });
+      getVoiceChannelMembers().forEach(u => { const c = doc.createElement('div'); c.className = 'chip'; c.textContent = '🟢 ' + u.nick; pb.appendChild(c); });
     } catch (e) {}
   }
 
@@ -1231,9 +991,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       canvasPipVideo.requestPictureInPicture().then(() => {
         document.getElementById('pip-overlay-btn')?.classList.add('active-cam');
         document.getElementById('fco-pip-btn')?.classList.add('active-pip');
-      }).catch(() => {
-        canvasPipVideo.play().then(() => canvasPipVideo.requestPictureInPicture()).catch(() => openStandalonePopupOverlay());
-      });
+      }).catch(() => { canvasPipVideo.play().then(() => canvasPipVideo.requestPictureInPicture()).catch(() => openStandalonePopupOverlay()); });
     } else { openStandalonePopupOverlay(); }
     if (!inVoice) ensureVoiceConnected();
   }
@@ -1246,7 +1004,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('fco-pip-btn')?.classList.remove('active-pip');
   }
 
-  // Запуск мобильного удержания связи (Base64 WAV + Web Worker + WakeLock)
   function startBackgroundCallPersistence() {
     if (navigator.locks && navigator.locks.request && !voiceLockRelease) {
       navigator.locks.request('signal_active_voice_call', { mode: 'exclusive' }, () => new Promise(r => { voiceLockRelease = r; })).catch(() => {});
@@ -1288,8 +1045,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           try { popupOverlayWin.document.getElementById('pop-timer').textContent = tStr; } catch (e) {}
         }
         if (cnt % 3 === 0) {
-          if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-          if (keepAliveAudioEl && keepAliveAudioEl.paused) keepAliveAudioEl.play().catch(() => {});
+          if (audioCtx?.state === 'suspended') audioCtx.resume().catch(() => {});
+          if (keepAliveAudioEl?.paused) keepAliveAudioEl.play().catch(() => {});
           document.querySelectorAll('#audio-box audio').forEach(a => { if (a.paused && !isDeafened) a.play().catch(() => {}); });
           if (document.hidden) fetch('/healthz?t=' + Date.now(), { keepalive: true }).catch(() => {});
         }
@@ -1342,149 +1099,18 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('fco-deaf-btn').textContent = isDeafened ? '🔇 Глух' : '🎧 Вкл';
     const pb = document.getElementById('fco-peers-box'); pb.innerHTML = '';
     getVoiceChannelMembers().forEach(u => {
-      const c = el('div', 'fco-peer-chip'); c.appendChild(el('span', 'fco-pulse')); c.appendChild(el('span', '', u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : ''))); pb.appendChild(c);
+      const c = el('div', 'fco-peer-chip'); c.appendChild(el('span', 'fco-pulse')); c.appendChild(el('span', '', u.nick)); pb.appendChild(c);
     });
     drawSystemPipOverlayFrame();
     renderPopupOverlayContent();
   }
 
-  (function () {
-    const card = document.getElementById('floating-call-overlay'), handle = document.getElementById('fco-drag-handle');
-    if (!card || !handle) return;
-    let drag = false, sx = 0, sy = 0, or = 18, ob = 72;
-    const start = (x, y) => { drag = true; sx = x; sy = y; const rect = card.getBoundingClientRect(); or = window.innerWidth - rect.right; ob = window.innerHeight - rect.bottom; };
-    const move = (x, y) => { if (!drag) return; card.style.left = 'auto'; card.style.right = Math.max(8, Math.min(window.innerWidth - 120, or - (x - sx))) + 'px'; card.style.bottom = Math.max(8, Math.min(window.innerHeight - 80, ob - (y - sy))) + 'px'; };
-    const end = () => { drag = false; };
-    handle.addEventListener('mousedown', e => start(e.clientX, e.clientY));
-    window.addEventListener('mousemove', e => move(e.clientX, e.clientY)); window.addEventListener('mouseup', end);
-    handle.addEventListener('touchstart', e => { if (e.touches[0]) start(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-    window.addEventListener('touchmove', e => { if (drag && e.touches[0]) move(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-    window.addEventListener('touchend', end);
-  })();
-
-  function applyNickUI() {
-    document.getElementById('user-name-label').textContent = myNick;
-    const ava = document.getElementById('user-ava'); ava.textContent = myNick.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#e11d48';
-    document.getElementById('user-presence-dot').className = 'user-presence-dot ' + (myProfile.presence || 'online');
-    document.getElementById('voice-my-name').textContent = myNick + ' (Вы)';
-    const stViol = checkContentViolation(myProfile.customStatus || '');
-    const sStat = stViol.length ? '' : myProfile.customStatus;
-    if (sStat) { document.getElementById('user-email-label').textContent = sStat; document.getElementById('user-email-label').style.color = '#cbd5e1'; }
-    else if (myVerified) { document.getElementById('user-email-label').textContent = '✓ В сети'; document.getElementById('user-email-label').style.color = '#34d399'; }
-    else { document.getElementById('user-email-label').textContent = 'Настроить профиль'; document.getElementById('user-email-label').style.color = ''; }
-  }
-
-  function renderServersRail() {
-    const box = document.getElementById('servers-list-box'); box.innerHTML = '';
-    (serversList.length ? serversList : [currentServerMeta]).forEach(srv => {
-      const b = el('div', 'srv-ico' + (srv.id === currentRoom ? ' active' : ''), srv.icon || srv.name.slice(0, 2).toUpperCase());
-      b.title = srv.name; b.onclick = () => { if (srv.id !== currentRoom) switchServer(srv.id); }; box.appendChild(b);
-    });
-  }
-
-  function renderServerChannels() {
-    document.getElementById('srv-title-label').textContent = currentServerMeta.name || currentRoom;
-    document.getElementById('srv-desc-label').textContent = currentServerMeta.desc || 'Игры, идеи и разговоры после полуночи';
-    const tList = currentServerMeta.textChannels || ['игровая-комната'];
-    if (!tList.includes(currentChannel)) currentChannel = tList[0] || 'игровая-комната';
-    const vList = currentServerMeta.voiceChannels || ['Ночной эфир'];
-    if (!vList.includes(currentVoiceChannel)) currentVoiceChannel = vList[0] || 'Ночной эфир';
-
-    const tBox = document.getElementById('text-channels-list'); tBox.innerHTML = '';
-    tList.forEach(ch => {
-      const row = el('div', 'ch-btn' + (ch === currentChannel ? ' active' : '')); row.setAttribute('data-ch', ch);
-      const rw = el('div', '', ''); rw.style.cssText = 'display:flex;align-items:center;gap:4px;';
-      const unread = unreadByChannel[ch] || 0; if (unread > 0 && ch !== currentChannel) rw.appendChild(el('span', 'ch-unread-badge', String(unread)));
-      rw.appendChild(el('span', 'ch-dot')); row.appendChild(el('span', '', '# ' + ch)); row.appendChild(rw);
-      row.onclick = () => setChannel(ch); tBox.appendChild(row);
-    });
-
-    const vBox = document.getElementById('voice-channels-list'); vBox.innerHTML = '';
-    vList.forEach(vch => {
-      const isAct = inVoice && currentVoiceChannel === vch;
-      const row = el('div', 'voice-ch-box' + (isAct ? ' active' : ''));
-      row.appendChild(el('span', '', '🔊 ' + vch)); row.appendChild(el('span', 'off-badge' + (isAct ? ' on' : ''), isAct ? 'ON' : 'OFF'));
-      row.onclick = () => selectVoiceChannel(vch); vBox.appendChild(row);
-    });
-    applyChannelUI(currentChannel); updateVoicePanelUI();
-  }
-
-  function applyChannelUI(ch) {
-    const sName = currentServerMeta.name || 'Ночной клуб';
-    document.getElementById('top-ch-name').textContent = ch;
-    document.getElementById('top-ch-desc').textContent = 'Канал сервера «' + sName + '»';
-    document.getElementById('banner-desc').textContent = 'Это #' + ch + ' на сервере «' + sName + '». Делитесь мыслями, включайте камеру или оверлей.';
-    document.getElementById('chat-input').placeholder = 'Написать сообщение в #' + ch + '...';
-    document.querySelectorAll('.ch-btn').forEach(i => i.classList.toggle('active', i.getAttribute('data-ch') === ch));
-  }
-
-  function updateVoicePanelUI() {
-    document.getElementById('voice-panel-title').textContent = 'Общий разговор участников канала («' + currentVoiceChannel + '»)';
-    updateFloatingOverlayUI();
-  }
-
-  async function switchServer(roomId) {
-    const clean = String(roomId || '').trim();
-    if (!clean || clean === currentRoom) { closeMobileDrawers(); return; }
-    if (inVoice) await toggleVoiceCall();
-    currentRoom = clean; unreadByChannel = {}; roomMessagesCache = {};
-    try { localStorage.setItem('cyber_last_room', currentRoom); } catch (e) {}
-    const found = serversList.find(s => s.id === currentRoom);
-    if (found) { currentServerMeta = found; currentChannel = found.textChannels[0] || 'игровая-комната'; currentVoiceChannel = found.voiceChannels[0] || 'Ночной эфир'; }
-    updateBrowserUrl(); renderServersRail(); renderServerChannels(); closeMobileDrawers();
-    try {
-      const res = await fetch('/api/switch-room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, nick: myNick }) });
-      const data = await res.json();
-      if (data && data.ok) {
-        currentServerMeta = data.current || currentServerMeta; serversList = data.list || serversList; roomMessagesCache = data.messagesByChannel || {};
-        if (!currentServerMeta.textChannels.includes(currentChannel)) currentChannel = currentServerMeta.textChannels[0] || 'игровая-комната';
-        cachedMessages = roomMessagesCache[currentChannel] || [];
-        updateBrowserUrl(); renderServersRail(); renderServerChannels(); rerenderChatMessages();
-        if (Array.isArray(data.users)) renderUsers(data.users); saveLocalVault();
-      }
-    } catch (e) {}
-  }
-
-  function connectEventStream() {
-    if (evtSource) try { evtSource.close(); } catch (e) {}
-    clientId = Math.random().toString(36).substring(2, 10);
-    evtSource = new EventSource(`/api/events?id=${clientId}&uid=${myUid}&verified=${myVerified ? '1' : '0'}&room=${encodeURIComponent(currentRoom)}&nick=${encodeURIComponent(myNick)}`);
-    evtSource.onmessage = e => {
-      let data; try { data = JSON.parse(e.data); } catch (err) { return; }
-      if (data.type === 'server-meta') {
-        currentServerMeta = data.payload.current; serversList = data.payload.list || [currentServerMeta];
-        if (data.payload.messagesByChannel) roomMessagesCache = data.payload.messagesByChannel;
-        renderServersRail(); renderServerChannels(); cachedMessages = roomMessagesCache[currentChannel] || []; rerenderChatMessages();
-        pushLocalVaultToServer();
-      } else if (data.type === 'servers') {
-        serversList = data.payload.list || [];
-        const f = serversList.find(s => s.id === currentRoom); if (f) currentServerMeta = f;
-        renderServersRail(); renderServerChannels(); saveLocalVault();
-      } else if (data.type === 'msg') {
-        const ch = data.payload.channel, msg = data.payload.msg;
-        if (!roomMessagesCache[ch]) roomMessagesCache[ch] = [];
-        roomMessagesCache[ch].push(msg); saveLocalVault();
-        if (ch === currentChannel) { cachedMessages = roomMessagesCache[ch]; addMsgToDOM(msg); }
-        else { unreadByChannel[ch] = (unreadByChannel[ch] || 0) + 1; renderServerChannels(); }
-        if (appSettings.soundMsg && msg && msg.author !== myNick) playUiBeep(540, 0.06);
-      } else if (data.type === 'users') {
-        renderUsers(data.payload); updateFloatingOverlayUI(); saveLocalVault();
-      } else if (data.type === 'social') {
-        myPid = data.payload.pid; social = data.payload;
-        if (data.payload.nick) { myNick = data.payload.nick; try { localStorage.setItem('cyber_nick', myNick); } catch (err) {} setPersistCookie('cyber_nick', myNick); }
-        if (data.payload.verified) { myVerified = true; authLocked = false; try { localStorage.setItem('cyber_verified', '1'); } catch (err) {} setPersistCookie('cyber_verified', '1'); closeAuthModal(); }
-        if (data.payload.bio !== undefined) Object.assign(myProfile, { bio: data.payload.bio || myProfile.bio, interests: data.payload.interests || myProfile.interests, customStatus: data.payload.customStatus || myProfile.customStatus, presence: data.payload.presence || myProfile.presence, bannerColor: data.payload.bannerColor || myProfile.bannerColor, avatarColor: data.payload.avatarColor || myProfile.avatarColor });
-        applyNickUI(); renderSocial(); renderUsers(lastMembers); saveLocalVault();
-      } else if (data.type === 'voice-join') {
-        if (inVoice && peer && localStream && myPeerId && data.payload.peerId !== myPeerId && data.payload.voiceChannel === currentVoiceChannel) {
-          const pid = data.payload.peerId; const call = peer.call(pid, localStream, { metadata: { kind: 'audio', nick: myNick } });
-          if (call) { call.on('stream', s => playStream(pid, s)); call.on('close', () => removeAudio(pid)); call.on('error', () => removeAudio(pid)); }
-          if (inScreen && screenStream) callPeerWithScreen(pid);
-          if (inWebcam && webcamStream) callPeerWithWebcam(pid);
-        }
-      } else if (data.type === 'screen-stop' && data.payload?.peerId) { removeMediaTile('screen-' + data.payload.peerId); }
-      else if (data.type === 'cam-stop' && data.payload?.peerId) { removeMediaTile('cam-' + data.payload.peerId); }
-    };
+  function switchAuthTab(m) {
+    const isTg = m === 'tg';
+    document.getElementById('tab-tg-btn').classList.toggle('active', isTg);
+    document.getElementById('tab-pass-btn').classList.toggle('active', !isTg);
+    document.getElementById('auth-tg-panel').style.display = isTg ? 'block' : 'none';
+    document.getElementById('auth-pass-panel').style.display = isTg ? 'none' : 'block';
   }
 
   applyNickUI(); applyAppearanceFromStorage(); renderServersRail(); renderServerChannels(); connectEventStream();
@@ -1492,793 +1118,35 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function rerenderChatMessages() {
     const box = document.getElementById('messages-list'); box.innerHTML = '';
-    if (!cachedMessages || !cachedMessages.length) { box.innerHTML = '<div id="empty-hint" style="font-size:11px;color:var(--text-muted);">Здесь пока тихо. Напишите первым.</div>'; return; }
+    if (!cachedMessages?.length) { box.innerHTML = '<div id="empty-hint" style="font-size:11px;color:var(--text-muted);">Здесь пока тихо. Напишите первым.</div>'; return; }
     cachedMessages.forEach(addMsgToDOM);
+  }
+
+  function addMsgToDOM(m) {
+    const box = document.getElementById('messages-list'); document.getElementById('empty-hint')?.remove();
+    const author = String(m.author || '?'), viol = checkContentViolation(m.text, m.flags);
+    const div = el('div', 'msg-item');
+    div.innerHTML = '<div class="msg-ava">' + escapeHtml(author.charAt(0).toUpperCase()) + '</div><div style="flex:1;min-width:0;"><div><span class="msg-author">' + escapeHtml(author) + '</span><span class="msg-time">' + escapeHtml(m.time) + '</span></div><div class="msg-text">' + buildMessageBodyHTML(m.text, viol) + '</div></div>';
+    box.appendChild(div); document.getElementById('chat-scroll').scrollTop = document.getElementById('chat-scroll').scrollHeight;
   }
 
   function buildMessageBodyHTML(text, violations) {
     const safeText = escapeHtml(text), imgMatch = String(text || '').match(IMAGE_URL_RX);
     let inner = '<div>' + safeText + '</div>';
     if (imgMatch) inner += '<img class="chat-inline-media" src="' + escapeHtml(imgMatch[0]) + '" alt="media" loading="lazy">';
-    if (!violations || !violations.length) return inner;
+    if (!violations?.length) return inner;
     const rStr = escapeHtml(violations.join(', '));
     if (appSettings.filterAction === 'blur') {
-      return '<div class="spoiler-blur-wrap" onclick="toggleSpoiler(this)" title="Показать/скрыть"><div class="spoiler-badge">🛡️ Скрыто фильтром (' + rStr + ') — нажми для просмотра</div><div class="spoiler-blur-content">' + inner + '</div></div>';
+      return '<div class="spoiler-blur-wrap" onclick="toggleSpoiler(this)"><div class="spoiler-badge">🛡️ Скрыто фильтром (' + rStr + ')</div><div class="spoiler-blur-content">' + inner + '</div></div>';
     }
-    return '<div class="filtered-block-card">🛡️ Заблокировано фильтром безопасности (' + rStr + ')</div>';
-  }
-
-  function addMsgToDOM(m) {
-    const box = document.getElementById('messages-list'), hint = document.getElementById('empty-hint'); if (hint) hint.remove();
-    const author = String(m.author || '?'), viol = checkContentViolation(m.text, m.flags);
-    const div = el('div', 'msg-item');
-    div.innerHTML = '<div class="msg-ava">' + escapeHtml(author.charAt(0).toUpperCase()) + '</div><div style="flex:1;min-width:0;"><div><span class="msg-author">' + escapeHtml(author) + '</span><span class="msg-time">' + escapeHtml(m.time) + '</span></div><div class="msg-text">' + buildMessageBodyHTML(m.text, viol) + '</div></div>';
-    box.appendChild(div);
-    const scrollArea = document.getElementById('chat-scroll'); scrollArea.scrollTop = scrollArea.scrollHeight;
+    return '<div class="filtered-block-card">🛡️ Заблокировано фильтром (' + rStr + ')</div>';
   }
 
   function friendAction(action, pid) {
     if (!myVerified) { openAuthModal(true); return Promise.resolve(); }
     if (action === 'remove') { localVault.friends = (localVault.friends || []).filter(x => x !== pid); saveLocalVault(); }
-    return fetch('/api/friend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, action, target: pid }) })
-      .then(r => r.json()).then(d => { if (d.error) alert(d.error); }).catch(() => alert('Ошибка соединения.'));
+    return fetch('/api/friend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, action, target: pid }) }).then(r => r.json()).catch(() => {});
   }
-
-  function renderUsers(list) {
-    lastMembers = list || [];
-    const online = lastMembers.filter(u => u.online), offline = lastMembers.filter(u => !u.online);
-    document.getElementById('online-count').textContent = online.length;
-    document.getElementById('total-members-count').textContent = lastMembers.length;
-    const box = document.getElementById('online-users-box'); box.innerHTML = '';
-    const friendPids = (social.friends || []).map(f => f.pid);
-    online.concat(offline).forEach(u => {
-      const d = el('div', 'online-user-item' + (u.online ? ' is-online' : '')); if (!u.online) d.style.opacity = '0.68';
-      d.appendChild(el('span', 'online-dot ' + (u.online ? (u.presence || 'online') : 'off')));
-      const col = el('div', 'member-text-col');
-      const nr = el('div', 'member-nick-row', u.nick + (u.pid === myPid ? ' (вы)' : '') + (u.inVoice ? ' 🔊' : '') + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '')); nr.style.fontWeight = u.online ? '600' : '400'; col.appendChild(nr);
-      if (u.customStatus) { const sv = checkContentViolation(u.customStatus); col.appendChild(el('div', 'member-status-sub', sv.length ? '🛡️ [Статус скрыт]' : u.customStatus)); }
-      d.appendChild(col);
-      d.appendChild(el('span', 'status-pill ' + (u.online ? 'on' : 'off'), u.online ? 'в сети' : 'не в сети'));
-      if (myPid && u.pid !== myPid) {
-        if (friendPids.includes(u.pid)) d.appendChild(el('span', 'friend-tag', 'друг'));
-        else if ((social.outgoing || []).includes(u.pid)) d.appendChild(el('span', 'friend-tag', 'заявка'));
-        else if ((social.incoming || []).some(i => i.pid === u.pid)) { const b = el('button', 'mini-btn', 'принять'); b.onclick = ev => { ev.stopPropagation(); friendAction('accept', u.pid); }; d.appendChild(b); }
-        else { const b = el('button', 'mini-btn', '+ друг'); b.onclick = ev => { ev.stopPropagation(); friendAction('request', u.pid); }; d.appendChild(b); }
-      }
-      d.onclick = () => openUserProfileCard(u); box.appendChild(d);
-    });
-  }
-
-  function renderSocial() {
-    const friends = social.friends || [], incoming = social.incoming || [];
-    document.getElementById('friends-count').textContent = friends.length;
-    const rq = document.getElementById('requests-box'); rq.innerHTML = '';
-    incoming.forEach(r => {
-      const d = el('div', 'online-user-item'); d.style.borderColor = 'rgba(219,39,119,0.4)';
-      const nm = el('span', '', r.nick + ' хочет в друзья'); nm.style.flex = '1';
-      const ok = el('button', 'mini-btn', '✓'); ok.onclick = ev => { ev.stopPropagation(); friendAction('accept', r.pid); };
-      const no = el('button', 'mini-btn', '✕'); no.onclick = ev => { ev.stopPropagation(); friendAction('decline', r.pid); };
-      d.appendChild(nm); d.appendChild(ok); d.appendChild(no); rq.appendChild(d);
-    });
-    const fb = document.getElementById('friends-box'); fb.innerHTML = '';
-    if (!friends.length) fb.appendChild(el('div', '', 'Пока никого. Нажмите «+ друг» рядом с участником.'));
-    friends.forEach(f => {
-      const d = el('div', 'online-user-item' + (f.online ? ' is-online' : '')); if (!f.online) d.style.opacity = '0.68';
-      d.appendChild(el('span', 'online-dot ' + (f.online ? (f.presence || 'online') : 'off')));
-      const nm = el('span', '', f.nick); nm.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'; d.appendChild(nm);
-      d.appendChild(el('span', 'status-pill ' + (f.online ? 'on' : 'off'), f.online ? 'в сети' : 'не в сети'));
-      const rm = el('button', 'mini-btn', '✕'); rm.onclick = ev => { ev.stopPropagation(); if (confirm('Удалить из друзей?')) friendAction('remove', f.pid); };
-      d.appendChild(rm); d.onclick = () => openUserProfileCard(f); fb.appendChild(d);
-    });
-  }
-
-  function openUserProfileCard(u) {
-    if (!u) return;
-    document.getElementById('vp-banner').style.background = u.bannerColor || '#0d9488';
-    const ava = document.getElementById('vp-ava'); ava.textContent = String(u.nick || '?').slice(0, 2).toUpperCase(); ava.style.background = u.avatarColor || '#e11d48';
-    document.getElementById('vp-nick').textContent = u.nick || 'Участник';
-    const pill = document.getElementById('vp-online-pill'); pill.className = 'status-pill ' + (u.online ? 'on' : 'off'); pill.textContent = u.online ? 'в сети' : 'не в сети';
-    document.getElementById('vp-status').textContent = checkContentViolation(u.customStatus || '').length ? '🛡️ [Статус скрыт]' : (u.customStatus || '');
-    document.getElementById('vp-bio').textContent = checkContentViolation(u.bio || '').length ? '🛡️ [Скрыто фильтром]' : (u.bio || 'Участник ничего о себе не указал.');
-    const tb = document.getElementById('vp-tags'); tb.innerHTML = '';
-    String(u.interests || '').split(',').map(t => t.trim()).filter(Boolean).forEach(tg => { if (!checkContentViolation(tg).length) tb.appendChild(el('span', 'dp-tag', tg)); });
-    if (!tb.childNodes.length) tb.innerHTML = '<span style="font-size:10px;color:var(--text-muted);">Нет тегов</span>';
-    const fBtn = document.getElementById('vp-friend-btn'), friendPids = (social.friends || []).map(f => f.pid);
-    if (u.pid === myPid) { fBtn.textContent = '✏️ Редактировать профиль'; fBtn.onclick = () => { closeViewProfileModal(); openSettingsModal('profile'); }; }
-    else if (friendPids.includes(u.pid)) { fBtn.textContent = '✓ В друзьях'; fBtn.onclick = () => closeViewProfileModal(); }
-    else { fBtn.textContent = '+ В друзья'; fBtn.onclick = () => { friendAction('request', u.pid); closeViewProfileModal(); }; }
-    document.getElementById('view-profile-modal').classList.add('open');
-  }
-  function closeViewProfileModal() { document.getElementById('view-profile-modal').classList.remove('open'); }
-
-  function openSettingsModal(pane) {
-    closeMobileDrawers(); setMobActiveTab('mob-tab-profile');
-    document.getElementById('prof-nick-inp').value = myNick;
-    document.getElementById('prof-presence-sel').value = myProfile.presence || 'online';
-    document.getElementById('prof-status-inp').value = myProfile.customStatus || '';
-    document.getElementById('prof-bio-inp').value = myProfile.bio || '';
-    document.getElementById('prof-interests-inp').value = myProfile.interests || '';
-    updateProfilePreview(true);
-    document.getElementById('chk-filter-sexual').checked = appSettings.filterSexual !== false;
-    document.getElementById('chk-filter-gore').checked = appSettings.filterGore !== false;
-    document.getElementById('chk-filter-outgoing').checked = appSettings.filterOutgoing !== false;
-    document.getElementById('sel-filter-action').value = appSettings.filterAction || 'block';
-    document.getElementById('inp-custom-blocklist').value = appSettings.customBlockedWords || '';
-    document.getElementById('set-mic-vol').value = appSettings.micVolume; document.getElementById('lbl-mic-vol').textContent = appSettings.micVolume + '%';
-    document.getElementById('set-out-vol').value = appSettings.outVolume; document.getElementById('lbl-out-vol').textContent = appSettings.outVolume + '%';
-    document.getElementById('set-cam-res').value = appSettings.camRes || '720';
-    document.getElementById('chk-auto-overlay').checked = appSettings.autoOverlay !== false;
-    document.getElementById('chk-noise').checked = appSettings.noiseSuppression !== false;
-    document.getElementById('chk-echo').checked = appSettings.echoCancellation !== false;
-    document.getElementById('chk-agc').checked = appSettings.autoGainControl !== false;
-    document.getElementById('chk-compact').checked = !!appSettings.compactChat;
-    document.getElementById('sel-font-size').value = appSettings.fontSize || '12px';
-    document.getElementById('chk-snd-msg').checked = appSettings.soundMsg !== false;
-    document.getElementById('chk-snd-voice').checked = appSettings.soundVoice !== false;
-    refreshMediaDevices(); switchSettingsPane(pane || 'profile');
-    document.getElementById('settings-modal').classList.add('open');
-  }
-
-  function closeSettingsModal() { stopMicTest(); document.getElementById('settings-modal').classList.remove('open'); setMobActiveTab('mob-tab-chat'); }
-  function switchSettingsPane(pId) {
-    document.querySelectorAll('.settings-nav-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-pane') === pId));
-    document.querySelectorAll('.settings-pane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + pId));
-    if (pId !== 'voice') stopMicTest();
-  }
-
-  function saveSafetySettings() {
-    appSettings.filterSexual = document.getElementById('chk-filter-sexual').checked;
-    appSettings.filterGore = document.getElementById('chk-filter-gore').checked;
-    appSettings.filterOutgoing = document.getElementById('chk-filter-outgoing').checked;
-    appSettings.filterAction = document.getElementById('sel-filter-action').value || 'block';
-    appSettings.customBlockedWords = document.getElementById('inp-custom-blocklist').value.trim();
-    try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
-    rerenderChatMessages(); renderUsers(lastMembers); applyNickUI();
-  }
-
-  function selectBannerColor(c) { myProfile.bannerColor = c; updateProfilePreview(false); }
-  function selectAvatarColor(c) { myProfile.avatarColor = c; updateProfilePreview(false); }
-
-  function updateProfilePreview(skipSync) {
-    const n = document.getElementById('prof-nick-inp').value.trim().slice(0, 24) || myNick;
-    const pr = document.getElementById('prof-presence-sel').value || 'online';
-    const st = document.getElementById('prof-status-inp').value.trim().slice(0, 60);
-    const bio = document.getElementById('prof-bio-inp').value.trim().slice(0, 220);
-    const intr = document.getElementById('prof-interests-inp').value.trim().slice(0, 160);
-
-    document.getElementById('preview-banner').style.background = myProfile.bannerColor || '#0d9488';
-    const ava = document.getElementById('preview-ava'); ava.textContent = n.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#e11d48';
-    document.getElementById('preview-nick').textContent = n; document.getElementById('preview-status').textContent = st || 'В эфире'; document.getElementById('preview-bio').textContent = bio || 'О себе...';
-    const tb = document.getElementById('preview-tags'); tb.innerHTML = '';
-    const tags = intr.split(',').map(x => x.trim()).filter(Boolean);
-    if (!tags.length) tb.innerHTML = '<span style="font-size:10px;color:var(--text-muted);">Нет тегов</span>';
-    else tags.forEach(tg => tb.appendChild(el('span', 'dp-tag', tg)));
-
-    if (!skipSync) {
-      myNick = n; myProfile.presence = pr; myProfile.customStatus = st; myProfile.bio = bio; myProfile.interests = intr;
-      try { localStorage.setItem('cyber_nick', myNick); localStorage.setItem('cyber_profile', JSON.stringify(myProfile)); } catch (e) {}
-      setPersistCookie('cyber_nick', myNick); saveLocalVault(); applyNickUI();
-      if (profileSyncTimer) clearTimeout(profileSyncTimer);
-      profileSyncTimer = setTimeout(() => syncProfileToServer(), 350);
-    }
-  }
-
-  function syncProfileToServer() {
-    return fetch('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, nick: myNick, presence: myProfile.presence, customStatus: myProfile.customStatus, bio: myProfile.bio, interests: myProfile.interests, bannerColor: myProfile.bannerColor, avatarColor: myProfile.avatarColor }) }).catch(() => {});
-  }
-  async function saveProfileSettings() { updateProfilePreview(false); await syncProfileToServer(); closeSettingsModal(); }
-
-  async function refreshMediaDevices() {
-    if (!navigator.mediaDevices?.enumerateDevices) return;
-    try {
-      const devs = await navigator.mediaDevices.enumerateDevices();
-      const mSel = document.getElementById('set-mic-select'), sSel = document.getElementById('set-spk-select'), cSel = document.getElementById('set-cam-select');
-      mSel.innerHTML = ''; sSel.innerHTML = ''; cSel.innerHTML = '';
-      devs.forEach(d => {
-        if (d.kind === 'audioinput') { const o = el('option', '', d.label || 'Микрофон'); o.value = d.deviceId; if (d.deviceId === appSettings.micDeviceId) o.selected = true; mSel.appendChild(o); }
-        else if (d.kind === 'audiooutput') { const o = el('option', '', d.label || 'Динамики'); o.value = d.deviceId; if (d.deviceId === appSettings.spkDeviceId) o.selected = true; sSel.appendChild(o); }
-        else if (d.kind === 'videoinput') { const o = el('option', '', d.label || 'Камера'); o.value = d.deviceId; if (d.deviceId === appSettings.camDeviceId) o.selected = true; cSel.appendChild(o); }
-      });
-    } catch (e) {}
-  }
-
-  function onAudioSlidersChange() {
-    const mv = Number(document.getElementById('set-mic-vol').value || 100), ov = Number(document.getElementById('set-out-vol').value || 100);
-    document.getElementById('lbl-mic-vol').textContent = mv + '%'; document.getElementById('lbl-out-vol').textContent = ov + '%';
-    appSettings.micVolume = mv; appSettings.outVolume = ov;
-    if (micGainNode) micGainNode.gain.value = mv / 100;
-    applyOutputVolumeToAll(); saveAudioVideoSettings();
-  }
-
-  function applyOutputVolumeToAll() {
-    const vol = isDeafened ? 0 : Math.min(1, Math.max(0, (appSettings.outVolume || 100) / 100));
-    document.querySelectorAll('#audio-box audio').forEach(a => { a.volume = vol; a.muted = isDeafened; if (appSettings.spkDeviceId && typeof a.setSinkId === 'function') a.setSinkId(appSettings.spkDeviceId).catch(() => {}); });
-  }
-
-  function saveAudioVideoSettings() {
-    appSettings.micDeviceId = document.getElementById('set-mic-select')?.value || '';
-    appSettings.spkDeviceId = document.getElementById('set-spk-select')?.value || '';
-    appSettings.camDeviceId = document.getElementById('set-cam-select')?.value || '';
-    appSettings.camRes = document.getElementById('set-cam-res')?.value || '720';
-    appSettings.autoOverlay = document.getElementById('chk-auto-overlay')?.checked;
-    appSettings.noiseSuppression = document.getElementById('chk-noise')?.checked;
-    appSettings.echoCancellation = document.getElementById('chk-echo')?.checked;
-    appSettings.autoGainControl = document.getElementById('chk-agc')?.checked;
-    try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
-    applyOutputVolumeToAll(); updateFloatingOverlayUI();
-  }
-
-  async function toggleMicTest() {
-    if (micTestTimer) { stopMicTest(); return; }
-    try {
-      micTestStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: appSettings.micDeviceId ? { ideal: appSettings.micDeviceId } : undefined } });
-      const ctx = new (window.AudioContext || window.webkitAudioContext)(), src = ctx.createMediaStreamSource(micTestStream), an = ctx.createAnalyser();
-      an.fftSize = 256; src.connect(an); const d = new Uint8Array(an.frequencyBinCount);
-      document.getElementById('btn-mic-test').textContent = '🛑 Стоп';
-      micTestTimer = setInterval(() => { an.getByteFrequencyData(d); let sum = 0; for (let i = 0; i < d.length; i++) sum += d[i]; document.getElementById('mic-test-bar').style.width = Math.min(100, Math.round((sum / d.length / 90) * 100)) + '%'; }, 60);
-    } catch (e) { alert('Ошибка микрофона.'); }
-  }
-
-  function stopMicTest() {
-    if (micTestTimer) { clearInterval(micTestTimer); micTestTimer = null; }
-    if (micTestStream) { micTestStream.getTracks().forEach(t => t.stop()); micTestStream = null; }
-    const b = document.getElementById('btn-mic-test'); if (b) b.textContent = '🎙️ Проверить';
-    const bar = document.getElementById('mic-test-bar'); if (bar) bar.style.width = '0%';
-  }
-
-  function setAccentTheme(m, b) { document.documentElement.style.setProperty('--cyan', m); document.documentElement.style.setProperty('--cyan-bright', b); appSettings.accentMain = m; appSettings.accentBright = b; try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {} }
-  function applyAppearanceSettings() {
-    appSettings.compactChat = document.getElementById('chk-compact').checked; appSettings.fontSize = document.getElementById('sel-font-size').value || '12px';
-    try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {} applyAppearanceFromStorage();
-  }
-  function applyAppearanceFromStorage() {
-    document.body.classList.toggle('compact-chat', !!appSettings.compactChat);
-    document.documentElement.style.setProperty('--chat-font-size', appSettings.fontSize || '12px');
-    if (appSettings.accentMain) { document.documentElement.style.setProperty('--cyan', appSettings.accentMain); document.documentElement.style.setProperty('--cyan-bright', appSettings.accentBright); }
-  }
-  function saveNotificationSettings() {
-    appSettings.soundMsg = document.getElementById('chk-snd-msg').checked; appSettings.soundVoice = document.getElementById('chk-snd-voice').checked;
-    try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
-  }
-
-  function logoutAccount() {
-    if (!confirm('Выйти из аккаунта?')) return;
-    try { localStorage.removeItem('cyber_verified'); localStorage.removeItem('cyber_uid'); } catch (e) {}
-    setPersistCookie('cyber_verified', ''); setPersistCookie('cyber_uid', ''); myVerified = false; openAuthModal(true);
-  }
-
-  function sendChatMessage(e) {
-    e.preventDefault(); if (!myVerified) { openAuthModal(true); return; }
-    const inp = document.getElementById('chat-input'), text = inp.value.trim(); if (!text) return;
-    if (appSettings.filterOutgoing !== false && checkContentViolation(text).length) { alert('🛡️ Отправка заблокирована фильтром безопасности.'); return; }
-    fetch('/api/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, channel: currentChannel, author: myNick, text }) }).catch(() => {});
-    inp.value = '';
-  }
-
-  function setChannel(ch) {
-    currentChannel = ch; unreadByChannel[ch] = 0; updateBrowserUrl(); applyChannelUI(ch); renderServerChannels();
-    cachedMessages = roomMessagesCache[ch] || []; rerenderChatMessages(); closeMobileDrawers();
-  }
-
-  function selectVoiceChannel(vch) {
-    if (!myVerified) { openAuthModal(true); return; }
-    currentVoiceChannel = vch; updateVoicePanelUI(); renderServerChannels(); closeMobileDrawers();
-    if (!inVoice) toggleVoiceCall();
-    else postVoiceState({ inVoice: true, inScreen, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel }).then(d => { if (d?.peers) d.peers.forEach(p => { if (inScreen) callPeerWithScreen(p); if (inWebcam) callPeerWithWebcam(p); }); });
-  }
-
-  function openCreateServerModal() { if (!myVerified) return openAuthModal(true); closeMobileDrawers(); document.getElementById('create-server-modal').classList.add('open'); }
-  function closeCreateServerModal() { document.getElementById('create-server-modal').classList.remove('open'); }
-  async function submitCreateServer() {
-    const name = document.getElementById('new-srv-name').value.trim(); if (!name) return alert('Введите название!');
-    const res = await fetch('/api/server/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, nick: myNick, name }) });
-    const d = await res.json(); if (d.error) return alert(d.error); closeCreateServerModal(); await switchServer(d.serverId);
-  }
-
-  function openCreateChannelModal(type) {
-    if (!myVerified) return openAuthModal(true); closeMobileDrawers(); pendingChannelType = type;
-    document.getElementById('create-ch-title').textContent = type === 'voice' ? 'Создать голос' : 'Создать текст';
-    document.getElementById('create-channel-modal').classList.add('open');
-  }
-  function closeCreateChannelModal() { document.getElementById('create-channel-modal').classList.remove('open'); }
-  async function submitCreateChannel() {
-    const name = document.getElementById('new-ch-name').value.trim(); if (!name) return alert('Введите название!');
-    const res = await fetch('/api/channel/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, room: currentRoom, type: pendingChannelType, name }) });
-    const d = await res.json(); if (d.error) return alert(d.error); closeCreateChannelModal();
-    if (pendingChannelType === 'text' && d.channel) { roomMessagesCache[d.channel] = []; currentServerMeta.textChannels.push(d.channel); saveLocalVault(); setChannel(d.channel); }
-    else if (pendingChannelType === 'voice' && d.channel) { currentServerMeta.voiceChannels.push(d.channel); currentVoiceChannel = d.channel; saveLocalVault(); renderServerChannels(); }
-  }
-
-  function openInviteModal() {
-    closeMobileDrawers(); document.getElementById('invite-modal').classList.add('open');
-    const u = window.location.origin + '/?room=' + encodeURIComponent(currentRoom);
-    document.getElementById('public-invite-url').textContent = u; document.getElementById('public-invite-url').href = u;
-  }
-  function closeInviteModal() { document.getElementById('invite-modal').classList.remove('open'); }
-  async function copyInviteLink() {
-    try { await navigator.clipboard.writeText(document.getElementById('public-invite-url').textContent); alert('Ссылка скопирована!'); } catch (e) { prompt('Скопируйте вручную:', document.getElementById('public-invite-url').textContent); }
-  }
-
-  async function initTelegramSession() {
-    try {
-      const res = await fetch('/api/tg-init'); const d = await res.json(); tgSessionToken = d.token || ''; tgBotUsername = d.botUsername || '';
-      if (tgBotUsername) document.getElementById('tg-open-bot-btn').innerHTML = '<span>✈️ Открыть @' + escapeHtml(tgBotUsername) + ' и войти</span>';
-    } catch (e) {}
-  }
-
-  function startTgPolling() {
-    if (tgPollTimer) clearInterval(tgPollTimer);
-    tgPollTimer = setInterval(async () => {
-      if (!tgSessionToken || myVerified) return;
-      try {
-        const res = await fetch('/api/tg-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, token: tgSessionToken, nick: document.getElementById('nick-inp').value.trim() }) });
-        const d = await res.json(); if (d?.ok && d.verified) { clearInterval(tgPollTimer); tgPollTimer = null; completeClientAuth(d); }
-      } catch (e) {}
-    }, 2000);
-  }
-
-  function openTelegramBot() {
-    if (!tgBotUsername) { switchAuthTab('pass'); return; }
-    window.open(`https://t.me/${encodeURIComponent(tgBotUsername)}?start=auth_${encodeURIComponent(tgSessionToken)}`, '_blank'); startTgPolling();
-  }
-
-  async function verifyTelegramCode() {
-    const code = document.getElementById('tg-code-inp').value.trim(); if (!code) return alert('Введите код!');
-    const res = await fetch('/api/tg-verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, code, nick: document.getElementById('nick-inp').value.trim() }) });
-    const d = await res.json(); if (d.error) return alert(d.error); completeClientAuth(d);
-  }
-
-  function completeClientAuth(d) {
-    if (d.uid && d.uid !== myUid) myUid = d.uid;
-    if (d.nick) myNick = d.nick;
-    myVerified = true; authLocked = false;
-    try { localStorage.setItem('cyber_uid', myUid); localStorage.setItem('cyber_nick', myNick); localStorage.setItem('cyber_verified', '1'); } catch (e) {}
-    setPersistCookie('cyber_uid', myUid); setPersistCookie('cyber_nick', myNick); setPersistCookie('cyber_verified', '1');
-    applyNickUI(); closeAuthModal(); connectEventStream();
-  }
-
-  function openAuthModal(lock) {
-    authLocked = !!lock || !myVerified; document.getElementById('auth-close-btn').style.display = authLocked ? 'none' : 'block';
-    if (myNick && !myNick.startsWith('Гость_')) document.getElementById('nick-inp').value = myNick;
-    document.getElementById('auth-modal').classList.add('open'); initTelegramSession().then(() => startTgPolling());
-  }
-  function closeAuthModal() { if (authLocked && !myVerified) return; if (tgPollTimer) { clearInterval(tgPollTimer); tgPollTimer = null; } document.getElementById('auth-modal').classList.remove('open'); }
-
-  async function loginWithPassword() {
-    const nick = document.getElementById('nick-inp').value.trim(), pass = document.getElementById('pass-inp').value;
-    if (!nick) return alert('Введите позывной!'); if (!pass && !myVerified) return alert('Введите пароль!');
-    const res = await fetch('/api/auth-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, nick, password: pass }) });
-    const d = await res.json(); if (d.error) return alert(d.error); completeClientAuth(d);
-  }
-
-  function postVoiceState(st) { return fetch('/api/voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ id: clientId }, st)) }).then(r => r.json()).catch(() => ({})); }
-
-  function createProcessedAudioStream(stream) {
-    try {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const src = audioCtx.createMediaStreamSource(stream); micGainNode = audioCtx.createGain(); micGainNode.gain.value = (appSettings.micVolume || 100) / 100;
-      const dst = audioCtx.createMediaStreamDestination(); src.connect(micGainNode); micGainNode.connect(dst); return dst.stream;
-    } catch (e) { return stream; }
-  }
-
-  function resetVoiceUI() {
-    document.getElementById('connect-voice-btn').textContent = 'ПОДКЛЮЧИТЬСЯ'; document.getElementById('connect-voice-btn').className = 'btn-cyan';
-    document.getElementById('mute-btn').style.display = 'none'; document.getElementById('deafen-btn').style.display = 'none';
-    document.getElementById('voice-active-area').classList.remove('show'); document.getElementById('audio-box').innerHTML = ''; document.getElementById('screen-grid').innerHTML = '';
-    stopBackgroundCallPersistence(); renderServerChannels();
-  }
-
-  async function ensureVoiceConnected() {
-    if (!myVerified) { openAuthModal(true); return false; }
-    if (inVoice && peer && myPeerId) return true;
-    try {
-      rawMicStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: appSettings.micDeviceId ? { ideal: appSettings.micDeviceId } : undefined, noiseSuppression: appSettings.noiseSuppression !== false, echoCancellation: appSettings.echoCancellation !== false, autoGainControl: appSettings.autoGainControl !== false } });
-      localStream = createProcessedAudioStream(rawMicStream); isMuted = false;
-    } catch (e) {
-      localStream = (new (window.AudioContext || window.webkitAudioContext)()).createMediaStreamDestination().stream; isMuted = true;
-    }
-    inVoice = true; if (appSettings.soundVoice) playUiBeep(720, 0.09);
-    document.getElementById('connect-voice-btn').textContent = 'ОТКЛЮЧИТЬСЯ'; document.getElementById('connect-voice-btn').className = 'btn-danger';
-    document.getElementById('mute-btn').style.display = 'inline-block'; document.getElementById('deafen-btn').style.display = 'inline-block';
-    document.getElementById('mute-btn').textContent = isMuted ? '🔇 Выкл' : '🎤 Вкл';
-    document.getElementById('voice-active-area').classList.add('show');
-    startBackgroundCallPersistence(); renderServerChannels();
-
-    return new Promise(resolve => {
-      peer = new Peer();
-      peer.on('open', id => { myPeerId = id; postVoiceState({ inVoice: true, inScreen, inCam: inWebcam, peerId: id, voiceChannel: currentVoiceChannel }).then(() => resolve(true)); });
-      peer.on('call', call => {
-        const kind = call.metadata?.kind || 'audio', n = call.metadata?.nick || 'Участник';
-        if (kind === 'screen' || kind === 'cam') {
-          call.answer(); call.on('stream', st => renderMediaTile(kind + '-' + call.peer, st, n + (kind === 'cam' ? ' (Камера)' : ' (Экран)'), false, kind));
-          call.on('close', () => removeMediaTile(kind + '-' + call.peer)); call.on('error', () => removeMediaTile(kind + '-' + call.peer));
-        } else {
-          call.answer(localStream || undefined); call.on('stream', st => playStream(call.peer, st));
-          call.on('close', () => removeAudio(call.peer)); call.on('error', () => removeAudio(call.peer));
-        }
-      });
-      peer.on('error', () => resolve(false));
-    });
-  }
-
-  async function toggleVoiceCall() {
-    if (inVoice) {
-      if (inScreen) stopScreenShare(true); if (inWebcam) stopWebcam(true);
-      if (rawMicStream) rawMicStream.getTracks().forEach(t => t.stop());
-      if (localStream) localStream.getTracks().forEach(t => t.stop());
-      if (peer) peer.destroy();
-      rawMicStream = null; localStream = null; peer = null; myPeerId = null; inVoice = false; isMuted = false; isDeafened = false;
-      if (appSettings.soundVoice) playUiBeep(420, 0.09);
-      resetVoiceUI(); postVoiceState({ inVoice: false, inScreen: false, inCam: false }); return;
-    }
-    await ensureVoiceConnected();
-  }
-
-  function callPeerWithWebcam(pid) {
-    if (!peer || !webcamStream || !pid || pid === myPeerId) return;
-    if (camCalls[pid]) try { camCalls[pid].close(); } catch (e) {}
-    const c = peer.call(pid, webcamStream, { metadata: { kind: 'cam', nick: myNick, voiceChannel: currentVoiceChannel } });
-    if (c) { camCalls[pid] = c; c.on('close', () => delete camCalls[pid]); c.on('error', () => delete camCalls[pid]); }
-  }
-
-  async function toggleWebcam() {
-    if (!myVerified) return openAuthModal(true);
-    if (inWebcam) { stopWebcam(false); return; }
-    try {
-      webcamStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: appSettings.camDeviceId ? { ideal: appSettings.camDeviceId } : undefined, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }, audio: false });
-    } catch (e) { alert('Ошибка доступа к камере.'); return; }
-    if (!(await ensureVoiceConnected())) { webcamStream.getTracks().forEach(t => t.stop()); return; }
-    inWebcam = true; document.getElementById('cam-btn').textContent = '🛑 Выкл камеру'; document.getElementById('cam-btn').classList.add('active-cam');
-    document.getElementById('voice-active-area').classList.add('show');
-    webcamStream.getVideoTracks()[0].onended = () => stopWebcam(false);
-    renderMediaTile('cam-local', webcamStream, myNick + ' (Ваша камера)', true, 'cam');
-    const d = await postVoiceState({ inVoice: true, inScreen, inCam: true, peerId: myPeerId, voiceChannel: currentVoiceChannel });
-    if (d?.peers) d.peers.forEach(p => callPeerWithWebcam(p));
-    updateFloatingOverlayUI();
-  }
-
-  function stopWebcam(silent) {
-    if (webcamStream) { webcamStream.getTracks().forEach(t => t.stop()); webcamStream = null; }
-    Object.keys(camCalls).forEach(p => { try { camCalls[p].close(); } catch (e) {} }); camCalls = {};
-    inWebcam = false; document.getElementById('cam-btn').textContent = '📷 Камера'; document.getElementById('cam-btn').classList.remove('active-cam');
-    removeMediaTile('cam-local');
-    if (!silent && inVoice) postVoiceState({ inVoice: true, inScreen, inCam: false, peerId: myPeerId, voiceChannel: currentVoiceChannel });
-    updateFloatingOverlayUI();
-  }
-
-  function callPeerWithScreen(pid) {
-    if (!peer || !screenStream || !pid || pid === myPeerId) return;
-    if (screenCalls[pid]) try { screenCalls[pid].close(); } catch (e) {}
-    const c = peer.call(pid, screenStream, { metadata: { kind: 'screen', nick: myNick, voiceChannel: currentVoiceChannel } });
-    if (c) { screenCalls[pid] = c; c.on('close', () => delete screenCalls[pid]); c.on('error', () => delete screenCalls[pid]); }
-  }
-
-  async function toggleScreenShare() {
-    if (!myVerified) return openAuthModal(true);
-    if (inScreen) { stopScreenShare(false); return; }
-    if (!navigator.mediaDevices?.getDisplayMedia) { alert('Демонстрация экрана недоступна на этом устройстве.'); return; }
-    try { screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always', frameRate: { ideal: 30 } }, audio: true }); } catch (e) { return; }
-    if (!(await ensureVoiceConnected())) { screenStream.getTracks().forEach(t => t.stop()); return; }
-    inScreen = true; document.getElementById('screen-btn').textContent = '🛑 Стоп экран'; document.getElementById('screen-btn').classList.add('active-screen');
-    document.getElementById('voice-active-area').classList.add('show');
-    screenStream.getVideoTracks()[0].onended = () => stopScreenShare(false);
-    renderMediaTile('screen-local', screenStream, myNick + ' (Ваш экран)', true, 'screen');
-    const d = await postVoiceState({ inVoice: true, inScreen: true, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel });
-    if (d?.peers) d.peers.forEach(p => callPeerWithScreen(p));
-    updateFloatingOverlayUI();
-  }
-
-  function stopScreenShare(silent) {
-    if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
-    Object.keys(screenCalls).forEach(p => { try { screenCalls[p].close(); } catch (e) {} }); screenCalls = {};
-    inScreen = false; document.getElementById('screen-btn').textContent = '🖥️ Экран'; document.getElementById('screen-btn').classList.remove('active-screen');
-    removeMediaTile('screen-local');
-    if (!silent && inVoice) postVoiceState({ inVoice: true, inScreen: false, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel });
-    updateFloatingOverlayUI();
-  }
-
-  function toggleMediaNsfwShield(card, btn) {
-    if (!card) return;
-    const isMasked = card.classList.toggle('nsfw-masked');
-    if (btn) { btn.textContent = isMasked ? '👁️ Показать видео' : '🛡️ Скрыть 18+'; btn.classList.toggle('active-shield', isMasked); }
-    drawSystemPipOverlayFrame();
-  }
-
-  function renderMediaTile(id, stream, title, isLocal, kind) {
-    const grid = document.getElementById('screen-grid'); let card = document.getElementById('media-tile-' + id);
-    const icon = kind === 'cam' ? '📷 ' : '🖥️ ';
-    if (!card) {
-      card = el('div', 'screen-card'); card.id = 'media-tile-' + id;
-      const head = el('div', 'screen-card-head'), left = el('div', ''), right = el('div', ''); right.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;';
-      left.appendChild(el('span', '', icon + title)); left.appendChild(el('span', 'screen-live-pill' + (kind === 'cam' ? ' cam' : ''), kind === 'cam' ? 'КАМЕРА' : 'СТРИМ'));
-      
-      const shieldBtn = el('button', 'btn-fs', '🛡️ Скрыть 18+'); shieldBtn.onclick = () => toggleMediaNsfwShield(card, shieldBtn); right.appendChild(shieldBtn);
-      const pipBtn = el('button', 'btn-fs', '🪟 В окне'); pipBtn.onclick = () => toggleExternalOverlay(); right.appendChild(pipBtn);
-      const fsBtn = el('button', 'btn-fs', '⛶ На весь экран'); fsBtn.onclick = () => card.querySelector('video')?.requestFullscreen?.(); right.appendChild(fsBtn);
-      if (isLocal) { const stopBtn = el('button', 'btn-fs', '✕ Выкл'); stopBtn.style.cssText = 'border-color:#f43f5e;color:#fda4af;'; stopBtn.onclick = () => kind === 'cam' ? stopWebcam(false) : stopScreenShare(false); right.appendChild(stopBtn); }
-      head.appendChild(left); head.appendChild(right);
-      
-      const wrap = el('div', 'screen-video-wrap'), vid = document.createElement('video'); vid.autoplay = true; vid.playsInline = true; if (isLocal) vid.muted = true;
-      const shield = el('div', 'media-nsfw-shield'); shield.innerHTML = '<div>🔞 Видеопоток скрыт фильтром 18+</div><span class="btn-cyan" style="padding:5px 12px;font-size:10px;">👁️ Показать камеру обратно</span>';
-      shield.onclick = () => toggleMediaNsfwShield(card, shieldBtn);
-      wrap.appendChild(vid); wrap.appendChild(shield); card.appendChild(head); card.appendChild(wrap); grid.appendChild(card);
-    } else {
-      card.querySelector('.screen-card-head span').textContent = icon + title;
-    }
-    const vEl = card.querySelector('video'); if (vEl && vEl.srcObject !== stream) { vEl.srcObject = stream; vEl.play().catch(() => {}); }
-  }
-
-  function removeMediaTile(id) { document.getElementById('media-tile-' + id)?.remove(); }
-
-  function toggleMute() {
-    if (!localStream) return; isMuted = !isMuted;
-    localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
-    if (rawMicStream) rawMicStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
-    document.getElementById('mute-btn').textContent = isMuted ? '🔇 Микр. выкл' : '🎤 Микр. вкл'; updateFloatingOverlayUI();
-  }
-
-  function toggleDeafen() {
-    isDeafened = !isDeafened; document.getElementById('deafen-btn').textContent = isDeafened ? '🔇 Звук выкл' : '🎧 Звук вкл';
-    applyOutputVolumeToAll(); updateFloatingOverlayUI();
-  }
-
-  function playStream(id, stream) {
-    if (document.getElementById('aud-' + id)) return;
-    const a = document.createElement('audio'); a.id = 'aud-' + id; a.srcObject = stream; a.autoplay = true; a.playsInline = true;
-    document.getElementById('audio-box').appendChild(a); applyOutputVolumeToAll(); a.play().catch(() => {});
-  }
-  function removeAudio(id) { document.getElementById('aud-' + id)?.remove(); }
-
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSettingsModal(); closeViewProfileModal(); closeInviteModal(); closeMobileDrawers(); } });
 </script>
 </body>
 </html>`;
-
-function readBody(req) {
-  return new Promise((resolve) => {
-    let body = '', tooBig = false;
-    req.on('data', c => { if (tooBig) return; body += c; if (body.length > MAX_BODY) tooBig = true; });
-    req.on('end', () => { try { resolve(JSON.parse(body || '{}')); } catch (e) { resolve({}); } });
-    req.on('error', () => resolve({}));
-  });
-}
-
-function sendJson(res, status, obj) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify(obj));
-}
-
-const server = http.createServer(async (req, res) => {
-  try {
-    const url = new URL(req.url, 'http://localhost:' + PORT);
-
-    if (req.method === 'GET' && url.pathname === '/') {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      return res.end(HTML_PAGE);
-    }
-
-    if (req.method === 'GET' && url.pathname === '/manifest.json') {
-      res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8' });
-      return res.end(JSON.stringify({
-        name: 'СИГНАЛ — Ночной клуб', short_name: 'СИГНАЛ', start_url: '/', display: 'standalone', background_color: '#040609', theme_color: '#040609',
-        icons: [{ src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23e11d48' width='100' height='100' rx='22'/><text y='.88em' font-size='68' x='16' fill='white'>⚡</text></svg>", sizes: '192x192 512x512', type: 'image/svg+xml' }]
-      }));
-    }
-
-    if (req.method === 'GET' && url.pathname === '/healthz') {
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      return res.end('ok');
-    }
-
-    if (req.method === 'POST' && url.pathname === '/api/vault-restore') {
-      const body = await readBody(req);
-      const changed = restoreClientVault(body);
-      if (changed) {
-        broadcastServers();
-        if (validUid(body.uid)) { notifyAllRoomsOfUser(body.uid); notifyFriendsOf(body.uid); sendSocial(body.uid); }
-      }
-      return sendJson(res, 200, { ok: true });
-    }
-
-    if (req.method === 'GET' && url.pathname === '/api/tg-init') {
-      const token = crypto.randomBytes(12).toString('hex');
-      pendingTgTokens[token] = { expires: Date.now() + CODE_TTL_MS, completed: null };
-      return sendJson(res, 200, { enabled: !!telegramBotUsername, botUsername: telegramBotUsername, token });
-    }
-
-    if (req.method === 'POST' && url.pathname === '/api/tg-check') {
-      const body = await readBody(req), token = String(body.token || '').trim();
-      const entry = pendingTgTokens[token];
-      if (!entry || entry.expires < Date.now() || !entry.completed) return sendJson(res, 200, { ok: true, verified: false });
-      const tgInfo = entry.completed; delete pendingTgTokens[token];
-
-      const room = safeRoom(body.room), prevUid = validUid(body.uid) ? body.uid : null;
-      const finalUid = tgIdToUid[tgInfo.tgId] || uidFromTgId(tgInfo.tgId);
-      const u = mergeAccount(prevUid, finalUid, cleanNick(body.nick || tgInfo.firstName || 'Странник'), tgInfo.tgId, tgInfo.username, '');
-      addMember(room, finalUid);
-
-      clients.forEach(x => { if (x.id === body.id || x.uid === prevUid || x.uid === finalUid) { x.uid = finalUid; x.nick = u.nick; } });
-      scheduleSave(room); notifyAllRoomsOfUser(finalUid); notifyFriendsOf(finalUid); sendSocial(finalUid);
-      return sendJson(res, 200, { ok: true, verified: true, uid: finalUid, pid: u.pid, nick: u.nick });
-    }
-
-    if (req.method === 'POST' && url.pathname === '/api/tg-verify-code') {
-      const body = await readBody(req), code = String(body.code || '').trim();
-      const entry = tgCodes[code]; if (!entry || entry.expires < Date.now()) return sendJson(res, 400, { error: 'Неверный код!' });
-      delete tgCodes[code];
-
-      const room = safeRoom(body.room), prevUid = validUid(body.uid) ? body.uid : null;
-      const finalUid = tgIdToUid[entry.tgId] || uidFromTgId(entry.tgId);
-      const u = mergeAccount(prevUid, finalUid, cleanNick(body.nick || entry.firstName || 'Странник'), entry.tgId, entry.username, '');
-      addMember(room, finalUid);
-
-      clients.forEach(x => { if (x.id === body.id || x.uid === prevUid || x.uid === finalUid) { x.uid = finalUid; x.nick = u.nick; } });
-      scheduleSave(room); notifyAllRoomsOfUser(finalUid); notifyFriendsOf(finalUid); sendSocial(finalUid);
-      return sendJson(res, 200, { ok: true, verified: true, uid: finalUid, pid: u.pid, nick: u.nick });
-    }
-
-    if (req.method === 'GET' && url.pathname === '/api/events') {
-      const id = String(url.searchParams.get('id') || '').slice(0, 32);
-      const room = safeRoom(url.searchParams.get('room'));
-      const nick = cleanNick(url.searchParams.get('nick') || 'Гость');
-      const uid = url.searchParams.get('uid');
-      if (!validUid(uid)) { res.writeHead(400); return res.end(); }
-
-      res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
-      res.write(': connected\n\n');
-
-      const meta = ensureServer(room), user = ensureUser(uid, nick, url.searchParams.get('verified') === '1');
-      addMember(room, uid);
-      const client = { id, uid, room, nick: user.nick, inVoice: false, inScreen: false, inCam: false, peerId: null, voiceChannel: null, res };
-      clients.push(client);
-
-      res.write('data: ' + JSON.stringify({ type: 'server-meta', payload: { current: meta, list: Object.values(serversMeta), messagesByChannel: getRoom(room) } }) + '\n\n');
-      notifyAllRoomsOfUser(uid); sendSocial(uid); notifyFriendsOf(uid);
-
-      req.on('close', () => {
-        clients = clients.filter(c => c !== client);
-        notifyAllRoomsOfUser(uid); notifyFriendsOf(uid);
-      });
-      return;
-    }
-
-    if (req.method === 'POST' && url.pathname === '/api/switch-room') {
-      const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Некорректный ID' });
-      const newRoom = safeRoom(body.room), meta = ensureServer(newRoom);
-      ensureUser(uid, body.nick || 'Участник', true); addMember(newRoom, uid);
-      let oldRoom = null;
-      clients.forEach(c => { if (c.id === body.id || c.uid === uid) { oldRoom = c.room; c.room = newRoom; c.inVoice = false; c.inScreen = false; c.inCam = false; c.peerId = null; c.voiceChannel = null; } });
-      if (oldRoom && oldRoom !== newRoom) broadcastUsers(oldRoom); broadcastUsers(newRoom);
-      return sendJson(res, 200, { ok: true, current: meta, list: Object.values(serversMeta), messagesByChannel: getRoom(newRoom), users: memberList(newRoom) });
-    }
-
-    if (req.method === 'POST' && url.pathname === '/api/profile') {
-      const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Некорректный ID' });
-      const u = ensureUser(uid, body.nick, true);
-      if (body.nick) { const cn = cleanNick(body.nick); u.nick = cn; nickToUid[cn.toLowerCase()] = uid; clients.forEach(c => { if (c.uid === uid) c.nick = cn; }); }
-      if (body.bio !== undefined) u.bio = cleanText(body.bio, 220);
-      if (body.interests !== undefined) u.interests = cleanText(body.interests, 160);
-      if (body.customStatus !== undefined) u.customStatus = cleanText(body.customStatus, 60);
-      if (body.presence !== undefined) u.presence = cleanPresence(body.presence);
-      if (body.bannerColor !== undefined) u.bannerColor = cleanColor(body.bannerColor, '#0d9488');
-      if (body.avatarColor !== undefined) u.avatarColor = cleanColor(body.avatarColor, '#e11d48');
-      scheduleSave(); notifyAllRoomsOfUser(uid); notifyFriendsOf(uid); sendSocial(uid);
-      return sendJson(res, 200, { ok: true });
-    }
-
-    if (req.method === 'GET' && url.pathname === '/api/history') {
-      const room = safeRoom(url.searchParams.get('room')), ch = safeChannel(room, url.searchParams.get('channel'));
-      return sendJson(res, 200, (rooms[room]?.[ch]) || []);
-    }
-
-    if (req.method === 'GET' && url.pathname === '/api/invite-info') return sendJson(res, 200, { publicUrl: null });
-
-    if (req.method === 'POST' && url.pathname === '/api/auth-password') {
-      const body = await readBody(req), nick = cleanNick(body.nick), pass = String(body.password || ''), room = safeRoom(body.room), prevUid = validUid(body.uid) ? body.uid : null;
-      if (!nick || nick.length < 2) return sendJson(res, 400, { error: 'Введите позывной!' });
-      if (prevUid && users[prevUid]?.verified && !pass) {
-        users[prevUid].nick = nick; scheduleSave(); notifyAllRoomsOfUser(prevUid); notifyFriendsOf(prevUid); sendSocial(prevUid);
-        return sendJson(res, 200, { ok: true, uid: prevUid, pid: users[prevUid].pid, nick });
-      }
-      if (pass.length < 4) return sendJson(res, 400, { error: 'Пароль от 4 символов!' });
-      const exUid = nickToUid[nick.toLowerCase()];
-      if (exUid && users[exUid]?.passHash) {
-        if (!verifyPassword(pass, users[exUid].passHash)) return sendJson(res, 400, { error: 'Неверный пароль!' });
-        const u = mergeAccount(prevUid, exUid, nick, '', '', ''); addMember(room, exUid);
-        scheduleSave(); notifyAllRoomsOfUser(exUid); notifyFriendsOf(exUid); sendSocial(exUid);
-        return sendJson(res, 200, { ok: true, uid: exUid, pid: u.pid, nick: u.nick });
-      }
-      const finalUid = exUid || (prevUid && !users[prevUid]?.verified ? prevUid : crypto.randomBytes(16).toString('hex'));
-      const u = mergeAccount(prevUid, finalUid, nick, '', '', hashPassword(pass)); addMember(room, finalUid);
-      scheduleSave(); notifyAllRoomsOfUser(finalUid); notifyFriendsOf(finalUid); sendSocial(finalUid);
-      return sendJson(res, 200, { ok: true, uid: finalUid, pid: u.pid, nick: u.nick });
-    }
-
-    if (req.method === 'POST' && url.pathname === '/api/server/create') {
-      const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Сначала войдите!' });
-      const u = ensureUser(uid, body.nick || 'Участник', true), name = String(body.name || '').trim().slice(0, 28);
-      if (!name) return sendJson(res, 400, { error: 'Введите название сервера!' });
-      const newId = 'cy-' + crypto.randomBytes(2).toString('hex');
-      ensureServer(newId, name, String(body.desc || '').trim().slice(0, 80)); addMember(newId, uid);
-      rooms[newId]['игровая-комната'].push({ author: 'СИСТЕМА', time: '00:00', text: `Сервер «${name}» создан!` });
-      scheduleSave(newId); broadcastServers();
-      return sendJson(res, 200, { ok: true, serverId: newId });
-    }
-
-    if (req.method === 'POST' && url.pathname === '/api/channel/create') {
-      const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Сначала войдите!' });
-      ensureUser(uid, body.nick || 'Участник', true);
-      const room = safeRoom(body.room), meta = ensureServer(room), type = body.type === 'voice' ? 'voice' : 'text';
-      if (type === 'text') {
-        const ch = cleanChannelName(body.name).toLowerCase(); if (!ch) return sendJson(res, 400, { error: 'Неверное имя!' });
-        if (!meta.textChannels.includes(ch)) meta.textChannels.push(ch); if (!rooms[room][ch]) rooms[room][ch] = [];
-        scheduleSave(room); broadcastServers(); return sendJson(res, 200, { ok: true, channel: ch });
-      } else {
-        const vch = String(body.name || '').trim().slice(0, 28); if (!vch) return sendJson(res, 400, { error: 'Введите имя!' });
-        if (!meta.voiceChannels.includes(vch)) meta.voiceChannels.push(vch);
-        scheduleSave(room); broadcastServers(); return sendJson(res, 200, { ok: true, channel: vch });
-      }
-    }
-
-    if (req.method === 'POST' && url.pathname === '/api/message') {
-      const body = await readBody(req), room = safeRoom(body.room), ch = safeChannel(room, body.channel), text = String(body.text || '').trim().slice(0, 1000);
-      if (!text) return sendJson(res, 400, { error: 'Пусто' });
-      const c = clients.find(x => x.id === body.id), uid = c ? c.uid : body.uid;
-      if (!validUid(uid)) return sendJson(res, 403, { error: 'Войдите в аккаунт' });
-      const u = ensureUser(uid, body.author || c?.nick || 'Участник', true);
-      const now = new Date(), time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-      const msg = { author: u.nick, time, text, flags: detectFlags(text) };
-      const rm = getRoom(room); if (!rm[ch]) rm[ch] = []; rm[ch].push(msg);
-      if (rm[ch].length > MAX_HISTORY) rm[ch].shift();
-      scheduleSave(room); broadcast(room, 'msg', { channel: ch, msg });
-      return sendJson(res, 200, { ok: true });
-    }
-
-    if (req.method === 'POST' && url.pathname === '/api/friend') {
-      const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Войдите!' });
-      const me = ensureUser(uid, 'Участник', true), tUid = validPid(body.target) ? pidToUid[body.target] : null, target = tUid ? users[tUid] : null;
-      if (!target || tUid === uid) return sendJson(res, 400, { error: 'Не найден' });
-      const rm = (a, x) => { const i = a.indexOf(x); if (i >= 0) a.splice(i, 1); };
-      let act = String(body.action || ''); if (act === 'request' && me.incoming.includes(target.pid)) act = 'accept';
-      if (act === 'request') { if (!me.friends.includes(target.pid) && !me.outgoing.includes(target.pid)) { me.outgoing.push(target.pid); target.incoming.push(me.pid); } }
-      else if (act === 'accept') { rm(me.incoming, target.pid); rm(target.outgoing, me.pid); if (!me.friends.includes(target.pid)) me.friends.push(target.pid); if (!target.friends.includes(me.pid)) target.friends.push(me.pid); }
-      else if (act === 'decline') { rm(me.incoming, target.pid); rm(target.outgoing, me.pid); }
-      else if (act === 'remove') { rm(me.friends, target.pid); rm(target.friends, me.pid); }
-      scheduleSave(); sendSocial(uid); sendSocial(tUid); notifyAllRoomsOfUser(uid);
-      return sendJson(res, 200, { ok: true });
-    }
-
-    if (req.method === 'POST' && url.pathname === '/api/voice') {
-      const body = await readBody(req), c = clients.find(x => x.id === body.id); let peers = [];
-      if (c) {
-        c.inVoice = !!body.inVoice; c.inScreen = !!(c.inVoice && body.inScreen); c.inCam = !!(c.inVoice && body.inCam);
-        c.peerId = body.peerId ? String(body.peerId).slice(0, 64) : null; c.voiceChannel = c.inVoice ? safeVoiceChannel(c.room, body.voiceChannel) : null;
-        broadcastUsers(c.room);
-        if (c.inVoice && c.peerId) {
-          broadcast(c.room, 'voice-join', { peerId: c.peerId, voiceChannel: c.voiceChannel });
-          peers = clients.filter(x => x.room === c.room && x.inVoice && x.peerId && x.peerId !== c.peerId && x.voiceChannel === c.voiceChannel).map(x => x.peerId);
-        }
-      }
-      return sendJson(res, 200, { ok: true, peers });
-    }
-
-    res.writeHead(404); res.end();
-  } catch (err) { if (!res.headersSent) res.writeHead(500); res.end(); }
-});
-
-server.on('error', err => { if (err.code !== 'EADDRINUSE') process.exit(1); });
-
-async function boot() {
-  for (let i = 1; i <= 5; i++) {
-    try { await loadData(); break; } catch (e) { if (i === 5) process.exit(1); await new Promise(r => setTimeout(r, 2000)); }
-  }
-  server.listen(PORT, '0.0.0.0', () => startTelegramBotPolling());
-}
-boot();
-
-async function shutdown() {
-  setTimeout(() => process.exit(0), 4000).unref();
-  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-  await saveNow(); process.exit(0);
-}
-['SIGTERM', 'SIGINT'].forEach(sig => process.on(sig, shutdown));
