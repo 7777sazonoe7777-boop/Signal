@@ -1149,3 +1149,252 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 </script>
 </body>
 </html>`;
+
+function readBody(req) {
+  return new Promise((resolve) => {
+    let body = '', tooBig = false;
+    req.on('data', c => { if (tooBig) return; body += c; if (body.length > MAX_BODY) tooBig = true; });
+    req.on('end', () => { try { resolve(JSON.parse(body || '{}')); } catch (e) { resolve({}); } });
+    req.on('error', () => resolve({}));
+  });
+}
+
+function sendJson(res, status, obj) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(obj));
+}
+
+const server = http.createServer(async (req, res) => {
+  try {
+    const url = new URL(req.url, 'http://localhost:' + PORT);
+
+    if (req.method === 'GET' && url.pathname === '/') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(HTML_PAGE);
+    }
+
+    if (req.method === 'GET' && url.pathname === '/manifest.json') {
+      res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8' });
+      return res.end(JSON.stringify({
+        name: 'СИГНАЛ — Ночной клуб', short_name: 'СИГНАЛ', start_url: '/', display: 'standalone', background_color: '#040609', theme_color: '#040609',
+        icons: [{ src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23e11d48' width='100' height='100' rx='22'/><text y='.88em' font-size='68' x='16' fill='white'>⚡</text></svg>", sizes: '192x192 512x512', type: 'image/svg+xml' }]
+      }));
+    }
+
+    if (req.method === 'GET' && url.pathname === '/healthz') {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      return res.end('ok');
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/vault-restore') {
+      const body = await readBody(req);
+      const changed = restoreClientVault(body);
+      if (changed) {
+        broadcastServers();
+        if (validUid(body.uid)) { notifyAllRoomsOfUser(body.uid); notifyFriendsOf(body.uid); sendSocial(body.uid); }
+      }
+      return sendJson(res, 200, { ok: true });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/tg-init') {
+      const token = crypto.randomBytes(12).toString('hex');
+      pendingTgTokens[token] = { expires: Date.now() + CODE_TTL_MS, completed: null };
+      return sendJson(res, 200, { enabled: !!telegramBotUsername, botUsername: telegramBotUsername, token });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/tg-check') {
+      const body = await readBody(req), token = String(body.token || '').trim();
+      const entry = pendingTgTokens[token];
+      if (!entry || entry.expires < Date.now() || !entry.completed) return sendJson(res, 200, { ok: true, verified: false });
+      const tgInfo = entry.completed; delete pendingTgTokens[token];
+
+      const room = safeRoom(body.room), prevUid = validUid(body.uid) ? body.uid : null;
+      const finalUid = tgIdToUid[tgInfo.tgId] || uidFromTgId(tgInfo.tgId);
+      const u = mergeAccount(prevUid, finalUid, cleanNick(body.nick || tgInfo.firstName || 'Странник'), tgInfo.tgId, tgInfo.username, '');
+      addMember(room, finalUid);
+
+      clients.forEach(x => { if (x.id === body.id || x.uid === prevUid || x.uid === finalUid) { x.uid = finalUid; x.nick = u.nick; } });
+      scheduleSave(room); notifyAllRoomsOfUser(finalUid); notifyFriendsOf(finalUid); sendSocial(finalUid);
+      return sendJson(res, 200, { ok: true, verified: true, uid: finalUid, pid: u.pid, nick: u.nick });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/tg-verify-code') {
+      const body = await readBody(req), code = String(body.code || '').trim();
+      const entry = tgCodes[code]; if (!entry || entry.expires < Date.now()) return sendJson(res, 400, { error: 'Неверный код!' });
+      delete tgCodes[code];
+
+      const room = safeRoom(body.room), prevUid = validUid(body.uid) ? body.uid : null;
+      const finalUid = tgIdToUid[entry.tgId] || uidFromTgId(entry.tgId);
+      const u = mergeAccount(prevUid, finalUid, cleanNick(body.nick || entry.firstName || 'Странник'), entry.tgId, entry.username, '');
+      addMember(room, finalUid);
+
+      clients.forEach(x => { if (x.id === body.id || x.uid === prevUid || x.uid === finalUid) { x.uid = finalUid; x.nick = u.nick; } });
+      scheduleSave(room); notifyAllRoomsOfUser(finalUid); notifyFriendsOf(finalUid); sendSocial(finalUid);
+      return sendJson(res, 200, { ok: true, verified: true, uid: finalUid, pid: u.pid, nick: u.nick });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/events') {
+      const id = String(url.searchParams.get('id') || '').slice(0, 32);
+      const room = safeRoom(url.searchParams.get('room'));
+      const nick = cleanNick(url.searchParams.get('nick') || 'Гость');
+      const uid = url.searchParams.get('uid');
+      if (!validUid(uid)) { res.writeHead(400); return res.end(); }
+
+      res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
+      res.write(': connected\n\n');
+
+      const meta = ensureServer(room), user = ensureUser(uid, nick, url.searchParams.get('verified') === '1');
+      addMember(room, uid);
+      const client = { id, uid, room, nick: user.nick, inVoice: false, inScreen: false, inCam: false, peerId: null, voiceChannel: null, res };
+      clients.push(client);
+
+      res.write('data: ' + JSON.stringify({ type: 'server-meta', payload: { current: meta, list: Object.values(serversMeta), messagesByChannel: getRoom(room) } }) + '\n\n');
+      notifyAllRoomsOfUser(uid); sendSocial(uid); notifyFriendsOf(uid);
+
+      req.on('close', () => {
+        clients = clients.filter(c => c !== client);
+        notifyAllRoomsOfUser(uid); notifyFriendsOf(uid);
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/switch-room') {
+      const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Некорректный ID' });
+      const newRoom = safeRoom(body.room), meta = ensureServer(newRoom);
+      ensureUser(uid, body.nick || 'Участник', true); addMember(newRoom, uid);
+      let oldRoom = null;
+      clients.forEach(c => { if (c.id === body.id || c.uid === uid) { oldRoom = c.room; c.room = newRoom; c.inVoice = false; c.inScreen = false; c.inCam = false; c.peerId = null; c.voiceChannel = null; } });
+      if (oldRoom && oldRoom !== newRoom) broadcastUsers(oldRoom); broadcastUsers(newRoom);
+      return sendJson(res, 200, { ok: true, current: meta, list: Object.values(serversMeta), messagesByChannel: getRoom(newRoom), users: memberList(newRoom) });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/profile') {
+      const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Некорректный ID' });
+      const u = ensureUser(uid, body.nick, true);
+      if (body.nick) { const cn = cleanNick(body.nick); u.nick = cn; nickToUid[cn.toLowerCase()] = uid; clients.forEach(c => { if (c.uid === uid) c.nick = cn; }); }
+      if (body.bio !== undefined) u.bio = cleanText(body.bio, 220);
+      if (body.interests !== undefined) u.interests = cleanText(body.interests, 160);
+      if (body.customStatus !== undefined) u.customStatus = cleanText(body.customStatus, 60);
+      if (body.presence !== undefined) u.presence = cleanPresence(body.presence);
+      if (body.bannerColor !== undefined) u.bannerColor = cleanColor(body.bannerColor, '#0d9488');
+      if (body.avatarColor !== undefined) u.avatarColor = cleanColor(body.avatarColor, '#e11d48');
+      scheduleSave(); notifyAllRoomsOfUser(uid); notifyFriendsOf(uid); sendSocial(uid);
+      return sendJson(res, 200, { ok: true });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/history') {
+      const room = safeRoom(url.searchParams.get('room')), ch = safeChannel(room, url.searchParams.get('channel'));
+      return sendJson(res, 200, (rooms[room]?.[ch]) || []);
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/invite-info') return sendJson(res, 200, { publicUrl: null });
+
+    if (req.method === 'POST' && url.pathname === '/api/auth-password') {
+      const body = await readBody(req), nick = cleanNick(body.nick), pass = String(body.password || ''), room = safeRoom(body.room), prevUid = validUid(body.uid) ? body.uid : null;
+      if (!nick || nick.length < 2) return sendJson(res, 400, { error: 'Введите позывной!' });
+      if (prevUid && users[prevUid]?.verified && !pass) {
+        users[prevUid].nick = nick; scheduleSave(); notifyAllRoomsOfUser(prevUid); notifyFriendsOf(prevUid); sendSocial(prevUid);
+        return sendJson(res, 200, { ok: true, uid: prevUid, pid: users[prevUid].pid, nick });
+      }
+      if (pass.length < 4) return sendJson(res, 400, { error: 'Пароль от 4 символов!' });
+      const exUid = nickToUid[nick.toLowerCase()];
+      if (exUid && users[exUid]?.passHash) {
+        if (!verifyPassword(pass, users[exUid].passHash)) return sendJson(res, 400, { error: 'Неверный пароль!' });
+        const u = mergeAccount(prevUid, exUid, nick, '', '', ''); addMember(room, exUid);
+        scheduleSave(); notifyAllRoomsOfUser(exUid); notifyFriendsOf(exUid); sendSocial(exUid);
+        return sendJson(res, 200, { ok: true, uid: exUid, pid: u.pid, nick: u.nick });
+      }
+      const finalUid = exUid || (prevUid && !users[prevUid]?.verified ? prevUid : crypto.randomBytes(16).toString('hex'));
+      const u = mergeAccount(prevUid, finalUid, nick, '', '', hashPassword(pass)); addMember(room, finalUid);
+      scheduleSave(); notifyAllRoomsOfUser(finalUid); notifyFriendsOf(finalUid); sendSocial(finalUid);
+      return sendJson(res, 200, { ok: true, uid: finalUid, pid: u.pid, nick: u.nick });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/server/create') {
+      const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Сначала войдите!' });
+      const u = ensureUser(uid, body.nick || 'Участник', true), name = String(body.name || '').trim().slice(0, 28);
+      if (!name) return sendJson(res, 400, { error: 'Введите название сервера!' });
+      const newId = 'cy-' + crypto.randomBytes(2).toString('hex');
+      ensureServer(newId, name, String(body.desc || '').trim().slice(0, 80)); addMember(newId, uid);
+      rooms[newId]['игровая-комната'].push({ author: 'СИСТЕМА', time: '00:00', text: `Сервер «${name}» создан!` });
+      scheduleSave(newId); broadcastServers();
+      return sendJson(res, 200, { ok: true, serverId: newId });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/channel/create') {
+      const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Сначала войдите!' });
+      ensureUser(uid, body.nick || 'Участник', true);
+      const room = safeRoom(body.room), meta = ensureServer(room), type = body.type === 'voice' ? 'voice' : 'text';
+      if (type === 'text') {
+        const ch = cleanChannelName(body.name).toLowerCase(); if (!ch) return sendJson(res, 400, { error: 'Неверное имя!' });
+        if (!meta.textChannels.includes(ch)) meta.textChannels.push(ch); if (!rooms[room][ch]) rooms[room][ch] = [];
+        scheduleSave(room); broadcastServers(); return sendJson(res, 200, { ok: true, channel: ch });
+      } else {
+        const vch = String(body.name || '').trim().slice(0, 28); if (!vch) return sendJson(res, 400, { error: 'Введите имя!' });
+        if (!meta.voiceChannels.includes(vch)) meta.voiceChannels.push(vch);
+        scheduleSave(room); broadcastServers(); return sendJson(res, 200, { ok: true, channel: vch });
+      }
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/message') {
+      const body = await readBody(req), room = safeRoom(body.room), ch = safeChannel(room, body.channel), text = String(body.text || '').trim().slice(0, 1000);
+      if (!text) return sendJson(res, 400, { error: 'Пусто' });
+      const c = clients.find(x => x.id === body.id), uid = c ? c.uid : body.uid;
+      if (!validUid(uid)) return sendJson(res, 403, { error: 'Войдите в аккаунт' });
+      const u = ensureUser(uid, body.author || c?.nick || 'Участник', true);
+      const now = new Date(), time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+      const msg = { author: u.nick, time, text, flags: detectFlags(text) };
+      const rm = getRoom(room); if (!rm[ch]) rm[ch] = []; rm[ch].push(msg);
+      if (rm[ch].length > MAX_HISTORY) rm[ch].shift();
+      scheduleSave(room); broadcast(room, 'msg', { channel: ch, msg });
+      return sendJson(res, 200, { ok: true });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/friend') {
+      const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Войдите!' });
+      const me = ensureUser(uid, 'Участник', true), tUid = validPid(body.target) ? pidToUid[body.target] : null, target = tUid ? users[tUid] : null;
+      if (!target || tUid === uid) return sendJson(res, 400, { error: 'Не найден' });
+      const rm = (a, x) => { const i = a.indexOf(x); if (i >= 0) a.splice(i, 1); };
+      let act = String(body.action || ''); if (act === 'request' && me.incoming.includes(target.pid)) act = 'accept';
+      if (act === 'request') { if (!me.friends.includes(target.pid) && !me.outgoing.includes(target.pid)) { me.outgoing.push(target.pid); target.incoming.push(me.pid); } }
+      else if (act === 'accept') { rm(me.incoming, target.pid); rm(target.outgoing, me.pid); if (!me.friends.includes(target.pid)) me.friends.push(target.pid); if (!target.friends.includes(me.pid)) target.friends.push(me.pid); }
+      else if (act === 'decline') { rm(me.incoming, target.pid); rm(target.outgoing, me.pid); }
+      else if (act === 'remove') { rm(me.friends, target.pid); rm(target.friends, me.pid); }
+      scheduleSave(); sendSocial(uid); sendSocial(tUid); notifyAllRoomsOfUser(uid);
+      return sendJson(res, 200, { ok: true });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/voice') {
+      const body = await readBody(req), c = clients.find(x => x.id === body.id); let peers = [];
+      if (c) {
+        c.inVoice = !!body.inVoice; c.inScreen = !!(c.inVoice && body.inScreen); c.inCam = !!(c.inVoice && body.inCam);
+        c.peerId = body.peerId ? String(body.peerId).slice(0, 64) : null; c.voiceChannel = c.inVoice ? safeVoiceChannel(c.room, body.voiceChannel) : null;
+        broadcastUsers(c.room);
+        if (c.inVoice && c.peerId) {
+          broadcast(c.room, 'voice-join', { peerId: c.peerId, voiceChannel: c.voiceChannel });
+          peers = clients.filter(x => x.room === c.room && x.inVoice && x.peerId && x.peerId !== c.peerId && x.voiceChannel === c.voiceChannel).map(x => x.peerId);
+        }
+      }
+      return sendJson(res, 200, { ok: true, peers });
+    }
+
+    res.writeHead(404); res.end();
+  } catch (err) { if (!res.headersSent) res.writeHead(500); res.end(); }
+});
+
+server.on('error', err => { if (err.code !== 'EADDRINUSE') process.exit(1); });
+
+async function boot() {
+  for (let i = 1; i <= 5; i++) {
+    try { await loadData(); break; } catch (e) { if (i === 5) process.exit(1); await new Promise(r => setTimeout(r, 2000)); }
+  }
+  server.listen(PORT, '0.0.0.0', () => startTelegramBotPolling());
+}
+boot();
+
+async function shutdown() {
+  setTimeout(() => process.exit(0), 4000).unref();
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  await saveNow(); process.exit(0);
+}
+['SIGTERM', 'SIGINT'].forEach(sig => process.on(sig, shutdown));
