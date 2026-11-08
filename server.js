@@ -795,6 +795,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   <div class="modal-backdrop" id="create-channel-modal" onclick="if(event.target===this)closeCreateChannelModal()">
     <div class="modal-box"><h3 id="create-ch-title" style="color:var(--cyan-bright);font-size:16px;margin-bottom:6px;">Создать канал</h3><p id="create-ch-sub" style="font-size:11px;color:var(--text-dim);margin-bottom:10px;"></p><input type="text" id="new-ch-name" placeholder="Название канала" maxlength="28"><button class="btn-cyan" style="width:100%;margin-bottom:6px;" onclick="submitCreateChannel()">Создать</button><button class="btn-login-mini" style="width:100%;" onclick="closeCreateChannelModal()">Закрыть</button></div>
   </div>
+
 <script>
   const params = new URLSearchParams(window.location.search);
 
@@ -822,7 +823,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('voice-panel-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  function setPersistCookie(n, v) { try { document.cookie = `${n}=${encodeURIComponent(v)}; path=/; max-age=31536000; SameSite=Lax`; } catch (e) {} }
+  function setPersistCookie(n, v) { try { document.cookie = n + '=' + encodeURIComponent(v) + '; path=/; max-age=31536000; SameSite=Lax'; } catch (e) {} }
   function getPersistCookie(n) { try { const m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; } catch (e) { return ''; } }
 
   let myUid = localStorage.getItem('cyber_uid') || getPersistCookie('cyber_uid');
@@ -840,7 +841,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let myVerified = localStorage.getItem('cyber_verified') === '1' || getPersistCookie('cyber_verified') === '1', authLocked = !myVerified;
 
   function updateBrowserUrl() {
-    try { window.history.replaceState({}, '', `${window.location.pathname}?room=${encodeURIComponent(currentRoom)}&channel=${encodeURIComponent(currentChannel)}`); } catch (e) {}
+    try { window.history.replaceState({}, '', window.location.pathname + '?room=' + encodeURIComponent(currentRoom) + '&channel=' + encodeURIComponent(currentChannel)); } catch (e) {}
   }
 
   let myProfile = Object.assign({ bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#0d9488', avatarColor: '#e11d48' }, JSON.parse(localStorage.getItem('cyber_profile') || '{}'));
@@ -904,8 +905,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   let callStartTime = 0, voiceLockRelease = null, wakeLockSentinel = null, keepAliveAudioEl = null, bgWorker = null;
   let pipCanvas = null, pipCtx = null, canvasPipVideo = null, popupOverlayWin = null, subsonicWavUrl = null;
-
-  function formatCallTime(sec) { return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'); }
 
   function getSubsonicWavUrl() {
     if (subsonicWavUrl) return subsonicWavUrl;
