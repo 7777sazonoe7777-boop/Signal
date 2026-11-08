@@ -71,7 +71,7 @@ ensureServer('ma-club', 'Мастерская', 'Музыка, творчест�
 if (!rooms[DEFAULT_ROOM]['игровая-комната'].length) {
   rooms[DEFAULT_ROOM]['игровая-комната'].push({
     author: 'СИСТЕМА СИГНАЛ', time: '00:00',
-    text: 'Добро пожаловать в «Ночной клуб»! Все элементы управления и фоновый режим активны.'
+    text: 'Добро пожаловать в «Ночной клуб»! Все элементы интерфейса, оверлей и фоновый режим активны.'
   });
 }
 
@@ -906,6 +906,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let callStartTime = 0, voiceLockRelease = null, wakeLockSentinel = null, keepAliveAudioEl = null, bgWorker = null;
   let pipCanvas = null, pipCtx = null, canvasPipVideo = null, popupOverlayWin = null, subsonicWavUrl = null;
 
+  function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+  function formatCallTime(sec) { return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'); }
+
   function getSubsonicWavUrl() {
     if (subsonicWavUrl) return subsonicWavUrl;
     const sr = 8000, dur = 2, num = sr * dur, buf = new ArrayBuffer(44 + num * 2), view = new DataView(buf);
@@ -1111,6 +1115,373 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('auth-tg-panel').style.display = isTg ? 'block' : 'none';
     document.getElementById('auth-pass-panel').style.display = isTg ? 'none' : 'block';
   }
+
+  applyNickUI(); applyAppearanceFromStorage(); renderServersRail(); renderServerChannels(); connectEventStream();
+  if (!myVerified) openAuthModal(true);
+
+  function rerenderChatMessages() {
+    const box = document.getElementById('messages-list'); box.innerHTML = '';
+    if (!cachedMessages?.length) { box.innerHTML = '<div id="empty-hint" style="font-size:11px;color:var(--text-muted);">Здесь пока тихо. Напишите первым.</div>'; return; }
+    cachedMessages.forEach(addMsgToDOM);
+  }
+
+  function addMsgToDOM(m) {
+    const box = document.getElementById('messages-list'); document.getElementById('empty-hint')?.remove();
+    const author = String(m.author || '?'), viol = checkContentViolation(m.text, m.flags);
+    const div = el('div', 'msg-item');
+    div.innerHTML = '<div class="msg-ava">' + escapeHtml(author.charAt(0).toUpperCase()) + '</div><div style="flex:1;min-width:0;"><div><span class="msg-author">' + escapeHtml(author) + '</span><span class="msg-time">' + escapeHtml(m.time) + '</span></div><div class="msg-text">' + buildMessageBodyHTML(m.text, viol) + '</div></div>';
+    box.appendChild(div); document.getElementById('chat-scroll').scrollTop = document.getElementById('chat-scroll').scrollHeight;
+  }
+
+  function buildMessageBodyHTML(text, violations) {
+    const safeText = escapeHtml(text), imgMatch = String(text || '').match(IMAGE_URL_RX);
+    let inner = '<div>' + safeText + '</div>';
+    if (imgMatch) inner += '<img class="chat-inline-media" src="' + escapeHtml(imgMatch[0]) + '" alt="media" loading="lazy">';
+    if (!violations?.length) return inner;
+    const rStr = escapeHtml(violations.join(', '));
+    if (appSettings.filterAction === 'blur') {
+      return '<div class="spoiler-blur-wrap" onclick="toggleSpoiler(this)"><div class="spoiler-badge">🛡️ Скрыто фильтром (' + rStr + ')</div><div class="spoiler-blur-content">' + inner + '</div></div>';
+    }
+    return '<div class="filtered-block-card">🛡️ Заблокировано фильтром (' + rStr + ')</div>';
+  }
+
+  function friendAction(action, pid) {
+    if (!myVerified) { openAuthModal(true); return Promise.resolve(); }
+    if (action === 'remove') { localVault.friends = (localVault.friends || []).filter(x => x !== pid); saveLocalVault(); }
+    return fetch('/api/friend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, action, target: pid }) }).then(r => r.json()).catch(() => {});
+  }
+
+  // --- Восстановленные функции интерфейса и голосовой связи ---
+  function applyNickUI() {
+    document.getElementById('user-name-label').textContent = myNick;
+    const ava = document.getElementById('user-ava'); ava.textContent = myNick.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#e11d48';
+    document.getElementById('user-presence-dot').className = 'user-presence-dot ' + (myProfile.presence || 'online');
+    document.getElementById('voice-my-name').textContent = myNick + ' (Вы)';
+  }
+
+  function renderServersRail() {
+    const box = document.getElementById('servers-list-box'); box.innerHTML = '';
+    (serversList.length ? serversList : [currentServerMeta]).forEach(srv => {
+      const b = el('div', 'srv-ico' + (srv.id === currentRoom ? ' active' : ''), srv.icon || srv.name.slice(0, 2).toUpperCase());
+      b.title = srv.name; b.onclick = () => { if (srv.id !== currentRoom) switchServer(srv.id); }; box.appendChild(b);
+    });
+  }
+
+  function renderServerChannels() {
+    document.getElementById('srv-title-label').textContent = currentServerMeta.name || currentRoom;
+    document.getElementById('srv-desc-label').textContent = currentServerMeta.desc || 'Игры, идеи и разговоры';
+    const tList = currentServerMeta.textChannels || ['игровая-комната'];
+    if (!tList.includes(currentChannel)) currentChannel = tList[0];
+    const vList = currentServerMeta.voiceChannels || ['Ночной эфир'];
+    if (!vList.includes(currentVoiceChannel)) currentVoiceChannel = vList[0];
+
+    const tBox = document.getElementById('text-channels-list'); tBox.innerHTML = '';
+    tList.forEach(ch => {
+      const row = el('div', 'ch-btn' + (ch === currentChannel ? ' active' : '')); row.setAttribute('data-ch', ch);
+      row.appendChild(el('span', '', '# ' + ch)); row.appendChild(el('span', 'ch-dot'));
+      row.onclick = () => setChannel(ch); tBox.appendChild(row);
+    });
+
+    const vBox = document.getElementById('voice-channels-list'); vBox.innerHTML = '';
+    vList.forEach(vch => {
+      const isAct = inVoice && currentVoiceChannel === vch;
+      const row = el('div', 'voice-ch-box' + (isAct ? ' active' : ''));
+      row.appendChild(el('span', '', '🔊 ' + vch)); row.appendChild(el('span', 'off-badge' + (isAct ? ' on' : ''), isAct ? 'ON' : 'OFF'));
+      row.onclick = () => selectVoiceChannel(vch); vBox.appendChild(row);
+    });
+    applyChannelUI(currentChannel); updateVoicePanelUI();
+  }
+
+  function applyChannelUI(ch) {
+    document.getElementById('top-ch-name').textContent = ch;
+    document.getElementById('chat-input').placeholder = 'Написать в #' + ch + '...';
+    document.querySelectorAll('.ch-btn').forEach(i => i.classList.toggle('active', i.getAttribute('data-ch') === ch));
+  }
+
+  function updateVoicePanelUI() {
+    document.getElementById('voice-panel-title').textContent = 'Общий разговор («' + currentVoiceChannel + '»)';
+    updateFloatingOverlayUI();
+  }
+
+  async function switchServer(roomId) {
+    if (inVoice) await toggleVoiceCall();
+    currentRoom = roomId; roomMessagesCache = {};
+    try { localStorage.setItem('cyber_last_room', currentRoom); } catch (e) {}
+    const found = serversList.find(s => s.id === currentRoom);
+    if (found) { currentServerMeta = found; currentChannel = found.textChannels[0]; currentVoiceChannel = found.voiceChannels[0]; }
+    updateBrowserUrl(); renderServersRail(); renderServerChannels(); closeMobileDrawers();
+    try {
+      const res = await fetch('/api/switch-room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, nick: myNick }) });
+      const data = await res.json();
+      if (data && data.ok) {
+        currentServerMeta = data.current || currentServerMeta; serversList = data.list || serversList; roomMessagesCache = data.messagesByChannel || {};
+        cachedMessages = roomMessagesCache[currentChannel] || [];
+        updateBrowserUrl(); renderServersRail(); renderServerChannels(); rerenderChatMessages();
+        if (Array.isArray(data.users)) renderUsers(data.users); saveLocalVault();
+      }
+    } catch (e) {}
+  }
+
+  function connectEventStream() {
+    if (evtSource) try { evtSource.close(); } catch (e) {}
+    clientId = Math.random().toString(36).substring(2, 10);
+    evtSource = new EventSource(`/api/events?id=${clientId}&uid=${myUid}&verified=${myVerified ? '1' : '0'}&room=${encodeURIComponent(currentRoom)}&nick=${encodeURIComponent(myNick)}`);
+    evtSource.onmessage = e => {
+      let data; try { data = JSON.parse(e.data); } catch (err) { return; }
+      if (data.type === 'server-meta') {
+        currentServerMeta = data.payload.current; serversList = data.payload.list || [currentServerMeta];
+        if (data.payload.messagesByChannel) roomMessagesCache = data.payload.messagesByChannel;
+        renderServersRail(); renderServerChannels(); cachedMessages = roomMessagesCache[currentChannel] || []; rerenderChatMessages();
+        pushLocalVaultToServer();
+      } else if (data.type === 'servers') {
+        serversList = data.payload.list || [];
+        const f = serversList.find(s => s.id === currentRoom); if (f) currentServerMeta = f;
+        renderServersRail(); renderServerChannels(); saveLocalVault();
+      } else if (data.type === 'msg') {
+        const ch = data.payload.channel, msg = data.payload.msg;
+        if (!roomMessagesCache[ch]) roomMessagesCache[ch] = [];
+        roomMessagesCache[ch].push(msg); saveLocalVault();
+        if (ch === currentChannel) { cachedMessages = roomMessagesCache[ch]; addMsgToDOM(msg); }
+        else { unreadByChannel[ch] = (unreadByChannel[ch] || 0) + 1; renderServerChannels(); }
+        if (appSettings.soundMsg && msg?.author !== myNick) playUiBeep(540, 0.06);
+      } else if (data.type === 'users') {
+        renderUsers(data.payload); updateFloatingOverlayUI(); saveLocalVault();
+      } else if (data.type === 'social') {
+        myPid = data.payload.pid; social = data.payload;
+        if (data.payload.nick) { myNick = data.payload.nick; try { localStorage.setItem('cyber_nick', myNick); } catch (e) {} setPersistCookie('cyber_nick', myNick); }
+        if (data.payload.verified) { myVerified = true; authLocked = false; try { localStorage.setItem('cyber_verified', '1'); } catch (e) {} setPersistCookie('cyber_verified', '1'); closeAuthModal(); }
+        applyNickUI(); renderSocial(); renderUsers(lastMembers); saveLocalVault();
+      } else if (data.type === 'voice-join') {
+        if (inVoice && peer && localStream && myPeerId && data.payload.peerId !== myPeerId && data.payload.voiceChannel === currentVoiceChannel) {
+          const pid = data.payload.peerId; const call = peer.call(pid, localStream, { metadata: { kind: 'audio', nick: myNick } });
+          if (call) { call.on('stream', s => playStream(pid, s)); call.on('close', () => removeAudio(pid)); call.on('error', () => removeAudio(pid)); }
+          if (inScreen && screenStream) callPeerWithScreen(pid);
+          if (inWebcam && webcamStream) callPeerWithWebcam(pid);
+        }
+      } else if (data.type === 'screen-stop' && data.payload?.peerId) { removeMediaTile('screen-' + data.payload.peerId); }
+      else if (data.type === 'cam-stop' && data.payload?.peerId) { removeMediaTile('cam-' + data.payload.peerId); }
+    };
+  }
+
+  function setChannel(ch) {
+    currentChannel = ch; unreadByChannel[ch] = 0; updateBrowserUrl(); applyChannelUI(ch); renderServerChannels();
+    cachedMessages = roomMessagesCache[ch] || []; rerenderChatMessages(); closeMobileDrawers();
+  }
+
+  function selectVoiceChannel(vch) {
+    if (!myVerified) { openAuthModal(true); return; }
+    currentVoiceChannel = vch; updateVoicePanelUI(); renderServerChannels(); closeMobileDrawers();
+    if (!inVoice) toggleVoiceCall();
+    else postVoiceState({ inVoice: true, inScreen, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel }).then(d => { if (d?.peers) d.peers.forEach(p => { if (inScreen) callPeerWithScreen(p); if (inWebcam) callPeerWithWebcam(p); }); });
+  }
+
+  async function ensureVoiceConnected() {
+    if (!myVerified) { openAuthModal(true); return false; }
+    if (inVoice && peer && myPeerId) return true;
+    try {
+      rawMicStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: appSettings.micDeviceId ? { ideal: appSettings.micDeviceId } : undefined, noiseSuppression: appSettings.noiseSuppression !== false, echoCancellation: appSettings.echoCancellation !== false, autoGainControl: appSettings.autoGainControl !== false } });
+      localStream = rawMicStream; isMuted = false;
+    } catch (e) {
+      localStream = (new (window.AudioContext || window.webkitAudioContext)()).createMediaStreamDestination().stream; isMuted = true;
+    }
+    inVoice = true; if (appSettings.soundVoice) playUiBeep(720, 0.09);
+    document.getElementById('connect-voice-btn').textContent = 'ОТКЛЮЧИТЬСЯ'; document.getElementById('connect-voice-btn').className = 'btn-danger';
+    document.getElementById('mute-btn').style.display = 'inline-block'; document.getElementById('deafen-btn').style.display = 'inline-block';
+    document.getElementById('voice-active-area').classList.add('show');
+    startBackgroundCallPersistence(); renderServerChannels();
+
+    return new Promise(resolve => {
+      peer = new Peer();
+      peer.on('open', id => { myPeerId = id; postVoiceState({ inVoice: true, inScreen, inCam: inWebcam, peerId: id, voiceChannel: currentVoiceChannel }).then(() => resolve(true)); });
+      peer.on('call', call => {
+        const kind = call.metadata?.kind || 'audio', n = call.metadata?.nick || 'Участник';
+        if (kind === 'screen' || kind === 'cam') {
+          call.answer(); call.on('stream', st => renderMediaTile(kind + '-' + call.peer, st, n + (kind === 'cam' ? ' (Камера)' : ' (Экран)'), false, kind));
+          call.on('close', () => removeMediaTile(kind + '-' + call.peer)); call.on('error', () => removeMediaTile(kind + '-' + call.peer));
+        } else {
+          call.answer(localStream || undefined); call.on('stream', st => playStream(call.peer, st));
+          call.on('close', () => removeAudio(call.peer)); call.on('error', () => removeAudio(call.peer));
+        }
+      });
+      peer.on('error', () => resolve(false));
+    });
+  }
+
+  async function toggleVoiceCall() {
+    if (inVoice) {
+      if (inScreen) stopScreenShare(true); if (inWebcam) stopWebcam(true);
+      rawMicStream?.getTracks().forEach(t => t.stop()); localStream?.getTracks().forEach(t => t.stop());
+      peer?.destroy();
+      rawMicStream = null; localStream = null; peer = null; myPeerId = null; inVoice = false; isMuted = false; isDeafened = false;
+      if (appSettings.soundVoice) playUiBeep(420, 0.09);
+      document.getElementById('connect-voice-btn').textContent = 'ПОДКЛЮЧИТЬСЯ'; document.getElementById('connect-voice-btn').className = 'btn-cyan';
+      document.getElementById('mute-btn').style.display = 'none'; document.getElementById('deafen-btn').style.display = 'none';
+      document.getElementById('voice-active-area').classList.remove('show');
+      document.getElementById('audio-box').innerHTML = ''; document.getElementById('screen-grid').innerHTML = '';
+      stopBackgroundCallPersistence(); postVoiceState({ inVoice: false, inScreen: false, inCam: false }); return;
+    }
+    await ensureVoiceConnected();
+  }
+
+  function callPeerWithWebcam(pid) {
+    if (!peer || !webcamStream || !pid || pid === myPeerId) return;
+    if (camCalls[pid]) try { camCalls[pid].close(); } catch (e) {}
+    const c = peer.call(pid, webcamStream, { metadata: { kind: 'cam', nick: myNick, voiceChannel: currentVoiceChannel } });
+    if (c) { camCalls[pid] = c; c.on('close', () => delete camCalls[pid]); c.on('error', () => delete camCalls[pid]); }
+  }
+
+  async function toggleWebcam() {
+    if (!myVerified) return openAuthModal(true);
+    if (inWebcam) { stopWebcam(false); return; }
+    try {
+      webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }, audio: false });
+    } catch (e) { alert('Ошибка доступа к камере.'); return; }
+    if (!(await ensureVoiceConnected())) { webcamStream.getTracks().forEach(t => t.stop()); return; }
+    inWebcam = true; document.getElementById('cam-btn').textContent = '🛑 Выкл камеру'; document.getElementById('cam-btn').classList.add('active-cam');
+    document.getElementById('voice-active-area').classList.add('show');
+    webcamStream.getVideoTracks()[0].onended = () => stopWebcam(false);
+    renderMediaTile('cam-local', webcamStream, myNick + ' (Ваша камера)', true, 'cam');
+    const d = await postVoiceState({ inVoice: true, inScreen, inCam: true, peerId: myPeerId, voiceChannel: currentVoiceChannel });
+    if (d?.peers) d.peers.forEach(p => callPeerWithWebcam(p));
+    updateFloatingOverlayUI();
+  }
+
+  function stopWebcam(silent) {
+    webcamStream?.getTracks().forEach(t => t.stop()); webcamStream = null;
+    Object.keys(camCalls).forEach(p => { try { camCalls[p].close(); } catch (e) {} }); camCalls = {};
+    inWebcam = false; document.getElementById('cam-btn').textContent = '📷 Камера'; document.getElementById('cam-btn').classList.remove('active-cam');
+    removeMediaTile('cam-local');
+    if (!silent && inVoice) postVoiceState({ inVoice: true, inScreen, inCam: false, peerId: myPeerId, voiceChannel: currentVoiceChannel });
+    updateFloatingOverlayUI();
+  }
+
+  function callPeerWithScreen(pid) {
+    if (!peer || !screenStream || !pid || pid === myPeerId) return;
+    if (screenCalls[pid]) try { screenCalls[pid].close(); } catch (e) {}
+    const c = peer.call(pid, screenStream, { metadata: { kind: 'screen', nick: myNick, voiceChannel: currentVoiceChannel } });
+    if (c) { screenCalls[pid] = c; c.on('close', () => delete screenCalls[pid]); c.on('error', () => delete screenCalls[pid]); }
+  }
+
+  async function toggleScreenShare() {
+    if (!myVerified) return openAuthModal(true);
+    if (inScreen) { stopScreenShare(false); return; }
+    if (!navigator.mediaDevices?.getDisplayMedia) { alert('Демонстрация экрана недоступна.'); return; }
+    try { screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always', frameRate: { ideal: 30 } }, audio: true }); } catch (e) { return; }
+    if (!(await ensureVoiceConnected())) { screenStream.getTracks().forEach(t => t.stop()); return; }
+    inScreen = true; document.getElementById('screen-btn').textContent = '🛑 Стоп экран'; document.getElementById('screen-btn').classList.add('active-screen');
+    document.getElementById('voice-active-area').classList.add('show');
+    screenStream.getVideoTracks()[0].onended = () => stopScreenShare(false);
+    renderMediaTile('screen-local', screenStream, myNick + ' (Ваш экран)', true, 'screen');
+    const d = await postVoiceState({ inVoice: true, inScreen: true, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel });
+    if (d?.peers) d.peers.forEach(p => callPeerWithScreen(p));
+    updateFloatingOverlayUI();
+  }
+
+  function stopScreenShare(silent) {
+    screenStream?.getTracks().forEach(t => t.stop()); screenStream = null;
+    Object.keys(screenCalls).forEach(p => { try { screenCalls[p].close(); } catch (e) {} }); screenCalls = {};
+    inScreen = false; document.getElementById('screen-btn').textContent = '🖥️ Экран'; document.getElementById('screen-btn').classList.remove('active-screen');
+    removeMediaTile('screen-local');
+    if (!silent && inVoice) postVoiceState({ inVoice: true, inScreen: false, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel });
+    updateFloatingOverlayUI();
+  }
+
+  function toggleMediaNsfwShield(card, btn) {
+    if (!card) return;
+    const isMasked = card.classList.toggle('nsfw-masked');
+    if (btn) { btn.textContent = isMasked ? '👁️ Показать видео' : '🛡️ Скрыть 18+'; btn.classList.toggle('active-shield', isMasked); }
+    drawSystemPipOverlayFrame();
+  }
+
+  function renderMediaTile(id, stream, title, isLocal, kind) {
+    const grid = document.getElementById('screen-grid'); let card = document.getElementById('media-tile-' + id);
+    const icon = kind === 'cam' ? '📷 ' : '🖥️ ';
+    if (!card) {
+      card = el('div', 'screen-card'); card.id = 'media-tile-' + id;
+      const head = el('div', 'screen-card-head'), left = el('div', ''), right = el('div', ''); right.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;';
+      left.appendChild(el('span', '', icon + title)); left.appendChild(el('span', 'screen-live-pill' + (kind === 'cam' ? ' cam' : ''), kind === 'cam' ? 'КАМЕРА' : 'СТРИМ'));
+      
+      const shieldBtn = el('button', 'btn-fs', '🛡️ Скрыть 18+'); shieldBtn.onclick = () => toggleMediaNsfwShield(card, shieldBtn); right.appendChild(shieldBtn);
+      const pipBtn = el('button', 'btn-fs', '🪟 В окне'); pipBtn.onclick = () => toggleExternalOverlay(); right.appendChild(pipBtn);
+      const fsBtn = el('button', 'btn-fs', '⛶ На весь экран'); fsBtn.onclick = () => card.querySelector('video')?.requestFullscreen?.(); right.appendChild(fsBtn);
+      if (isLocal) { const stopBtn = el('button', 'btn-fs', '✕ Выкл'); stopBtn.style.cssText = 'border-color:#f43f5e;color:#fda4af;'; stopBtn.onclick = () => kind === 'cam' ? stopWebcam(false) : stopScreenShare(false); right.appendChild(stopBtn); }
+      head.appendChild(left); head.appendChild(right);
+      
+      const wrap = el('div', 'screen-video-wrap'), vid = document.createElement('video'); vid.autoplay = true; vid.playsInline = true; if (isLocal) vid.muted = true;
+      const shield = el('div', 'media-nsfw-shield'); shield.innerHTML = '<div>🔞 Видеопоток скрыт фильтром 18+</div><span class="btn-cyan" style="padding:5px 12px;font-size:10px;">👁️ Показать камеру обратно</span>';
+      shield.onclick = () => toggleMediaNsfwShield(card, shieldBtn);
+      wrap.appendChild(vid); wrap.appendChild(shield); card.appendChild(head); card.appendChild(wrap); grid.appendChild(card);
+    } else {
+      card.querySelector('.screen-card-head span').textContent = icon + title;
+    }
+    const vEl = card.querySelector('video'); if (vEl && vEl.srcObject !== stream) { vEl.srcObject = stream; vEl.play().catch(() => {}); }
+  }
+
+  function removeMediaTile(id) { document.getElementById('media-tile-' + id)?.remove(); }
+
+  function toggleMute() {
+    if (!localStream) return; isMuted = !isMuted;
+    localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+    document.getElementById('mute-btn').textContent = isMuted ? '🔇 Микр. выкл' : '🎤 Микр. вкл'; updateFloatingOverlayUI();
+  }
+
+  function toggleDeafen() {
+    isDeafened = !isDeafened; document.getElementById('deafen-btn').textContent = isDeafened ? '🔇 Звук выкл' : '🎧 Звук вкл';
+    document.querySelectorAll('#audio-box audio').forEach(a => { a.muted = isDeafened; a.volume = isDeafened ? 0 : 1; });
+    updateFloatingOverlayUI();
+  }
+
+  function playStream(id, stream) {
+    if (document.getElementById('aud-' + id)) return;
+    const a = document.createElement('audio'); a.id = 'aud-' + id; a.srcObject = stream; a.autoplay = true; a.playsInline = true;
+    document.getElementById('audio-box').appendChild(a); a.play().catch(() => {});
+  }
+  function removeAudio(id) { document.getElementById('aud-' + id)?.remove(); }
+
+  function openSettingsModal(pane) {
+    closeMobileDrawers(); setMobActiveTab('mob-tab-profile');
+    document.getElementById('prof-nick-inp').value = myNick;
+    document.getElementById('prof-presence-sel').value = myProfile.presence || 'online';
+    document.getElementById('prof-status-inp').value = myProfile.customStatus || '';
+    document.getElementById('prof-bio-inp').value = myProfile.bio || '';
+    document.getElementById('prof-interests-inp').value = myProfile.interests || '';
+    updateProfilePreview(true);
+    switchSettingsPane(pane || 'profile');
+    document.getElementById('settings-modal').classList.add('open');
+  }
+
+  function closeSettingsModal() { document.getElementById('settings-modal').classList.remove('open'); setMobActiveTab('mob-tab-chat'); }
+  function switchSettingsPane(pId) {
+    document.querySelectorAll('.settings-nav-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-pane') === pId));
+    document.querySelectorAll('.settings-pane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + pId));
+  }
+
+  function updateProfilePreview(skipSync) {
+    const n = document.getElementById('prof-nick-inp').value.trim().slice(0, 24) || myNick;
+    const pr = document.getElementById('prof-presence-sel').value || 'online';
+    const st = document.getElementById('prof-status-inp').value.trim().slice(0, 60);
+    const bio = document.getElementById('prof-bio-inp').value.trim().slice(0, 220);
+    const intr = document.getElementById('prof-interests-inp').value.trim().slice(0, 160);
+
+    document.getElementById('preview-banner').style.background = myProfile.bannerColor || '#0d9488';
+    const ava = document.getElementById('preview-ava'); ava.textContent = n.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#e11d48';
+    document.getElementById('preview-nick').textContent = n; document.getElementById('preview-status').textContent = st || 'В эфире'; document.getElementById('preview-bio').textContent = bio || 'О себе...';
+    const tb = document.getElementById('preview-tags'); tb.innerHTML = '';
+    intr.split(',').map(x => x.trim()).filter(Boolean).forEach(tg => tb.appendChild(el('span', 'dp-tag', tg)));
+
+    if (!skipSync) {
+      myNick = n; myProfile.presence = pr; myProfile.customStatus = st; myProfile.bio = bio; myProfile.interests = intr;
+      try { localStorage.setItem('cyber_nick', myNick); localStorage.setItem('cyber_profile', JSON.stringify(myProfile)); } catch (e) {}
+      setPersistCookie('cyber_nick', myNick); saveLocalVault(); applyNickUI();
+      if (profileSyncTimer) clearTimeout(profileSyncTimer);
+      profileSyncTimer = setTimeout(() => syncProfileToServer(), 350);
+    }
+  }
+
+  function syncProfileToServer() {
+    return fetch('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, nick: myNick, presence: myProfile.presence, customStatus: myProfile.customStatus, bio: myProfile.bio, interests: myProfile.interests, bannerColor: myProfile.bannerColor, avatarColor: myProfile.avatarColor }) }).catch(() => {});
+  }
+  async function saveProfileSettings() { updateProfilePreview(false); await syncProfileToServer(); closeSettingsModal(); }
 
   applyNickUI(); applyAppearanceFromStorage(); renderServersRail(); renderServerChannels(); connectEventStream();
   if (!myVerified) openAuthModal(true);
