@@ -139,7 +139,7 @@ function initDefaultServers() {
     rooms[DEFAULT_ROOM]['игровая-комната'].push({
       author: 'СИСТЕМА СИГНАЛ',
       time: '00:00',
-      text: 'Добро пожаловать в «Ночной клуб»! Кнопка «🪟 Поверх / Оверлей» теперь мгновенно открывает окно звонка поверх экрана, а скрытие 18+ на камере можно включать и выключать в любой момент.'
+      text: 'Добро пожаловать в «Ночной клуб»! Добавлена защита фонового звонка на смартфонах (инфразвуковой WAV-мост + PWA), мгновенный оверлей и обратимая шторка 18+ для камер.'
     });
   }
 }
@@ -914,6 +914,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="manifest" href="/manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#040609">
 <title>СИГНАЛ — Ночной клуб</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
@@ -1492,16 +1497,16 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div class="voice-panel" id="voice-panel-card">
           <div class="voice-panel-top">
             <div>
-              <div class="voice-label">ГОЛОСОВОЙ КАНАЛ, КАМЕРА И ОВЕРЛЕЙ // WEBRTC P2P</div>
+              <div class="voice-label">ГОЛОСОВОЙ КАНАЛ, КАМЕРА И ФОНОВЫЙ РЕЖИМ // WEBRTC P2P</div>
               <div class="voice-title" id="voice-panel-title">Общий разговор участников канала («Ночной эфир»)</div>
-              <div class="voice-sub" id="voice-sub-status">Нажмите «🪟 Оверлей», чтобы закрепить системное мини-окно поверх всех игр и рабочего стола даже при сворачивании браузера.</div>
+              <div class="voice-sub" id="voice-sub-status">Звонок удерживается активным на смартфонах и ПК при сворачивании браузера и блокировке экрана.</div>
             </div>
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
               <button class="btn-mute" id="mute-btn" style="display:none;" onclick="toggleMute()">🎤 Микр. вкл</button>
               <button class="btn-mute" id="deafen-btn" style="display:none;" onclick="toggleDeafen()" title="Отключить весь входящий звук">🎧 Звук вкл</button>
               <button class="btn-mute" id="cam-btn" onclick="toggleWebcam()" title="Включить веб-камеру при разговоре">📷 Камера</button>
               <button class="btn-mute" id="screen-btn" onclick="toggleScreenShare()" title="Транслировать экран, окно или вкладку">🖥️ Экран</button>
-              <button class="btn-mute" id="pip-overlay-btn" onclick="toggleExternalOverlay()" title="Системный оверлей поверх всех окон (не пропадает при сворачивании браузера)">🪟 Оверлей</button>
+              <button class="btn-mute" id="pip-overlay-btn" onclick="toggleExternalOverlay()" title="Системный оверлей поверх всех окон">🪟 Оверлей</button>
               <button class="btn-mute" onclick="openSettingsModal('voice')" title="Настройки микрофона, звука и оверлея">⚙️</button>
               <button class="btn-cyan" id="connect-voice-btn" onclick="toggleVoiceCall()">ПОДКЛЮЧИТЬСЯ</button>
             </div>
@@ -1561,7 +1566,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     <div class="fco-actions">
       <button class="fco-btn" id="fco-mute-btn" onclick="toggleMute()">🎤 Вкл</button>
       <button class="fco-btn" id="fco-deaf-btn" onclick="toggleDeafen()">🎧 Вкл</button>
-      <button class="fco-btn" id="fco-pip-btn" onclick="toggleExternalOverlay()" title="Закрепить системное окно поверх рабочего стола (не исчезает при сворачивании браузера)">🪟 Поверх</button>
+      <button class="fco-btn" id="fco-pip-btn" onclick="toggleExternalOverlay()" title="Закрепить системное окно поверх экрана">🪟 Поверх</button>
       <button class="fco-btn danger" onclick="toggleVoiceCall()">🛑 Выход</button>
     </div>
   </div>
@@ -1793,7 +1798,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div class="toggle-row">
               <div class="toggle-text-col">
                 <div class="toggle-title">🪟 Игровой оверлей звонка поверх всех окон (PiP Overlay)</div>
-                <div class="toggle-sub">Закрепляет окно звонка поверх рабочего стола, чтобы оно не пропадало при сворачивании браузера</div>
+                <div class="toggle-sub">Показывает виджет звонка и удерживает связь активной при сворачивании браузера на телефоне и ПК</div>
               </div>
               <label class="cyber-switch">
                 <input type="checkbox" id="chk-auto-overlay" checked onchange="saveAudioVideoSettings()">
@@ -2351,12 +2356,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let pendingChannelType = 'text';
   let micTestStream = null, micTestTimer = null;
 
-  // Переменные для фоновой работы звонка и системного PiP-оверлея + резервного попап-оверлея
+  // Переменные для фоновой работы звонка, инфразвукового WAV-моста и системного PiP-оверлея
   let callStartTime = 0;
   let voiceLockRelease = null, wakeLockSentinel = null, keepAliveAudioEl = null;
   let bgWorker = null;
   let pipCanvas = null, pipCtx = null, canvasPipVideo = null;
   let popupOverlayWin = null;
+  let subsonicWavUrl = null;
 
   function escapeHtml(s) {
     return String(s)
@@ -2395,15 +2401,52 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
   }
 
-  // ---------- МГНОВЕННО ОТКРЫВАЕМЫЙ СИСТЕМНЫЙ ОВЕРЛЕЙ (Native Video PiP + Popup Fallback) ----------
-  // Чтобы при клике на «🪟 Поверх / Оверлей» окно открывалось мгновенно без блокировки браузером,
-  // мы создаём и запускаем видео-холст заранее.
+  // ---------- ПРОГРАММНЫЙ ГЕНЕРАТОР ИНФРАЗВУКОВОГО WAV (ОБХОД 30-СЕКУНДНОЙ БЛОКИРОВКИ ANDROID/iOS) ----------
+  // Создаёт 2-секундный WAV-файл с реальной звуковой волной 20 Гц, чтобы ОС телефона
+  // видела ненулевой аудиопоток и не отключала связь через 30 секунд после гашения экрана.
+  function getSubsonicWavUrl() {
+    if (subsonicWavUrl) return subsonicWavUrl;
+    const sampleRate = 8000;
+    const duration = 2;
+    const numSamples = sampleRate * duration;
+    const buffer = new ArrayBuffer(44 + numSamples * 2);
+    const view = new DataView(buffer);
+
+    function writeStr(offset, str) {
+      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    }
+
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + numSamples * 2, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, numSamples * 2, true);
+
+    for (let i = 0; i < numSamples; i++) {
+      const sample = Math.sin(2 * Math.PI * 20 * (i / sampleRate)) * 45;
+      view.setInt16(44 + i * 2, sample, true);
+    }
+
+    const blob = new Blob([buffer], { type: 'audio/wav' });
+    subsonicWavUrl = URL.createObjectURL(blob);
+    return subsonicWavUrl;
+  }
+
+  // ---------- СИСТЕМНЫЙ ОВЕРЛЕЙ (Native Video PiP + Popup Fallback) ----------
   function ensurePipCanvasAndVideo() {
     if (!pipCanvas) {
       pipCanvas = document.createElement('canvas');
       pipCanvas.width = 460;
       pipCanvas.height = 260;
-      pipCtx = pipCanvas.getContext('2d');
+      pipCtx = pipCanvas.getContext('2d', { alpha: false });
       drawSystemPipOverlayFrame();
     }
     if (!canvasPipVideo) {
@@ -2416,7 +2459,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       document.body.appendChild(canvasPipVideo);
 
       try {
-        canvasPipVideo.srcObject = pipCanvas.captureStream(15);
+        canvasPipVideo.srcObject = pipCanvas.captureStream(25);
         canvasPipVideo.play().catch(function () {});
       } catch (e) {}
 
@@ -2437,7 +2480,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     }
   }
 
-  // Инициализируем видео-холст при первом же клике по странице, чтобы жест пользователя никогда не терялся
   document.addEventListener('pointerdown', function initPipOnce() {
     ensurePipCanvasAndVideo();
   }, { once: true });
@@ -2451,7 +2493,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     ctx.fillStyle = '#05080f';
     ctx.fillRect(0, 0, w, h);
 
-    // Если в канале есть незаблокированное видео (камера или стрим), транслируем его прямо в оверлей
     const activeVideoEl = document.querySelector('#screen-grid .screen-card:not(.nsfw-masked) video');
     if (activeVideoEl && activeVideoEl.readyState >= 2) {
       try {
@@ -2515,7 +2556,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     ctx.fillText(tStr, w - 58, 24);
   }
 
-  // Резервное отдельное мини-окно ОС (если браузер не поддерживает Video PiP)
   function openStandalonePopupOverlay() {
     if (popupOverlayWin && !popupOverlayWin.closed) {
       popupOverlayWin.focus();
@@ -2524,7 +2564,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     }
     popupOverlayWin = window.open('', 'SignalCallOverlay', 'width=340,height=250,menubar=no,toolbar=no,location=no,status=no,resizable=yes');
     if (!popupOverlayWin) {
-      alert('Разрешите всплывающие окна или используйте кнопку «🪟 В окне» на видеопотоке.');
+      alert('Плавающий виджет звонка закреплён в правом нижнем углу экрана.');
       return;
     }
     const doc = popupOverlayWin.document;
@@ -2587,7 +2627,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     } catch (e) {}
   }
 
-  // Синхронный запуск оверлея прямо внутри пользовательского клика (чтобы окно открывалось с 1-го нажатия!)
   function toggleExternalOverlay() {
     if (document.pictureInPictureElement) {
       closeExternalOverlay();
@@ -2601,7 +2640,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     ensurePipCanvasAndVideo();
     drawSystemPipOverlayFrame();
 
-    // Вызываем requestPictureInPicture СИНХРОННО без await перед ним, чтобы браузер не терял жест клика
     if (canvasPipVideo && typeof canvasPipVideo.requestPictureInPicture === 'function') {
       canvasPipVideo.requestPictureInPicture()
         .then(function () {
@@ -2609,7 +2647,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           document.getElementById('fco-pip-btn').classList.add('active-pip');
         })
         .catch(function () {
-          // Если видео ещё прогревается — запускаем play и открываем отдельное системное окно
           canvasPipVideo.play().then(function () {
             return canvasPipVideo.requestPictureInPicture();
           }).catch(function () {
@@ -2626,7 +2663,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       openStandalonePopupOverlay();
     }
 
-    // Если звонок ещё не был запущен — параллельно подключаем к голосовому каналу
     if (!inVoice) {
       ensureVoiceConnected();
     }
@@ -2647,6 +2683,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function startBackgroundCallPersistence() {
+    // 1. Web Lock API — запрещает мобильному и десктопному браузеру выгружать страницу из памяти
     if (navigator.locks && navigator.locks.request && !voiceLockRelease) {
       navigator.locks.request('signal_active_voice_call', { mode: 'exclusive' }, function () {
         return new Promise(function (resolve) {
@@ -2655,47 +2692,50 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       }).catch(function () {});
     }
 
+    // 2. WakeLock API — удерживает процессор телефона от глубокого сна
     if (navigator.wakeLock && navigator.wakeLock.request && !wakeLockSentinel) {
       navigator.wakeLock.request('screen').then(function (s) {
         wakeLockSentinel = s;
       }).catch(function () {});
     }
 
+    // 3. Запуск реального инфразвукового WAV-плеера (удерживает аудиодрайвер Android/iOS от 30-секундного отключения)
+    try {
+      if (!keepAliveAudioEl) {
+        keepAliveAudioEl = document.createElement('audio');
+        keepAliveAudioEl.setAttribute('playsinline', '');
+        keepAliveAudioEl.setAttribute('webkit-playsinline', '');
+        keepAliveAudioEl.loop = true;
+        keepAliveAudioEl.volume = 0.02;
+        document.body.appendChild(keepAliveAudioEl);
+      }
+      keepAliveAudioEl.src = getSubsonicWavUrl();
+      keepAliveAudioEl.play().catch(function () {});
+    } catch (e) {}
+
+    // 4. Активный AudioContext
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      const dst = audioCtx.createMediaStreamDestination();
-      const osc = audioCtx.createOscillator();
-      const g = ctxGain(audioCtx, 0.0001);
-      osc.frequency.value = 40;
-      osc.connect(g);
-      g.connect(dst);
-      osc.start();
-
-      if (!keepAliveAudioEl) {
-        keepAliveAudioEl = document.createElement('audio');
-        keepAliveAudioEl.loop = true;
-        keepAliveAudioEl.volume = 0.01;
-        document.body.appendChild(keepAliveAudioEl);
-      }
-      keepAliveAudioEl.srcObject = dst.stream;
-      keepAliveAudioEl.play().catch(function () {});
     } catch (e) {}
 
     ensurePipCanvasAndVideo();
     drawSystemPipOverlayFrame();
 
+    // 5. Фоновый Web Worker — каждые 3 секунды будит аудиопотоки и сетевой модем телефона
     callStartTime = Date.now();
     if (bgWorker) {
       try { bgWorker.terminate(); } catch (e) {}
     }
     try {
       const blob = new Blob([
-        'setInterval(function(){ postMessage("tick"); }, 500);'
+        'setInterval(function(){ postMessage("tick"); }, 1000);'
       ], { type: 'application/javascript' });
       bgWorker = new Worker(URL.createObjectURL(blob));
+      let tickCounter = 0;
       bgWorker.onmessage = function () {
         if (!inVoice) return;
+        tickCounter++;
         const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
         const tStr = formatCallTime(elapsed);
         const tEl = document.getElementById('fco-timer-label');
@@ -2706,25 +2746,42 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             if (pt) pt.textContent = tStr;
           } catch (e) {}
         }
+
+        if (tickCounter % 3 === 0) {
+          if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(function () {});
+          }
+          if (keepAliveAudioEl && keepAliveAudioEl.paused) {
+            keepAliveAudioEl.play().catch(function () {});
+          }
+          document.querySelectorAll('#audio-box audio').forEach(function (a) {
+            if (a.paused && !isDeafened) a.play().catch(function () {});
+          });
+          if (document.hidden) {
+            fetch('/healthz?t=' + Date.now(), { keepalive: true }).catch(function () {});
+          }
+        }
         drawSystemPipOverlayFrame();
       };
     } catch (e) {}
 
+    // 6. Шторка уведомлений телефона и экран блокировки (MediaSession API)
     if ('mediaSession' in navigator) {
       try {
         navigator.mediaSession.metadata = new MediaMetadata({
-          title: '🔊 ' + currentVoiceChannel,
+          title: '🔊 В эфире: ' + currentVoiceChannel,
           artist: 'СИГНАЛ // ' + (currentServerMeta.name || currentRoom),
-          album: 'Голосовой эфир активен'
+          album: 'Нажмите Паузу для вкл/выкл микрофона'
         });
         navigator.mediaSession.playbackState = 'playing';
         navigator.mediaSession.setActionHandler('play', function () {
           if (isMuted) toggleMute();
-          if (canvasPipVideo && canvasPipVideo.paused) canvasPipVideo.play().catch(function () {});
+          if (keepAliveAudioEl && keepAliveAudioEl.paused) keepAliveAudioEl.play().catch(function () {});
         });
         navigator.mediaSession.setActionHandler('pause', function () {
           toggleMute();
-          if (canvasPipVideo && canvasPipVideo.paused) canvasPipVideo.play().catch(function () {});
+          if (keepAliveAudioEl && keepAliveAudioEl.paused) keepAliveAudioEl.play().catch(function () {});
+          navigator.mediaSession.playbackState = 'playing';
         });
         navigator.mediaSession.setActionHandler('hangup', function () {
           if (inVoice) toggleVoiceCall();
@@ -2738,12 +2795,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     updateFloatingOverlayUI();
   }
 
-  function ctxGain(ctx, val) {
-    const g = ctx.createGain();
-    g.gain.value = val;
-    return g;
-  }
-
   function stopBackgroundCallPersistence() {
     if (voiceLockRelease) {
       try { voiceLockRelease(); } catch (e) {}
@@ -2754,7 +2805,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       wakeLockSentinel = null;
     }
     if (keepAliveAudioEl) {
-      try { keepAliveAudioEl.pause(); keepAliveAudioEl.srcObject = null; } catch (e) {}
+      try { keepAliveAudioEl.pause(); keepAliveAudioEl.removeAttribute('src'); } catch (e) {}
     }
     if (bgWorker) {
       try { bgWorker.terminate(); } catch (e) {}
@@ -4367,7 +4418,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       right.appendChild(shieldBtn);
 
       const pipVidBtn = el('button', 'btn-fs', '🪟 В окне');
-      pipVidBtn.title = 'Вынести это видео поверх всех окон (не пропадает при сворачивании браузера)';
+      pipVidBtn.title = 'Вынести это видео поверх всех окон';
       pipVidBtn.onclick = function () {
         const vid = card.querySelector('video');
         if (vid && vid.requestPictureInPicture) {
@@ -4409,7 +4460,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       video.playsInline = true;
       if (isLocal) video.muted = true;
 
-      // Защитная шторка поверх видео, по клику на которую камера мгновенно возвращается обратно
       const shieldOverlay = el('div', 'media-nsfw-shield');
       shieldOverlay.innerHTML =
         '<div>🔞 Видеопоток скрыт фильтром 18+</div>' +
@@ -4520,6 +4570,24 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end(HTML_PAGE);
+    }
+
+    // Встроенный PWA-манифест для установки сайта как мобильного приложения на Android и iOS
+    if (req.method === 'GET' && url.pathname === '/manifest.json') {
+      res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8' });
+      return res.end(JSON.stringify({
+        name: 'СИГНАЛ — Ночной клуб',
+        short_name: 'СИГНАЛ',
+        start_url: '/',
+        display: 'standalone',
+        background_color: '#040609',
+        theme_color: '#040609',
+        icons: [{
+          src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23e11d48' width='100' height='100' rx='22'/><text y='.88em' font-size='68' x='16' fill='white'>⚡</text></svg>",
+          sizes: '192x192 512x512',
+          type: 'image/svg+xml'
+        }]
+      }));
     }
 
     if (req.method === 'GET' && url.pathname === '/healthz') {
