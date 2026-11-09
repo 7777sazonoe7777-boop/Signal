@@ -43,9 +43,9 @@ function hashPassword(pw, salt) {
 }
 function verifyPassword(pw, stored) {
   if (!stored || typeof stored !== 'string' || !stored.includes(':')) return false;
-  const [salt, orig] = stored.split(':');
-  const test = crypto.scryptSync(String(pw), salt, 32).toString('hex');
-  return crypto.timingSafeEqual(Buffer.from(orig, 'hex'), Buffer.from(test, 'hex'));
+  const parts = stored.split(':');
+  const test = crypto.scryptSync(String(pw), parts[0], 32).toString('hex');
+  return crypto.timingSafeEqual(Buffer.from(parts[1], 'hex'), Buffer.from(test, 'hex'));
 }
 
 function ensureServer(room, name, desc, icon) {
@@ -71,7 +71,7 @@ ensureServer('ma-club', 'Мастерская', 'Музыка, творчест�
 if (!rooms[DEFAULT_ROOM]['игровая-комната'].length) {
   rooms[DEFAULT_ROOM]['игровая-комната'].push({
     author: 'СИСТЕМА СИГНАЛ', time: '00:00',
-    text: 'Добро пожаловать в «Ночной клуб»! Все элементы интерфейса, оверлей и фоновый режим активны.'
+    text: 'Добро пожаловать в «Ночной клуб»! Все вкладки, друзья, серверы, оверлей и мобильный фоновый режим активны.'
   });
 }
 
@@ -81,7 +81,7 @@ const getRoom = r => (ensureServer(r), rooms[r]);
 
 async function tgApi(method, body) {
   if (!TELEGRAM_BOT_TOKEN) return null;
-  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/${method}`, {
+  const res = await fetch('https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/' + method, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body || {}), signal: AbortSignal.timeout(35000)
   });
@@ -90,7 +90,7 @@ async function tgApi(method, body) {
 
 function generateTgCode(tgId, firstName, username) {
   Object.keys(tgCodes).forEach(k => { if (tgCodes[k].tgId === String(tgId) || tgCodes[k].expires < Date.now()) delete tgCodes[k]; });
-  let code = Math.floor(1000 + Math.random() * 9000).toString();
+  const code = Math.floor(1000 + Math.random() * 9000).toString();
   tgCodes[code] = { tgId: String(tgId), firstName: String(firstName || '').trim(), username: String(username || '').trim(), expires: Date.now() + CODE_TTL_MS };
   return code;
 }
@@ -121,7 +121,7 @@ async function startTelegramBotPolling() {
                 if (pend && pend.expires > Date.now()) pend.completed = { tgId, firstName, username, code };
               }
             }
-            await tgApi('sendMessage', { chat_id: m.chat.id, parse_mode: 'Markdown', text: `⚡ *СИГНАЛ // CYBER.NET*\n\n✅ Аккаунт подтверждён!\n🔑 Код: *${code}*\n\nВернитесь в браузер.` }).catch(() => {});
+            await tgApi('sendMessage', { chat_id: m.chat.id, parse_mode: 'Markdown', text: '⚡ *СИГНАЛ // CYBER.NET*\n\n✅ Аккаунт подтверждён!\n🔑 Код: *' + code + '*\n\nВернитесь в браузер.' }).catch(() => {});
           }
         }
       } catch (e) { await new Promise(r => setTimeout(r, 3000)); }
@@ -216,11 +216,11 @@ function applyData(d) {
       const c = cleanChannelName(ch);
       if (!c || !Array.isArray(d.messages[r][ch])) return;
       if (!meta.textChannels.includes(c) && meta.textChannels.length < MAX_CHANNELS) meta.textChannels.push(c);
-      const exList = rm[c] || [], seen = new Set(exList.map(m => `${m.author}|${m.time}|${m.text}`));
+      const exList = rm[c] || [], seen = new Set(exList.map(m => m.author + '|' + m.time + '|' + m.text));
       d.messages[r][ch].slice(-MAX_HISTORY).forEach(m => {
         const cm = { author: String(m.author || '').slice(0, 24), time: String(m.time || '').slice(0, 5), text: String(m.text || '').slice(0, 1000) };
         cm.flags = detectFlags(cm.text);
-        const k = `${cm.author}|${cm.time}|${cm.text}`;
+        const k = cm.author + '|' + cm.time + '|' + cm.text;
         if (cm.text && !seen.has(k)) { seen.add(k); exList.push(cm); }
       });
       rm[c] = exList.slice(-MAX_HISTORY);
@@ -276,6 +276,8 @@ function restoreClientVault(v) {
       if (!me.friends.includes(p)) me.friends.push(p);
       const fu = pidToUid[p]; if (fu && users[fu] && !users[fu].friends.includes(me.pid)) users[fu].friends.push(me.pid);
     });
+    (v.incoming || []).filter(validPid).forEach(p => { if (!me.friends.includes(p) && !me.incoming.includes(p)) me.incoming.push(p); });
+    (v.outgoing || []).filter(validPid).forEach(p => { if (!me.friends.includes(p) && !me.outgoing.includes(p)) me.outgoing.push(p); });
   }
   if (Array.isArray(v.servers)) { const so = {}; v.servers.forEach(s => { if (s && s.id) so[s.id] = s; }); applyData({ servers: so }); }
   if (v.room && Array.isArray(v.roomMembersPids)) v.roomMembersPids.forEach(p => { if (pidToUid[p]) addMember(v.room, pidToUid[p]); });
@@ -799,8 +801,15 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 <script>
   const params = new URLSearchParams(window.location.search);
 
+  // Регистрация PWA Service Worker для работы приложения в фоне на телефонах
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  }
+
   function setMobActiveTab(tabId) {
-    document.querySelectorAll('#mob-bottom-nav .mob-nav-item').forEach(el => el.classList.toggle('active', el.id === tabId));
+    document.querySelectorAll('#mob-bottom-nav .mob-nav-item').forEach(function (el) {
+      el.classList.toggle('active', el.id === tabId);
+    });
   }
   function closeMobileDrawers() {
     document.body.classList.remove('mob-left-open', 'mob-right-open');
@@ -820,50 +829,87 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
   function scrollToVoiceMobile() {
     closeMobileDrawers(); setMobActiveTab('mob-tab-voice');
-    document.getElementById('voice-panel-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const vp = document.getElementById('voice-panel-card');
+    if (vp && vp.scrollIntoView) vp.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  function setPersistCookie(n, v) { try { document.cookie = n + '=' + encodeURIComponent(v) + '; path=/; max-age=31536000; SameSite=Lax'; } catch (e) {} }
-  function getPersistCookie(n) { try { const m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; } catch (e) { return ''; } }
+  function setPersistCookie(n, v) {
+    try { document.cookie = n + '=' + encodeURIComponent(v) + '; path=/; max-age=31536000; SameSite=Lax'; } catch (e) {}
+  }
+  function getPersistCookie(n) {
+    try { const m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; } catch (e) { return ''; }
+  }
 
-  let myUid = localStorage.getItem('cyber_uid') || getPersistCookie('cyber_uid');
+  let myUid = '';
+  try { myUid = localStorage.getItem('cyber_uid') || ''; } catch (e) {}
+  if (!myUid || !/^[a-f0-9]{32}$/.test(myUid)) myUid = getPersistCookie('cyber_uid');
   if (!myUid || !/^[a-f0-9]{32}$/.test(myUid)) {
     const a = new Uint8Array(16); (window.crypto || window.msCrypto).getRandomValues(a);
-    myUid = Array.prototype.map.call(a, b => ('0' + b.toString(16)).slice(-2)).join('');
+    myUid = Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
   }
   try { localStorage.setItem('cyber_uid', myUid); } catch (e) {}
   setPersistCookie('cyber_uid', myUid);
 
-  let currentRoom = params.get('room') || params.get('server') || localStorage.getItem('cyber_last_room') || 'cy-4371';
+  let currentRoom = params.get('room') || params.get('server');
+  if (!currentRoom) { try { currentRoom = localStorage.getItem('cyber_last_room'); } catch (e) {} }
+  currentRoom = currentRoom || 'cy-4371';
   try { localStorage.setItem('cyber_last_room', currentRoom); } catch (e) {}
+
   let currentChannel = params.get('channel') || 'игровая-комната', currentVoiceChannel = 'Ночной эфир';
-  let myNick = localStorage.getItem('cyber_nick') || getPersistCookie('cyber_nick') || ('Гость_' + Math.floor(100 + Math.random() * 899));
-  let myVerified = localStorage.getItem('cyber_verified') === '1' || getPersistCookie('cyber_verified') === '1', authLocked = !myVerified;
+  let myNick = 'Гость_' + Math.floor(100 + Math.random() * 899);
+  try { const sn = localStorage.getItem('cyber_nick') || getPersistCookie('cyber_nick'); if (sn) myNick = sn; } catch (e) {}
+
+  let myVerified = false;
+  try { myVerified = localStorage.getItem('cyber_verified') === '1' || getPersistCookie('cyber_verified') === '1'; } catch (e) {}
+  let authLocked = !myVerified;
 
   function updateBrowserUrl() {
     try { window.history.replaceState({}, '', window.location.pathname + '?room=' + encodeURIComponent(currentRoom) + '&channel=' + encodeURIComponent(currentChannel)); } catch (e) {}
   }
 
-  let myProfile = Object.assign({ bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#0d9488', avatarColor: '#e11d48' }, JSON.parse(localStorage.getItem('cyber_profile') || '{}'));
-  let appSettings = Object.assign({ micVolume: 100, outVolume: 100, camRes: '720', autoOverlay: true, noiseSuppression: true, echoCancellation: true, autoGainControl: true, compactChat: false, fontSize: '12px', soundMsg: true, soundVoice: true, filterSexual: true, filterGore: true, filterOutgoing: true, filterAction: 'block', customBlockedWords: '' }, JSON.parse(localStorage.getItem('cyber_settings') || '{}'));
+  let myProfile = { bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#0d9488', avatarColor: '#e11d48' };
+  try { myProfile = Object.assign(myProfile, JSON.parse(localStorage.getItem('cyber_profile') || '{}')); } catch (e) {}
 
-  let localVault = Object.assign({ knownUsers: {}, friends: [], incoming: [], outgoing: [], servers: [], messages: {} }, JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}'));
+  let appSettings = { micDeviceId: '', spkDeviceId: '', camDeviceId: '', micVolume: 100, outVolume: 100, camRes: '720', autoOverlay: true, noiseSuppression: true, echoCancellation: true, autoGainControl: true, compactChat: false, fontSize: '12px', soundMsg: true, soundVoice: true, filterSexual: true, filterGore: true, filterOutgoing: true, filterAction: 'block', customBlockedWords: '' };
+  try { appSettings = Object.assign(appSettings, JSON.parse(localStorage.getItem('cyber_settings') || '{}')); } catch (e) {}
+
+  let localVault = { knownUsers: {}, friends: [], incoming: [], outgoing: [], servers: [], messages: {} };
+  try {
+    const rv = JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}');
+    if (rv && typeof rv === 'object') localVault = Object.assign(localVault, rv);
+  } catch (e) {}
 
   function rememberUserInVault(u) {
     if (!u || !u.pid || u.nick === '?') return;
-    localVault.knownUsers[u.pid] = { pid: u.pid, nick: u.nick, bio: u.bio || '', interests: u.interests || '', customStatus: u.customStatus || '', presence: u.presence || 'online', bannerColor: u.bannerColor || '#0d9488', avatarColor: u.avatarColor || '#e11d48' };
+    const prev = localVault.knownUsers[u.pid] || {};
+    localVault.knownUsers[u.pid] = {
+      pid: u.pid, nick: u.nick || prev.nick || 'Участник',
+      bio: u.bio !== undefined ? u.bio : (prev.bio || ''),
+      interests: u.interests !== undefined ? u.interests : (prev.interests || ''),
+      customStatus: u.customStatus !== undefined ? u.customStatus : (prev.customStatus || ''),
+      presence: u.presence || prev.presence || 'online',
+      bannerColor: u.bannerColor || prev.bannerColor || '#0d9488',
+      avatarColor: u.avatarColor || prev.avatarColor || '#e11d48'
+    };
   }
 
   function saveLocalVault() {
     try {
-      if (social.friends?.length) localVault.friends = social.friends.map(f => { rememberUserInVault(f); return f.pid; });
-      if (social.incoming?.length) localVault.incoming = social.incoming.map(i => { rememberUserInVault(i); return i.pid; });
-      if (social.outgoing) localVault.outgoing = social.outgoing.slice();
-      if (lastMembers) lastMembers.forEach(rememberUserInVault);
-      if (serversList?.length) localVault.servers = serversList.slice(0, 40);
+      if (Array.isArray(social.friends) && social.friends.length > 0) {
+        localVault.friends = social.friends.map(function (f) { rememberUserInVault(f); return f.pid; });
+      }
+      if (Array.isArray(social.incoming)) {
+        localVault.incoming = social.incoming.map(function (i) { rememberUserInVault(i); return i.pid; });
+      }
+      if (Array.isArray(social.outgoing)) localVault.outgoing = social.outgoing.slice();
+      if (Array.isArray(lastMembers)) lastMembers.forEach(rememberUserInVault);
+      if (Array.isArray(serversList) && serversList.length > 0) localVault.servers = serversList.slice(0, 40);
       if (currentRoom && roomMessagesCache) {
         if (!localVault.messages) localVault.messages = {};
-        const rc = {}; Object.keys(roomMessagesCache).forEach(ch => { if (roomMessagesCache[ch]?.length) rc[ch] = roomMessagesCache[ch].slice(-80); });
+        const rc = {};
+        Object.keys(roomMessagesCache).forEach(function (ch) {
+          if (Array.isArray(roomMessagesCache[ch]) && roomMessagesCache[ch].length) rc[ch] = roomMessagesCache[ch].slice(-80);
+        });
         localVault.messages[currentRoom] = rc;
       }
       localStorage.setItem('cyber_vault_v1', JSON.stringify(localVault));
@@ -872,27 +918,36 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   async function pushLocalVaultToServer() {
     try {
+      const knownArr = Object.values(localVault.knownUsers || {});
       await fetch('/api/vault-restore', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: myUid, nick: myNick, profile: myProfile, friends: localVault.friends, incoming: localVault.incoming, outgoing: localVault.outgoing, knownUsers: Object.values(localVault.knownUsers), servers: localVault.servers, room: currentRoom, roomMembersPids: Object.keys(localVault.knownUsers), messages: localVault.messages })
+        body: JSON.stringify({
+          uid: myUid, nick: myNick, profile: myProfile,
+          friends: localVault.friends || [], incoming: localVault.incoming || [], outgoing: localVault.outgoing || [],
+          knownUsers: knownArr, servers: localVault.servers || [], room: currentRoom,
+          roomMembersPids: knownArr.map(function (u) { return u.pid; }), messages: localVault.messages || {}
+        })
       });
     } catch (e) {}
   }
 
+  const CLIENT_SEXUAL_RX = [/порн/i, /секс/i, /эротик/i, /интим/i, /хентай/i, /минет/i, /трах/i, /шлюх/i, /проститут/i, /сиськ/i, /вагин/i, /член/i, /голая/i, /голые/i, /обнажен/i, /porn/i, /nsfw/i, /xxx/i, /hentai/i, /onlyfans/i, /xvideos/i, /pornhub/i, /rule34/i, /nude/i, /boobs/i, /pussy/i, /dick/i];
+  const CLIENT_GORE_RX = [/расчлен/i, /кишки/i, /труп/i, /казнь/i, /пытк/i, /убийств/i, /самоубийств/i, /суицид/i, /резня/i, /кровопролит/i, /увечь/i, /жесть/i, /насили/i, /террор/i, /gore/i, /liveleak/i, /bestgore/i, /behead/i, /torture/i, /suicide/i, /murder/i];
   const IMAGE_URL_RX = /https?:\/\/[^\s"'<>]+\.(?:png|jpe?g|gif|webp)(?:\?[^\s"'<>]*)?/i;
 
   function checkContentViolation(text, serverFlags) {
-    const s = String(text || ''); const reasons = [];
-    if (appSettings.filterSexual && ((serverFlags && serverFlags.sexual) || SEXUAL_RX.some(rx => rx.test(s)))) reasons.push('Сексуальный контент 18+');
-    if (appSettings.filterGore && ((serverFlags && serverFlags.gore) || GORE_RX.some(rx => rx.test(s)))) reasons.push('Насилие / Шокирующий контент');
+    const s = String(text || ''), reasons = [];
+    if (appSettings.filterSexual && ((serverFlags && serverFlags.sexual) || CLIENT_SEXUAL_RX.some(function (rx) { return rx.test(s); }))) reasons.push('Сексуальный контент 18+');
+    if (appSettings.filterGore && ((serverFlags && serverFlags.gore) || CLIENT_GORE_RX.some(function (rx) { return rx.test(s); }))) reasons.push('Насилие / Шокирующий контент');
     if (appSettings.customBlockedWords) {
-      const list = String(appSettings.customBlockedWords).split(',').map(w => w.trim().toLowerCase()).filter(Boolean), lower = s.toLowerCase();
-      if (list.some(w => lower.includes(w))) reasons.push('Чёрный список слов');
+      const list = String(appSettings.customBlockedWords).split(',').map(function (w) { return w.trim().toLowerCase(); }).filter(Boolean);
+      const lower = s.toLowerCase();
+      if (list.some(function (w) { return lower.includes(w); })) reasons.push('Чёрный список слов');
     }
     return reasons;
   }
 
-  function toggleSpoiler(w) { w?.classList.toggle('revealed'); }
+  function toggleSpoiler(w) { if (w) w.classList.toggle('revealed'); }
 
   let clientId = Math.random().toString(36).substring(2, 10), evtSource = null, tgSessionToken = '', tgBotUsername = '', tgPollTimer = null;
   let roomMessagesCache = {}, unreadByChannel = {}, cachedMessages = [], profileSyncTimer = null;
@@ -904,21 +959,30 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let pendingChannelType = 'text', micTestStream = null, micTestTimer = null;
 
   let callStartTime = 0, voiceLockRelease = null, wakeLockSentinel = null, keepAliveAudioEl = null, bgWorker = null;
-  let pipCanvas = null, pipCtx = null, canvasPipVideo = null, popupOverlayWin = null, subsonicWavUrl = null;
+  let pipCanvas = null, pipCtx = null, canvasPipVideo = null, popupOverlayWin = null;
+
+  // Реальный закодированный Base64 WAV контейнер + программный инфразвуковой WAV для обхода блокировки на смартфонах
+  const SILENT_WAV_BASE64 = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+  let subsonicWavUrl = null;
 
   function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+  function playUiBeep(freq, dur) { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(), o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = freq || 580; g.gain.value = 0.06; o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + (dur || 0.08)); } catch (e) {} }
   function formatCallTime(sec) { return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'); }
 
   function getSubsonicWavUrl() {
     if (subsonicWavUrl) return subsonicWavUrl;
-    const sr = 8000, dur = 2, num = sr * dur, buf = new ArrayBuffer(44 + num * 2), view = new DataView(buf);
-    const wr = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
-    wr(0, 'RIFF'); view.setUint32(4, 36 + num * 2, true); wr(8, 'WAVE'); wr(12, 'fmt ');
-    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); view.setUint32(24, sr, true); view.setUint32(28, sr * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true); wr(36, 'data'); view.setUint32(40, num * 2, true);
-    for (let i = 0; i < num; i++) view.setInt16(44 + i * 2, Math.sin(2 * Math.PI * 20 * (i / sr)) * 45, true);
-    subsonicWavUrl = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
-    return subsonicWavUrl;
+    try {
+      const sr = 8000, dur = 2, num = sr * dur, buf = new ArrayBuffer(44 + num * 2), view = new DataView(buf);
+      const wr = function (o, s) { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+      wr(0, 'RIFF'); view.setUint32(4, 36 + num * 2, true); wr(8, 'WAVE'); wr(12, 'fmt ');
+      view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); view.setUint32(24, sr, true); view.setUint32(28, sr * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true); wr(36, 'data'); view.setUint32(40, num * 2, true);
+      for (let i = 0; i < num; i++) view.setInt16(44 + i * 2, Math.sin(2 * Math.PI * 20 * (i / sr)) * 45, true);
+      subsonicWavUrl = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+      return subsonicWavUrl;
+    } catch (e) {
+      return SILENT_WAV_BASE64;
+    }
   }
 
   function ensurePipCanvasAndVideo() {
@@ -927,13 +991,19 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       canvasPipVideo = document.createElement('video'); canvasPipVideo.muted = true; canvasPipVideo.autoplay = true; canvasPipVideo.playsInline = true; canvasPipVideo.autoPictureInPicture = true;
       canvasPipVideo.style.cssText = 'position:fixed;right:0;bottom:0;width:4px;height:4px;opacity:0.01;pointer-events:none;z-index:1;';
       document.body.appendChild(canvasPipVideo);
-      try { canvasPipVideo.srcObject = pipCanvas.captureStream(25); canvasPipVideo.play().catch(() => {}); } catch (e) {}
-      canvasPipVideo.addEventListener('enterpictureinpicture', () => { document.getElementById('pip-overlay-btn')?.classList.add('active-cam'); document.getElementById('fco-pip-btn')?.classList.add('active-pip'); });
-      canvasPipVideo.addEventListener('leavepictureinpicture', () => { document.getElementById('pip-overlay-btn')?.classList.remove('active-cam'); document.getElementById('fco-pip-btn')?.classList.remove('active-pip'); });
-    } else if (canvasPipVideo.paused) { canvasPipVideo.play().catch(() => {}); }
+      try { canvasPipVideo.srcObject = pipCanvas.captureStream(25); canvasPipVideo.play().catch(function () {}); } catch (e) {}
+      canvasPipVideo.addEventListener('enterpictureinpicture', function () {
+        const b1 = document.getElementById('pip-overlay-btn'), b2 = document.getElementById('fco-pip-btn');
+        if (b1) b1.classList.add('active-cam'); if (b2) b2.classList.add('active-pip');
+      });
+      canvasPipVideo.addEventListener('leavepictureinpicture', function () {
+        const b1 = document.getElementById('pip-overlay-btn'), b2 = document.getElementById('fco-pip-btn');
+        if (b1) b1.classList.remove('active-cam'); if (b2) b2.classList.remove('active-pip');
+      });
+    } else if (canvasPipVideo.paused) { canvasPipVideo.play().catch(function () {}); }
   }
 
-  document.addEventListener('pointerdown', () => ensurePipCanvasAndVideo(), { once: true });
+  document.addEventListener('pointerdown', function () { ensurePipCanvasAndVideo(); }, { once: true });
 
   function drawSystemPipOverlayFrame() {
     if (!pipCanvas || !pipCtx) return;
@@ -949,7 +1019,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       ctx.fillStyle = isMuted ? '#fda4af' : '#5eead4'; ctx.font = 'bold 13px sans-serif';
       ctx.fillText((isMuted ? '🔇 Микрофон выкл' : '🎤 Микрофон вкл') + (isDeafened ? ' • 🔇 Звук выкл' : ' • 🎧 Звук вкл'), 26, 70);
       ctx.fillStyle = '#64748b'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('УЧАСТНИКИ:', 16, 104);
-      getVoiceChannelMembers().slice(0, 5).forEach((u, i) => {
+      getVoiceChannelMembers().slice(0, 5).forEach(function (u, i) {
         const y = 128 + i * 25; ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(14, y - 16, w - 28, 22);
         ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(26, y - 5, 4.5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#f1f5f9'; ctx.font = 'bold 13px sans-serif';
@@ -969,9 +1039,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const doc = popupOverlayWin.document; doc.open();
     doc.write('<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>СИГНАЛ — Оверлей</title><style>*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;}body{background:#060a10;color:#f1f5f9;padding:12px;height:100vh;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(45,212,191,0.45);}.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px;}.badge{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#2dd4bf;}.dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;}.timer{font-family:monospace;font-size:11px;background:rgba(255,255,255,0.07);padding:2px 7px;border-radius:4px;color:#cbd5e1;}.peers{display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;overflow-y:auto;flex:1;align-content:flex-start;}.chip{display:inline-flex;align-items:center;gap:6px;background:#0f1722;border:1px solid rgba(45,212,191,0.3);padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;}.btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);}button{background:#131c28;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:8px 6px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;}button.off{background:rgba(244,63,94,0.2);border-color:#f43f5e;color:#fda4af;}button.hang{background:#ef4444;border-color:#ef4444;color:#fff;}</style></head><body><div class="top"><div class="badge"><span class="dot"></span><span id="pop-ch"></span></div><span class="timer" id="pop-timer">00:00</span></div><div class="peers" id="pop-peers"></div><div class="btns"><button id="pop-mute"></button><button id="pop-deaf"></button><button class="hang" id="pop-hang">🛑 Выход</button></div></body></html>');
     doc.close();
-    doc.getElementById('pop-mute').onclick = () => toggleMute();
-    doc.getElementById('pop-deaf').onclick = () => toggleDeafen();
-    doc.getElementById('pop-hang').onclick = () => { toggleVoiceCall(); popupOverlayWin.close(); };
+    doc.getElementById('pop-mute').onclick = function () { toggleMute(); };
+    doc.getElementById('pop-deaf').onclick = function () { toggleDeafen(); };
+    doc.getElementById('pop-hang').onclick = function () { toggleVoiceCall(); popupOverlayWin.close(); };
     renderPopupOverlayContent();
   }
 
@@ -983,7 +1053,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const m = doc.getElementById('pop-mute'); m.textContent = isMuted ? '🔇 Микр. выкл' : '🎤 Микр. вкл'; m.className = isMuted ? 'off' : '';
       const d = doc.getElementById('pop-deaf'); d.textContent = isDeafened ? '🔇 Звук выкл' : '🎧 Звук вкл'; d.className = isDeafened ? 'off' : '';
       const pb = doc.getElementById('pop-peers'); pb.innerHTML = '';
-      getVoiceChannelMembers().forEach(u => { const c = doc.createElement('div'); c.className = 'chip'; c.textContent = '🟢 ' + u.nick; pb.appendChild(c); });
+      getVoiceChannelMembers().forEach(function (u) { const c = doc.createElement('div'); c.className = 'chip'; c.textContent = '🟢 ' + u.nick; pb.appendChild(c); });
     } catch (e) {}
   }
 
@@ -991,10 +1061,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (document.pictureInPictureElement || (popupOverlayWin && !popupOverlayWin.closed)) { closeExternalOverlay(); return; }
     ensurePipCanvasAndVideo(); drawSystemPipOverlayFrame();
     if (canvasPipVideo && typeof canvasPipVideo.requestPictureInPicture === 'function') {
-      canvasPipVideo.requestPictureInPicture().then(() => {
-        document.getElementById('pip-overlay-btn')?.classList.add('active-cam');
-        document.getElementById('fco-pip-btn')?.classList.add('active-pip');
-      }).catch(() => { canvasPipVideo.play().then(() => canvasPipVideo.requestPictureInPicture()).catch(() => openStandalonePopupOverlay()); });
+      canvasPipVideo.requestPictureInPicture().then(function () {
+        const b1 = document.getElementById('pip-overlay-btn'), b2 = document.getElementById('fco-pip-btn');
+        if (b1) b1.classList.add('active-cam'); if (b2) b2.classList.add('active-pip');
+      }).catch(function () {
+        canvasPipVideo.play().then(function () { return canvasPipVideo.requestPictureInPicture(); }).catch(function () { openStandalonePopupOverlay(); });
+      });
     } else { openStandalonePopupOverlay(); }
     if (!inVoice) ensureVoiceConnected();
   }
@@ -1003,26 +1075,37 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (document.pictureInPictureElement) try { document.exitPictureInPicture(); } catch (e) {}
     if (popupOverlayWin && !popupOverlayWin.closed) try { popupOverlayWin.close(); } catch (e) {}
     popupOverlayWin = null;
-    document.getElementById('pip-overlay-btn')?.classList.remove('active-cam');
-    document.getElementById('fco-pip-btn')?.classList.remove('active-pip');
+    const b1 = document.getElementById('pip-overlay-btn'), b2 = document.getElementById('fco-pip-btn');
+    if (b1) b1.classList.remove('active-cam'); if (b2) b2.classList.remove('active-pip');
   }
 
+  // ---------- СВЯЗКА ИЗ 4 МОБИЛЬНЫХ API ДЛЯ РАБОТЫ ЗВОНКА В ФОНЕ НА ТЕЛЕФОНЕ ----------
   function startBackgroundCallPersistence() {
+    // 1. Web Locks API
     if (navigator.locks && navigator.locks.request && !voiceLockRelease) {
-      navigator.locks.request('signal_active_voice_call', { mode: 'exclusive' }, () => new Promise(r => { voiceLockRelease = r; })).catch(() => {});
+      navigator.locks.request('signal_active_voice_call', { mode: 'exclusive' }, function () {
+        return new Promise(function (r) { voiceLockRelease = r; });
+      }).catch(function () {});
     }
+    // 2. WakeLock API
     if (navigator.wakeLock && navigator.wakeLock.request && !wakeLockSentinel) {
-      navigator.wakeLock.request('screen').then(s => { wakeLockSentinel = s; }).catch(() => {});
+      navigator.wakeLock.request('screen').then(function (s) { wakeLockSentinel = s; }).catch(function () {});
     }
+    // 3. Бесшумный аппаратный аудио-мост (HTMLAudioElement с WAV-потоком)
     try {
       if (!keepAliveAudioEl) {
         keepAliveAudioEl = document.createElement('audio');
-        keepAliveAudioEl.setAttribute('playsinline', ''); keepAliveAudioEl.setAttribute('webkit-playsinline', '');
-        keepAliveAudioEl.loop = true; keepAliveAudioEl.volume = 0.02;
+        keepAliveAudioEl.setAttribute('playsinline', '');
+        keepAliveAudioEl.setAttribute('webkit-playsinline', '');
+        keepAliveAudioEl.loop = true;
+        keepAliveAudioEl.volume = 0.02;
         document.body.appendChild(keepAliveAudioEl);
       }
       keepAliveAudioEl.src = getSubsonicWavUrl();
-      keepAliveAudioEl.play().catch(() => {});
+      keepAliveAudioEl.play().catch(function () {
+        keepAliveAudioEl.src = SILENT_WAV_BASE64;
+        keepAliveAudioEl.play().catch(function () {});
+      });
     } catch (e) {}
 
     try {
@@ -1032,13 +1115,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
     ensurePipCanvasAndVideo(); drawSystemPipOverlayFrame();
 
+    // 4. Фоновый Web Worker (предотвращает засыпание таймеров и пингов сервера)
     callStartTime = Date.now();
     if (bgWorker) try { bgWorker.terminate(); } catch (e) {}
     try {
       const blob = new Blob(['setInterval(function(){ postMessage("tick"); }, 1000);'], { type: 'application/javascript' });
       bgWorker = new Worker(URL.createObjectURL(blob));
       let cnt = 0;
-      bgWorker.onmessage = () => {
+      bgWorker.onmessage = function () {
         if (!inVoice) return;
         cnt++;
         const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
@@ -1048,22 +1132,36 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           try { popupOverlayWin.document.getElementById('pop-timer').textContent = tStr; } catch (e) {}
         }
         if (cnt % 3 === 0) {
-          if (audioCtx?.state === 'suspended') audioCtx.resume().catch(() => {});
-          if (keepAliveAudioEl?.paused) keepAliveAudioEl.play().catch(() => {});
-          document.querySelectorAll('#audio-box audio').forEach(a => { if (a.paused && !isDeafened) a.play().catch(() => {}); });
-          if (document.hidden) fetch('/healthz?t=' + Date.now(), { keepalive: true }).catch(() => {});
+          if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(function () {});
+          if (keepAliveAudioEl && keepAliveAudioEl.paused) keepAliveAudioEl.play().catch(function () {});
+          document.querySelectorAll('#audio-box audio').forEach(function (a) { if (a.paused && !isDeafened) a.play().catch(function () {}); });
+          if (document.hidden) fetch('/healthz?t=' + Date.now(), { keepalive: true }).catch(function () {});
         }
         drawSystemPipOverlayFrame();
       };
     } catch (e) {}
 
+    // 5. MediaSession API (системный экран блокировки смартфона)
     if ('mediaSession' in navigator) {
       try {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: '🔊 В эфире: ' + currentVoiceChannel, artist: 'СИГНАЛ // ' + (currentServerMeta.name || currentRoom), album: 'Активный звонок' });
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: '🔊 В эфире: ' + currentVoiceChannel,
+          artist: 'СИГНАЛ // ' + (currentServerMeta.name || currentRoom),
+          album: 'Активный звонок'
+        });
         navigator.mediaSession.playbackState = 'playing';
-        navigator.mediaSession.setActionHandler('play', () => { if (isMuted) toggleMute(); if (keepAliveAudioEl?.paused) keepAliveAudioEl.play().catch(() => {}); });
-        navigator.mediaSession.setActionHandler('pause', () => { toggleMute(); if (keepAliveAudioEl?.paused) keepAliveAudioEl.play().catch(() => {}); navigator.mediaSession.playbackState = 'playing'; });
-        navigator.mediaSession.setActionHandler('hangup', () => { if (inVoice) toggleVoiceCall(); });
+        navigator.mediaSession.setActionHandler('play', function () {
+          if (isMuted) toggleMute();
+          if (keepAliveAudioEl && keepAliveAudioEl.paused) keepAliveAudioEl.play().catch(function () {});
+        });
+        navigator.mediaSession.setActionHandler('pause', function () {
+          toggleMute();
+          if (keepAliveAudioEl && keepAliveAudioEl.paused) keepAliveAudioEl.play().catch(function () {});
+          navigator.mediaSession.playbackState = 'playing';
+        });
+        navigator.mediaSession.setActionHandler('hangup', function () {
+          if (inVoice) toggleVoiceCall();
+        });
       } catch (e) {}
     }
     updateFloatingOverlayUI();
@@ -1079,18 +1177,20 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     updateFloatingOverlayUI();
   }
 
-  document.addEventListener('visibilitychange', () => {
+  document.addEventListener('visibilitychange', function () {
     if (!inVoice) return;
-    if (audioCtx?.state === 'suspended') audioCtx.resume().catch(() => {});
-    document.querySelectorAll('#audio-box audio').forEach(a => { if (a.paused && !isDeafened) a.play().catch(() => {}); });
-    if (keepAliveAudioEl?.paused) keepAliveAudioEl.play().catch(() => {});
-    if (canvasPipVideo?.paused) canvasPipVideo.play().catch(() => {});
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(function () {});
+    document.querySelectorAll('#audio-box audio').forEach(function (a) { if (a.paused && !isDeafened) a.play().catch(function () {}); });
+    if (keepAliveAudioEl && keepAliveAudioEl.paused) keepAliveAudioEl.play().catch(function () {});
+    if (canvasPipVideo && canvasPipVideo.paused) canvasPipVideo.play().catch(function () {});
     drawSystemPipOverlayFrame();
   });
 
   function getVoiceChannelMembers() {
-    const uList = (lastMembers || []).filter(u => u.online && u.inVoice && (!u.voiceChannel || u.voiceChannel === currentVoiceChannel));
-    if (!uList.some(u => u.pid === myPid) && inVoice) uList.unshift({ pid: myPid, nick: myNick, online: true, inVoice: true, inCam: inWebcam, inScreen: inScreen });
+    const uList = (lastMembers || []).filter(function (u) { return u.online && u.inVoice && (!u.voiceChannel || u.voiceChannel === currentVoiceChannel); });
+    if (!uList.some(function (u) { return u.pid === myPid; }) && inVoice) {
+      uList.unshift({ pid: myPid, nick: myNick, online: true, inVoice: true, inCam: inWebcam, inScreen: inScreen });
+    }
     return uList;
   }
 
@@ -1101,12 +1201,26 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('fco-mute-btn').textContent = isMuted ? '🔇 Выкл' : '🎤 Вкл';
     document.getElementById('fco-deaf-btn').textContent = isDeafened ? '🔇 Глух' : '🎧 Вкл';
     const pb = document.getElementById('fco-peers-box'); pb.innerHTML = '';
-    getVoiceChannelMembers().forEach(u => {
+    getVoiceChannelMembers().forEach(function (u) {
       const c = el('div', 'fco-peer-chip'); c.appendChild(el('span', 'fco-pulse')); c.appendChild(el('span', '', u.nick)); pb.appendChild(c);
     });
     drawSystemPipOverlayFrame();
     renderPopupOverlayContent();
   }
+
+  (function () {
+    const card = document.getElementById('floating-call-overlay'), handle = document.getElementById('fco-drag-handle');
+    if (!card || !handle) return;
+    let drag = false, sx = 0, sy = 0, or = 18, ob = 72;
+    const start = function (x, y) { drag = true; sx = x; sy = y; const rect = card.getBoundingClientRect(); or = window.innerWidth - rect.right; ob = window.innerHeight - rect.bottom; };
+    const move = function (x, y) { if (!drag) return; card.style.left = 'auto'; card.style.right = Math.max(8, Math.min(window.innerWidth - 120, or - (x - sx))) + 'px'; card.style.bottom = Math.max(8, Math.min(window.innerHeight - 80, ob - (y - sy))) + 'px'; };
+    const end = function () { drag = false; };
+    handle.addEventListener('mousedown', function (e) { start(e.clientX, e.clientY); });
+    window.addEventListener('mousemove', function (e) { move(e.clientX, e.clientY); }); window.addEventListener('mouseup', end);
+    handle.addEventListener('touchstart', function (e) { if (e.touches[0]) start(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+    window.addEventListener('touchmove', function (e) { if (drag && e.touches[0]) move(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+    window.addEventListener('touchend', end);
+  })();
 
   function switchAuthTab(m) {
     const isTg = m === 'tg';
@@ -1116,105 +1230,82 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('auth-pass-panel').style.display = isTg ? 'none' : 'block';
   }
 
-  applyNickUI(); applyAppearanceFromStorage(); renderServersRail(); renderServerChannels(); connectEventStream();
-  if (!myVerified) openAuthModal(true);
-
-  function rerenderChatMessages() {
-    const box = document.getElementById('messages-list'); box.innerHTML = '';
-    if (!cachedMessages?.length) { box.innerHTML = '<div id="empty-hint" style="font-size:11px;color:var(--text-muted);">Здесь пока тихо. Напишите первым.</div>'; return; }
-    cachedMessages.forEach(addMsgToDOM);
-  }
-
-  function addMsgToDOM(m) {
-    const box = document.getElementById('messages-list'); document.getElementById('empty-hint')?.remove();
-    const author = String(m.author || '?'), viol = checkContentViolation(m.text, m.flags);
-    const div = el('div', 'msg-item');
-    div.innerHTML = '<div class="msg-ava">' + escapeHtml(author.charAt(0).toUpperCase()) + '</div><div style="flex:1;min-width:0;"><div><span class="msg-author">' + escapeHtml(author) + '</span><span class="msg-time">' + escapeHtml(m.time) + '</span></div><div class="msg-text">' + buildMessageBodyHTML(m.text, viol) + '</div></div>';
-    box.appendChild(div); document.getElementById('chat-scroll').scrollTop = document.getElementById('chat-scroll').scrollHeight;
-  }
-
-  function buildMessageBodyHTML(text, violations) {
-    const safeText = escapeHtml(text), imgMatch = String(text || '').match(IMAGE_URL_RX);
-    let inner = '<div>' + safeText + '</div>';
-    if (imgMatch) inner += '<img class="chat-inline-media" src="' + escapeHtml(imgMatch[0]) + '" alt="media" loading="lazy">';
-    if (!violations?.length) return inner;
-    const rStr = escapeHtml(violations.join(', '));
-    if (appSettings.filterAction === 'blur') {
-      return '<div class="spoiler-blur-wrap" onclick="toggleSpoiler(this)"><div class="spoiler-badge">🛡️ Скрыто фильтром (' + rStr + ')</div><div class="spoiler-blur-content">' + inner + '</div></div>';
-    }
-    return '<div class="filtered-block-card">🛡️ Заблокировано фильтром (' + rStr + ')</div>';
-  }
-
-  function friendAction(action, pid) {
-    if (!myVerified) { openAuthModal(true); return Promise.resolve(); }
-    if (action === 'remove') { localVault.friends = (localVault.friends || []).filter(x => x !== pid); saveLocalVault(); }
-    return fetch('/api/friend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, action, target: pid }) }).then(r => r.json()).catch(() => {});
-  }
-
-  // --- Восстановленные функции интерфейса и голосовой связи ---
   function applyNickUI() {
     document.getElementById('user-name-label').textContent = myNick;
     const ava = document.getElementById('user-ava'); ava.textContent = myNick.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#e11d48';
     document.getElementById('user-presence-dot').className = 'user-presence-dot ' + (myProfile.presence || 'online');
     document.getElementById('voice-my-name').textContent = myNick + ' (Вы)';
+    const stViol = checkContentViolation(myProfile.customStatus || '');
+    const sStat = stViol.length ? '' : myProfile.customStatus;
+    if (sStat) { document.getElementById('user-email-label').textContent = sStat; document.getElementById('user-email-label').style.color = '#cbd5e1'; }
+    else if (myVerified) { document.getElementById('user-email-label').textContent = '✓ В сети'; document.getElementById('user-email-label').style.color = '#34d399'; }
+    else { document.getElementById('user-email-label').textContent = 'Настроить профиль'; document.getElementById('user-email-label').style.color = ''; }
   }
 
   function renderServersRail() {
     const box = document.getElementById('servers-list-box'); box.innerHTML = '';
-    (serversList.length ? serversList : [currentServerMeta]).forEach(srv => {
+    (serversList.length ? serversList : [currentServerMeta]).forEach(function (srv) {
       const b = el('div', 'srv-ico' + (srv.id === currentRoom ? ' active' : ''), srv.icon || srv.name.slice(0, 2).toUpperCase());
-      b.title = srv.name; b.onclick = () => { if (srv.id !== currentRoom) switchServer(srv.id); }; box.appendChild(b);
+      b.title = srv.name; b.onclick = function () { if (srv.id !== currentRoom) switchServer(srv.id); }; box.appendChild(b);
     });
   }
 
   function renderServerChannels() {
     document.getElementById('srv-title-label').textContent = currentServerMeta.name || currentRoom;
-    document.getElementById('srv-desc-label').textContent = currentServerMeta.desc || 'Игры, идеи и разговоры';
+    document.getElementById('srv-desc-label').textContent = currentServerMeta.desc || 'Игры, идеи и разговоры после полуночи';
     const tList = currentServerMeta.textChannels || ['игровая-комната'];
-    if (!tList.includes(currentChannel)) currentChannel = tList[0];
+    if (!tList.includes(currentChannel)) currentChannel = tList[0] || 'игровая-комната';
     const vList = currentServerMeta.voiceChannels || ['Ночной эфир'];
-    if (!vList.includes(currentVoiceChannel)) currentVoiceChannel = vList[0];
+    if (!vList.includes(currentVoiceChannel)) currentVoiceChannel = vList[0] || 'Ночной эфир';
 
     const tBox = document.getElementById('text-channels-list'); tBox.innerHTML = '';
-    tList.forEach(ch => {
+    tList.forEach(function (ch) {
       const row = el('div', 'ch-btn' + (ch === currentChannel ? ' active' : '')); row.setAttribute('data-ch', ch);
-      row.appendChild(el('span', '', '# ' + ch)); row.appendChild(el('span', 'ch-dot'));
-      row.onclick = () => setChannel(ch); tBox.appendChild(row);
+      const rw = el('div', '', ''); rw.style.cssText = 'display:flex;align-items:center;gap:4px;';
+      const unread = unreadByChannel[ch] || 0; if (unread > 0 && ch !== currentChannel) rw.appendChild(el('span', 'ch-unread-badge', String(unread)));
+      rw.appendChild(el('span', 'ch-dot')); row.appendChild(el('span', '', '# ' + ch)); row.appendChild(rw);
+      row.onclick = function () { setChannel(ch); }; tBox.appendChild(row);
     });
 
     const vBox = document.getElementById('voice-channels-list'); vBox.innerHTML = '';
-    vList.forEach(vch => {
+    vList.forEach(function (vch) {
       const isAct = inVoice && currentVoiceChannel === vch;
       const row = el('div', 'voice-ch-box' + (isAct ? ' active' : ''));
       row.appendChild(el('span', '', '🔊 ' + vch)); row.appendChild(el('span', 'off-badge' + (isAct ? ' on' : ''), isAct ? 'ON' : 'OFF'));
-      row.onclick = () => selectVoiceChannel(vch); vBox.appendChild(row);
+      row.onclick = function () { selectVoiceChannel(vch); }; vBox.appendChild(row);
     });
     applyChannelUI(currentChannel); updateVoicePanelUI();
   }
 
   function applyChannelUI(ch) {
+    const sName = currentServerMeta.name || 'Ночной клуб';
     document.getElementById('top-ch-name').textContent = ch;
-    document.getElementById('chat-input').placeholder = 'Написать в #' + ch + '...';
-    document.querySelectorAll('.ch-btn').forEach(i => i.classList.toggle('active', i.getAttribute('data-ch') === ch));
+    document.getElementById('top-ch-desc').textContent = 'Канал сервера «' + sName + '»';
+    document.getElementById('banner-desc').textContent = 'Это #' + ch + ' на сервере «' + sName + '». Делитесь мыслями, включайте камеру или оверлей.';
+    document.getElementById('chat-input').placeholder = 'Написать сообщение в #' + ch + '...';
+    document.querySelectorAll('.ch-btn').forEach(function (i) { i.classList.toggle('active', i.getAttribute('data-ch') === ch); });
   }
 
   function updateVoicePanelUI() {
-    document.getElementById('voice-panel-title').textContent = 'Общий разговор («' + currentVoiceChannel + '»)';
+    document.getElementById('voice-panel-title').textContent = 'Общий разговор участников канала («' + currentVoiceChannel + '»)';
     updateFloatingOverlayUI();
   }
 
   async function switchServer(roomId) {
+    const clean = String(roomId || '').trim();
+    if (!clean || clean === currentRoom) { closeMobileDrawers(); return; }
     if (inVoice) await toggleVoiceCall();
-    currentRoom = roomId; roomMessagesCache = {};
+    currentRoom = clean; unreadByChannel = {}; roomMessagesCache = {};
     try { localStorage.setItem('cyber_last_room', currentRoom); } catch (e) {}
-    const found = serversList.find(s => s.id === currentRoom);
-    if (found) { currentServerMeta = found; currentChannel = found.textChannels[0]; currentVoiceChannel = found.voiceChannels[0]; }
+    const found = serversList.find(function (s) { return s.id === currentRoom; });
+    if (found) { currentServerMeta = found; currentChannel = found.textChannels[0] || 'игровая-комната'; currentVoiceChannel = found.voiceChannels[0] || 'Ночной эфир'; }
     updateBrowserUrl(); renderServersRail(); renderServerChannels(); closeMobileDrawers();
     try {
       const res = await fetch('/api/switch-room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, nick: myNick }) });
       const data = await res.json();
       if (data && data.ok) {
         currentServerMeta = data.current || currentServerMeta; serversList = data.list || serversList; roomMessagesCache = data.messagesByChannel || {};
+        if (!currentServerMeta.textChannels.includes(currentChannel)) currentChannel = currentServerMeta.textChannels[0] || 'игровая-комната';
         cachedMessages = roomMessagesCache[currentChannel] || [];
         updateBrowserUrl(); renderServersRail(); renderServerChannels(); rerenderChatMessages();
         if (Array.isArray(data.users)) renderUsers(data.users); saveLocalVault();
@@ -1226,7 +1317,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (evtSource) try { evtSource.close(); } catch (e) {}
     clientId = Math.random().toString(36).substring(2, 10);
     evtSource = new EventSource('/api/events?id=' + clientId + '&uid=' + myUid + '&verified=' + (myVerified ? '1' : '0') + '&room=' + encodeURIComponent(currentRoom) + '&nick=' + encodeURIComponent(myNick));
-    evtSource.onmessage = e => {
+    evtSource.onmessage = function (e) {
       let data; try { data = JSON.parse(e.data); } catch (err) { return; }
       if (data.type === 'server-meta') {
         currentServerMeta = data.payload.current; serversList = data.payload.list || [currentServerMeta];
@@ -1235,7 +1326,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         pushLocalVaultToServer();
       } else if (data.type === 'servers') {
         serversList = data.payload.list || [];
-        const f = serversList.find(s => s.id === currentRoom); if (f) currentServerMeta = f;
+        const f = serversList.find(function (s) { return s.id === currentRoom; }); if (f) currentServerMeta = f;
         renderServersRail(); renderServerChannels(); saveLocalVault();
       } else if (data.type === 'msg') {
         const ch = data.payload.channel, msg = data.payload.msg;
@@ -1243,24 +1334,294 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         roomMessagesCache[ch].push(msg); saveLocalVault();
         if (ch === currentChannel) { cachedMessages = roomMessagesCache[ch]; addMsgToDOM(msg); }
         else { unreadByChannel[ch] = (unreadByChannel[ch] || 0) + 1; renderServerChannels(); }
-        if (appSettings.soundMsg && msg?.author !== myNick) playUiBeep(540, 0.06);
+        if (appSettings.soundMsg && msg && msg.author !== myNick) playUiBeep(540, 0.06);
       } else if (data.type === 'users') {
         renderUsers(data.payload); updateFloatingOverlayUI(); saveLocalVault();
       } else if (data.type === 'social') {
         myPid = data.payload.pid; social = data.payload;
-        if (data.payload.nick) { myNick = data.payload.nick; try { localStorage.setItem('cyber_nick', myNick); } catch (e) {} setPersistCookie('cyber_nick', myNick); }
-        if (data.payload.verified) { myVerified = true; authLocked = false; try { localStorage.setItem('cyber_verified', '1'); } catch (e) {} setPersistCookie('cyber_verified', '1'); closeAuthModal(); }
+        if (data.payload.nick) { myNick = data.payload.nick; try { localStorage.setItem('cyber_nick', myNick); } catch (err) {} setPersistCookie('cyber_nick', myNick); }
+        if (data.payload.verified) { myVerified = true; authLocked = false; try { localStorage.setItem('cyber_verified', '1'); } catch (err) {} setPersistCookie('cyber_verified', '1'); closeAuthModal(); }
+        if (data.payload.bio !== undefined) Object.assign(myProfile, { bio: data.payload.bio || myProfile.bio, interests: data.payload.interests || myProfile.interests, customStatus: data.payload.customStatus || myProfile.customStatus, presence: data.payload.presence || myProfile.presence, bannerColor: data.payload.bannerColor || myProfile.bannerColor, avatarColor: data.payload.avatarColor || myProfile.avatarColor });
         applyNickUI(); renderSocial(); renderUsers(lastMembers); saveLocalVault();
       } else if (data.type === 'voice-join') {
         if (inVoice && peer && localStream && myPeerId && data.payload.peerId !== myPeerId && data.payload.voiceChannel === currentVoiceChannel) {
           const pid = data.payload.peerId; const call = peer.call(pid, localStream, { metadata: { kind: 'audio', nick: myNick } });
-          if (call) { call.on('stream', s => playStream(pid, s)); call.on('close', () => removeAudio(pid)); call.on('error', () => removeAudio(pid)); }
+          if (call) { call.on('stream', function (s) { playStream(pid, s); }); call.on('close', function () { removeAudio(pid); }); call.on('error', function () { removeAudio(pid); }); }
           if (inScreen && screenStream) callPeerWithScreen(pid);
           if (inWebcam && webcamStream) callPeerWithWebcam(pid);
         }
-      } else if (data.type === 'screen-stop' && data.payload?.peerId) { removeMediaTile('screen-' + data.payload.peerId); }
-      else if (data.type === 'cam-stop' && data.payload?.peerId) { removeMediaTile('cam-' + data.payload.peerId); }
+      } else if (data.type === 'screen-stop' && data.payload && data.payload.peerId) { removeMediaTile('screen-' + data.payload.peerId); }
+      else if (data.type === 'cam-stop' && data.payload && data.payload.peerId) { removeMediaTile('cam-' + data.payload.peerId); }
     };
+  }
+
+  function rerenderChatMessages() {
+    const box = document.getElementById('messages-list'); box.innerHTML = '';
+    if (!cachedMessages || !cachedMessages.length) { box.innerHTML = '<div id="empty-hint" style="font-size:11px;color:var(--text-muted);">Здесь пока тихо. Напишите первым.</div>'; return; }
+    cachedMessages.forEach(addMsgToDOM);
+  }
+
+  function buildMessageBodyHTML(text, violations) {
+    const safeText = escapeHtml(text), imgMatch = String(text || '').match(IMAGE_URL_RX);
+    let inner = '<div>' + safeText + '</div>';
+    if (imgMatch) inner += '<img class="chat-inline-media" src="' + escapeHtml(imgMatch[0]) + '" alt="media" loading="lazy">';
+    if (!violations || !violations.length) return inner;
+    const rStr = escapeHtml(violations.join(', '));
+    if (appSettings.filterAction === 'blur') {
+      return '<div class="spoiler-blur-wrap" onclick="toggleSpoiler(this)" title="Показать/скрыть"><div class="spoiler-badge">🛡️ Скрыто фильтром (' + rStr + ') — нажми для просмотра</div><div class="spoiler-blur-content">' + inner + '</div></div>';
+    }
+    return '<div class="filtered-block-card">🛡️ Заблокировано фильтром безопасности (' + rStr + ')</div>';
+  }
+
+  function addMsgToDOM(m) {
+    const box = document.getElementById('messages-list'), hint = document.getElementById('empty-hint'); if (hint) hint.remove();
+    const author = String(m.author || '?'), viol = checkContentViolation(m.text, m.flags);
+    const div = el('div', 'msg-item');
+    div.innerHTML = '<div class="msg-ava">' + escapeHtml(author.charAt(0).toUpperCase()) + '</div><div style="flex:1;min-width:0;"><div><span class="msg-author">' + escapeHtml(author) + '</span><span class="msg-time">' + escapeHtml(m.time) + '</span></div><div class="msg-text">' + buildMessageBodyHTML(m.text, viol) + '</div></div>';
+    box.appendChild(div);
+    const scrollArea = document.getElementById('chat-scroll'); scrollArea.scrollTop = scrollArea.scrollHeight;
+  }
+
+  function friendAction(action, pid) {
+    if (!myVerified) { openAuthModal(true); return Promise.resolve(); }
+    if (action === 'remove') { localVault.friends = (localVault.friends || []).filter(function (x) { return x !== pid; }); saveLocalVault(); }
+    return fetch('/api/friend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, action: action, target: pid }) })
+      .then(function (r) { return r.json(); }).then(function (d) { if (d.error) alert(d.error); }).catch(function () {});
+  }
+
+  function renderUsers(list) {
+    lastMembers = list || [];
+    const online = lastMembers.filter(function (u) { return u.online; }), offline = lastMembers.filter(function (u) { return !u.online; });
+    document.getElementById('online-count').textContent = online.length;
+    document.getElementById('total-members-count').textContent = lastMembers.length;
+    const box = document.getElementById('online-users-box'); box.innerHTML = '';
+    const friendPids = (social.friends || []).map(function (f) { return f.pid; });
+    online.concat(offline).forEach(function (u) {
+      const d = el('div', 'online-user-item' + (u.online ? ' is-online' : '')); if (!u.online) d.style.opacity = '0.68';
+      d.appendChild(el('span', 'online-dot ' + (u.online ? (u.presence || 'online') : 'off')));
+      const col = el('div', 'member-text-col');
+      const nr = el('div', 'member-nick-row', u.nick + (u.pid === myPid ? ' (вы)' : '') + (u.inVoice ? ' 🔊' : '') + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '')); nr.style.fontWeight = u.online ? '600' : '400'; col.appendChild(nr);
+      if (u.customStatus) { const sv = checkContentViolation(u.customStatus); col.appendChild(el('div', 'member-status-sub', sv.length ? '🛡️ [Статус скрыт]' : u.customStatus)); }
+      d.appendChild(col);
+      d.appendChild(el('span', 'status-pill ' + (u.online ? 'on' : 'off'), u.online ? 'в сети' : 'не в сети'));
+      if (myPid && u.pid !== myPid) {
+        if (friendPids.includes(u.pid)) d.appendChild(el('span', 'friend-tag', 'друг'));
+        else if ((social.outgoing || []).includes(u.pid)) d.appendChild(el('span', 'friend-tag', 'заявка'));
+        else if ((social.incoming || []).some(function (i) { return i.pid === u.pid; })) {
+          const b = el('button', 'mini-btn', 'принять'); b.onclick = function (ev) { ev.stopPropagation(); friendAction('accept', u.pid); }; d.appendChild(b);
+        } else {
+          const b = el('button', 'mini-btn', '+ друг'); b.onclick = function (ev) { ev.stopPropagation(); friendAction('request', u.pid); }; d.appendChild(b);
+        }
+      }
+      d.onclick = function () { openUserProfileCard(u); }; box.appendChild(d);
+    });
+  }
+
+  function renderSocial() {
+    const friends = social.friends || [], incoming = social.incoming || [];
+    document.getElementById('friends-count').textContent = friends.length;
+    const rq = document.getElementById('requests-box'); rq.innerHTML = '';
+    incoming.forEach(function (r) {
+      const d = el('div', 'online-user-item'); d.style.borderColor = 'rgba(219,39,119,0.4)';
+      const nm = el('span', '', r.nick + ' хочет в друзья'); nm.style.flex = '1';
+      const ok = el('button', 'mini-btn', '✓'); ok.onclick = function (ev) { ev.stopPropagation(); friendAction('accept', r.pid); };
+      const no = el('button', 'mini-btn', '✕'); no.onclick = function (ev) { ev.stopPropagation(); friendAction('decline', r.pid); };
+      d.appendChild(nm); d.appendChild(ok); d.appendChild(no); rq.appendChild(d);
+    });
+    const fb = document.getElementById('friends-box'); fb.innerHTML = '';
+    if (!friends.length) fb.appendChild(el('div', '', 'Пока никого. Нажмите «+ друг» рядом с участником.'));
+    friends.forEach(function (f) {
+      const d = el('div', 'online-user-item' + (f.online ? ' is-online' : '')); if (!f.online) d.style.opacity = '0.68';
+      d.appendChild(el('span', 'online-dot ' + (f.online ? (f.presence || 'online') : 'off')));
+      const nm = el('span', '', f.nick); nm.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'; d.appendChild(nm);
+      d.appendChild(el('span', 'status-pill ' + (f.online ? 'on' : 'off'), f.online ? 'в сети' : 'не в сети'));
+      const rm = el('button', 'mini-btn', '✕'); rm.onclick = function (ev) { ev.stopPropagation(); if (confirm('Удалить из друзей?')) friendAction('remove', f.pid); };
+      d.appendChild(rm); d.onclick = function () { openUserProfileCard(f); }; fb.appendChild(d);
+    });
+  }
+
+  function openUserProfileCard(u) {
+    if (!u) return;
+    document.getElementById('vp-banner').style.background = u.bannerColor || '#0d9488';
+    const ava = document.getElementById('vp-ava'); ava.textContent = String(u.nick || '?').slice(0, 2).toUpperCase(); ava.style.background = u.avatarColor || '#e11d48';
+    document.getElementById('vp-nick').textContent = u.nick || 'Участник';
+    const pill = document.getElementById('vp-online-pill'); pill.className = 'status-pill ' + (u.online ? 'on' : 'off'); pill.textContent = u.online ? 'в сети' : 'не в сети';
+    document.getElementById('vp-status').textContent = checkContentViolation(u.customStatus || '').length ? '🛡️ [Статус скрыт]' : (u.customStatus || '');
+    document.getElementById('vp-bio').textContent = checkContentViolation(u.bio || '').length ? '🛡️ [Скрыто фильтром]' : (u.bio || 'Участник ничего о себе не указал.');
+    const tb = document.getElementById('vp-tags'); tb.innerHTML = '';
+    String(u.interests || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean).forEach(function (tg) { if (!checkContentViolation(tg).length) tb.appendChild(el('span', 'dp-tag', tg)); });
+    if (!tb.childNodes.length) tb.innerHTML = '<span style="font-size:10px;color:var(--text-muted);">Нет тегов</span>';
+    const fBtn = document.getElementById('vp-friend-btn'), friendPids = (social.friends || []).map(function (f) { return f.pid; });
+    if (u.pid === myPid) { fBtn.textContent = '✏️ Редактировать профиль'; fBtn.onclick = function () { closeViewProfileModal(); openSettingsModal('profile'); }; }
+    else if (friendPids.includes(u.pid)) { fBtn.textContent = '✓ В друзьях'; fBtn.onclick = function () { closeViewProfileModal(); }; }
+    else { fBtn.textContent = '+ В друзья'; fBtn.onclick = function () { friendAction('request', u.pid); closeViewProfileModal(); }; }
+    document.getElementById('view-profile-modal').classList.add('open');
+  }
+  function closeViewProfileModal() { document.getElementById('view-profile-modal').classList.remove('open'); }
+
+  function openSettingsModal(pane) {
+    closeMobileDrawers(); setMobActiveTab('mob-tab-profile');
+    document.getElementById('prof-nick-inp').value = myNick;
+    document.getElementById('prof-presence-sel').value = myProfile.presence || 'online';
+    document.getElementById('prof-status-inp').value = myProfile.customStatus || '';
+    document.getElementById('prof-bio-inp').value = myProfile.bio || '';
+    document.getElementById('prof-interests-inp').value = myProfile.interests || '';
+    updateProfilePreview(true);
+    document.getElementById('chk-filter-sexual').checked = appSettings.filterSexual !== false;
+    document.getElementById('chk-filter-gore').checked = appSettings.filterGore !== false;
+    document.getElementById('chk-filter-outgoing').checked = appSettings.filterOutgoing !== false;
+    document.getElementById('sel-filter-action').value = appSettings.filterAction || 'block';
+    document.getElementById('inp-custom-blocklist').value = appSettings.customBlockedWords || '';
+    document.getElementById('set-mic-vol').value = appSettings.micVolume; document.getElementById('lbl-mic-vol').textContent = appSettings.micVolume + '%';
+    document.getElementById('set-out-vol').value = appSettings.outVolume; document.getElementById('lbl-out-vol').textContent = appSettings.outVolume + '%';
+    document.getElementById('set-cam-res').value = appSettings.camRes || '720';
+    document.getElementById('chk-auto-overlay').checked = appSettings.autoOverlay !== false;
+    document.getElementById('chk-noise').checked = appSettings.noiseSuppression !== false;
+    document.getElementById('chk-echo').checked = appSettings.echoCancellation !== false;
+    document.getElementById('chk-agc').checked = appSettings.autoGainControl !== false;
+    document.getElementById('chk-compact').checked = !!appSettings.compactChat;
+    document.getElementById('sel-font-size').value = appSettings.fontSize || '12px';
+    document.getElementById('chk-snd-msg').checked = appSettings.soundMsg !== false;
+    document.getElementById('chk-snd-voice').checked = appSettings.soundVoice !== false;
+    refreshMediaDevices(); switchSettingsPane(pane || 'profile');
+    document.getElementById('settings-modal').classList.add('open');
+  }
+
+  function closeSettingsModal() { stopMicTest(); document.getElementById('settings-modal').classList.remove('open'); setMobActiveTab('mob-tab-chat'); }
+  function switchSettingsPane(pId) {
+    document.querySelectorAll('.settings-nav-btn').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-pane') === pId); });
+    document.querySelectorAll('.settings-pane').forEach(function (p) { p.classList.toggle('active', p.id === 'pane-' + pId); });
+    if (pId !== 'voice') stopMicTest();
+  }
+
+  function saveSafetySettings() {
+    appSettings.filterSexual = document.getElementById('chk-filter-sexual').checked;
+    appSettings.filterGore = document.getElementById('chk-filter-gore').checked;
+    appSettings.filterOutgoing = document.getElementById('chk-filter-outgoing').checked;
+    appSettings.filterAction = document.getElementById('sel-filter-action').value || 'block';
+    appSettings.customBlockedWords = document.getElementById('inp-custom-blocklist').value.trim();
+    try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
+    rerenderChatMessages(); renderUsers(lastMembers); applyNickUI();
+  }
+
+  function selectBannerColor(c) { myProfile.bannerColor = c; updateProfilePreview(false); }
+  function selectAvatarColor(c) { myProfile.avatarColor = c; updateProfilePreview(false); }
+
+  function updateProfilePreview(skipSync) {
+    const n = document.getElementById('prof-nick-inp').value.trim().slice(0, 24) || myNick;
+    const pr = document.getElementById('prof-presence-sel').value || 'online';
+    const st = document.getElementById('prof-status-inp').value.trim().slice(0, 60);
+    const bio = document.getElementById('prof-bio-inp').value.trim().slice(0, 220);
+    const intr = document.getElementById('prof-interests-inp').value.trim().slice(0, 160);
+
+    document.getElementById('preview-banner').style.background = myProfile.bannerColor || '#0d9488';
+    const ava = document.getElementById('preview-ava'); ava.textContent = n.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#e11d48';
+    document.getElementById('preview-nick').textContent = n; document.getElementById('preview-status').textContent = st || 'В эфире'; document.getElementById('preview-bio').textContent = bio || 'О себе...';
+    const tb = document.getElementById('preview-tags'); tb.innerHTML = '';
+    const tags = intr.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+    if (!tags.length) tb.innerHTML = '<span style="font-size:10px;color:var(--text-muted);">Нет тегов</span>';
+    else tags.forEach(function (tg) { tb.appendChild(el('span', 'dp-tag', tg)); });
+
+    if (!skipSync) {
+      myNick = n; myProfile.presence = pr; myProfile.customStatus = st; myProfile.bio = bio; myProfile.interests = intr;
+      try { localStorage.setItem('cyber_nick', myNick); localStorage.setItem('cyber_profile', JSON.stringify(myProfile)); } catch (e) {}
+      setPersistCookie('cyber_nick', myNick); saveLocalVault(); applyNickUI();
+      if (profileSyncTimer) clearTimeout(profileSyncTimer);
+      profileSyncTimer = setTimeout(function () { syncProfileToServer(); }, 350);
+    }
+  }
+
+  function syncProfileToServer() {
+    return fetch('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, nick: myNick, presence: myProfile.presence, customStatus: myProfile.customStatus, bio: myProfile.bio, interests: myProfile.interests, bannerColor: myProfile.bannerColor, avatarColor: myProfile.avatarColor }) }).catch(function () {});
+  }
+  async function saveProfileSettings() { updateProfilePreview(false); await syncProfileToServer(); closeSettingsModal(); }
+
+  async function refreshMediaDevices() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    try {
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      const mSel = document.getElementById('set-mic-select'), sSel = document.getElementById('set-spk-select'), cSel = document.getElementById('set-cam-select');
+      mSel.innerHTML = ''; sSel.innerHTML = ''; cSel.innerHTML = '';
+      devs.forEach(function (d) {
+        if (d.kind === 'audioinput') { const o = el('option', '', d.label || 'Микрофон'); o.value = d.deviceId; if (d.deviceId === appSettings.micDeviceId) o.selected = true; mSel.appendChild(o); }
+        else if (d.kind === 'audiooutput') { const o = el('option', '', d.label || 'Динамики'); o.value = d.deviceId; if (d.deviceId === appSettings.spkDeviceId) o.selected = true; sSel.appendChild(o); }
+        else if (d.kind === 'videoinput') { const o = el('option', '', d.label || 'Камера'); o.value = d.deviceId; if (d.deviceId === appSettings.camDeviceId) o.selected = true; cSel.appendChild(o); }
+      });
+    } catch (e) {}
+  }
+
+  function onAudioSlidersChange() {
+    const mv = Number(document.getElementById('set-mic-vol').value || 100), ov = Number(document.getElementById('set-out-vol').value || 100);
+    document.getElementById('lbl-mic-vol').textContent = mv + '%'; document.getElementById('lbl-out-vol').textContent = ov + '%';
+    appSettings.micVolume = mv; appSettings.outVolume = ov;
+    if (micGainNode) micGainNode.gain.value = mv / 100;
+    applyOutputVolumeToAll(); saveAudioVideoSettings();
+  }
+
+  function applyOutputVolumeToAll() {
+    const vol = isDeafened ? 0 : Math.min(1, Math.max(0, (appSettings.outVolume || 100) / 100));
+    document.querySelectorAll('#audio-box audio').forEach(function (a) { a.volume = vol; a.muted = isDeafened; if (appSettings.spkDeviceId && typeof a.setSinkId === 'function') a.setSinkId(appSettings.spkDeviceId).catch(function () {}); });
+  }
+
+  function saveAudioVideoSettings() {
+    const mEl = document.getElementById('set-mic-select'), sEl = document.getElementById('set-spk-select'), cEl = document.getElementById('set-cam-select');
+    appSettings.micDeviceId = mEl ? mEl.value : '';
+    appSettings.spkDeviceId = sEl ? sEl.value : '';
+    appSettings.camDeviceId = cEl ? cEl.value : '';
+    appSettings.camRes = document.getElementById('set-cam-res').value || '720';
+    appSettings.autoOverlay = document.getElementById('chk-auto-overlay').checked;
+    appSettings.noiseSuppression = document.getElementById('chk-noise').checked;
+    appSettings.echoCancellation = document.getElementById('chk-echo').checked;
+    appSettings.autoGainControl = document.getElementById('chk-agc').checked;
+    try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
+    applyOutputVolumeToAll(); updateFloatingOverlayUI();
+  }
+
+  async function toggleMicTest() {
+    if (micTestTimer) { stopMicTest(); return; }
+    try {
+      micTestStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: appSettings.micDeviceId ? { ideal: appSettings.micDeviceId } : undefined } });
+      const ctx = new (window.AudioContext || window.webkitAudioContext)(), src = ctx.createMediaStreamSource(micTestStream), an = ctx.createAnalyser();
+      an.fftSize = 256; src.connect(an); const d = new Uint8Array(an.frequencyBinCount);
+      document.getElementById('btn-mic-test').textContent = '🛑 Стоп';
+      micTestTimer = setInterval(function () { an.getByteFrequencyData(d); let sum = 0; for (let i = 0; i < d.length; i++) sum += d[i]; document.getElementById('mic-test-bar').style.width = Math.min(100, Math.round((sum / d.length / 90) * 100)) + '%'; }, 60);
+    } catch (e) { alert('Ошибка доступа к микрофону.'); }
+  }
+
+  function stopMicTest() {
+    if (micTestTimer) { clearInterval(micTestTimer); micTestTimer = null; }
+    if (micTestStream) { micTestStream.getTracks().forEach(function (t) { t.stop(); }); micTestStream = null; }
+    const b = document.getElementById('btn-mic-test'); if (b) b.textContent = '🎙️ Проверить';
+    const bar = document.getElementById('mic-test-bar'); if (bar) bar.style.width = '0%';
+  }
+
+  function setAccentTheme(m, b) { document.documentElement.style.setProperty('--cyan', m); document.documentElement.style.setProperty('--cyan-bright', b); appSettings.accentMain = m; appSettings.accentBright = b; try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {} }
+  function applyAppearanceSettings() {
+    appSettings.compactChat = document.getElementById('chk-compact').checked; appSettings.fontSize = document.getElementById('sel-font-size').value || '12px';
+    try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {} applyAppearanceFromStorage();
+  }
+  function applyAppearanceFromStorage() {
+    document.body.classList.toggle('compact-chat', !!appSettings.compactChat);
+    document.documentElement.style.setProperty('--chat-font-size', appSettings.fontSize || '12px');
+    if (appSettings.accentMain) { document.documentElement.style.setProperty('--cyan', appSettings.accentMain); document.documentElement.style.setProperty('--cyan-bright', appSettings.accentBright); }
+  }
+  function saveNotificationSettings() {
+    appSettings.soundMsg = document.getElementById('chk-snd-msg').checked; appSettings.soundVoice = document.getElementById('chk-snd-voice').checked;
+    try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
+  }
+
+  function logoutAccount() {
+    if (!confirm('Выйти из аккаунта?')) return;
+    try { localStorage.removeItem('cyber_verified'); localStorage.removeItem('cyber_uid'); } catch (e) {}
+    setPersistCookie('cyber_verified', ''); setPersistCookie('cyber_uid', ''); myVerified = false; openAuthModal(true);
+  }
+
+  function sendChatMessage(e) {
+    e.preventDefault(); if (!myVerified) { openAuthModal(true); return; }
+    const inp = document.getElementById('chat-input'), text = inp.value.trim(); if (!text) return;
+    if (appSettings.filterOutgoing !== false && checkContentViolation(text).length) { alert('🛡️ Отправка заблокирована фильтром безопасности.'); return; }
+    fetch('/api/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, channel: currentChannel, author: myNick, text: text }) }).catch(function () {});
+    inp.value = '';
   }
 
   function setChannel(ch) {
@@ -1272,7 +1633,127 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (!myVerified) { openAuthModal(true); return; }
     currentVoiceChannel = vch; updateVoicePanelUI(); renderServerChannels(); closeMobileDrawers();
     if (!inVoice) toggleVoiceCall();
-    else postVoiceState({ inVoice: true, inScreen, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel }).then(d => { if (d?.peers) d.peers.forEach(p => { if (inScreen) callPeerWithScreen(p); if (inWebcam) callPeerWithWebcam(p); }); });
+    else postVoiceState({ inVoice: true, inScreen: inScreen, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel }).then(function (d) { if (d && d.peers) d.peers.forEach(function (p) { if (inScreen) callPeerWithScreen(p); if (inWebcam) callPeerWithWebcam(p); }); });
+  }
+
+  function openCreateServerModal() {
+    if (!myVerified) return openAuthModal(true);
+    closeMobileDrawers();
+    document.getElementById('new-srv-name').value = '';
+    document.getElementById('new-srv-desc').value = '';
+    document.getElementById('create-server-modal').classList.add('open');
+  }
+  function closeCreateServerModal() { document.getElementById('create-server-modal').classList.remove('open'); }
+  async function submitCreateServer() {
+    const name = document.getElementById('new-srv-name').value.trim();
+    const desc = document.getElementById('new-srv-desc').value.trim();
+    if (!name) return alert('Введите название сервера!');
+    const res = await fetch('/api/server/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, nick: myNick, name: name, desc: desc }) });
+    const d = await res.json(); if (d.error) return alert(d.error);
+    closeCreateServerModal(); await switchServer(d.serverId);
+  }
+
+  function openCreateChannelModal(type) {
+    if (!myVerified) return openAuthModal(true);
+    closeMobileDrawers(); pendingChannelType = type === 'voice' ? 'voice' : 'text';
+    document.getElementById('create-ch-title').textContent = pendingChannelType === 'voice' ? 'Создать голосовой канал' : 'Создать текстовый канал';
+    document.getElementById('create-ch-sub').textContent = pendingChannelType === 'voice' ? 'Участники смогут общаться голосом и включать камеру:' : 'Участники смогут переписываться в этом канале:';
+    document.getElementById('new-ch-name').value = '';
+    document.getElementById('create-channel-modal').classList.add('open');
+  }
+  function closeCreateChannelModal() { document.getElementById('create-channel-modal').classList.remove('open'); }
+  async function submitCreateChannel() {
+    const name = document.getElementById('new-ch-name').value.trim(); if (!name) return alert('Введите название!');
+    const res = await fetch('/api/channel/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, room: currentRoom, type: pendingChannelType, name: name }) });
+    const d = await res.json(); if (d.error) return alert(d.error); closeCreateChannelModal();
+    if (pendingChannelType === 'text' && d.channel) {
+      roomMessagesCache[d.channel] = [];
+      if (!currentServerMeta.textChannels.includes(d.channel)) currentServerMeta.textChannels.push(d.channel);
+      saveLocalVault(); setChannel(d.channel);
+    } else if (pendingChannelType === 'voice' && d.channel) {
+      if (!currentServerMeta.voiceChannels.includes(d.channel)) currentServerMeta.voiceChannels.push(d.channel);
+      currentVoiceChannel = d.channel; saveLocalVault(); renderServerChannels();
+    }
+  }
+
+  function openInviteModal() {
+    closeMobileDrawers(); document.getElementById('invite-modal').classList.add('open');
+    const u = window.location.origin + '/?room=' + encodeURIComponent(currentRoom) + '&channel=' + encodeURIComponent(currentChannel);
+    document.getElementById('public-invite-url').textContent = u; document.getElementById('public-invite-url').href = u;
+  }
+  function closeInviteModal() { document.getElementById('invite-modal').classList.remove('open'); }
+  async function copyInviteLink() {
+    const u = document.getElementById('public-invite-url').textContent;
+    try { await navigator.clipboard.writeText(u); alert('Ссылка скопирована!'); } catch (e) { prompt('Скопируйте ссылку:', u); }
+  }
+
+  async function initTelegramSession() {
+    try {
+      const res = await fetch('/api/tg-init'); const d = await res.json(); tgSessionToken = d.token || ''; tgBotUsername = d.botUsername || '';
+      if (tgBotUsername) document.getElementById('tg-open-bot-btn').innerHTML = '<span>✈️ Открыть @' + escapeHtml(tgBotUsername) + ' и войти</span>';
+    } catch (e) {}
+  }
+
+  function startTgPolling() {
+    if (tgPollTimer) clearInterval(tgPollTimer);
+    tgPollTimer = setInterval(async function () {
+      if (!tgSessionToken || myVerified) return;
+      try {
+        const res = await fetch('/api/tg-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, token: tgSessionToken, nick: document.getElementById('nick-inp').value.trim() }) });
+        const d = await res.json(); if (d && d.ok && d.verified) { clearInterval(tgPollTimer); tgPollTimer = null; completeClientAuth(d); }
+      } catch (e) {}
+    }, 2000);
+  }
+
+  function openTelegramBot() {
+    if (!tgBotUsername) { switchAuthTab('pass'); return; }
+    window.open('https://t.me/' + encodeURIComponent(tgBotUsername) + '?start=auth_' + encodeURIComponent(tgSessionToken), '_blank');
+    startTgPolling();
+  }
+
+  async function verifyTelegramCode() {
+    const code = document.getElementById('tg-code-inp').value.trim(); if (!code) return alert('Введите 4-значный код!');
+    const res = await fetch('/api/tg-verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, code: code, nick: document.getElementById('nick-inp').value.trim() }) });
+    const d = await res.json(); if (d.error) return alert(d.error); completeClientAuth(d);
+  }
+
+  function completeClientAuth(d) {
+    if (d.uid && d.uid !== myUid) myUid = d.uid;
+    if (d.nick) myNick = d.nick;
+    myVerified = true; authLocked = false;
+    try { localStorage.setItem('cyber_uid', myUid); localStorage.setItem('cyber_nick', myNick); localStorage.setItem('cyber_verified', '1'); } catch (e) {}
+    setPersistCookie('cyber_uid', myUid); setPersistCookie('cyber_nick', myNick); setPersistCookie('cyber_verified', '1');
+    applyNickUI(); closeAuthModal(); connectEventStream();
+  }
+
+  function openAuthModal(lock) {
+    authLocked = !!lock || !myVerified; document.getElementById('auth-close-btn').style.display = authLocked ? 'none' : 'block';
+    if (myNick && !myNick.startsWith('Гость_')) document.getElementById('nick-inp').value = myNick;
+    document.getElementById('auth-modal').classList.add('open'); initTelegramSession().then(function () { startTgPolling(); });
+  }
+  function closeAuthModal() {
+    if (authLocked && !myVerified) return;
+    if (tgPollTimer) { clearInterval(tgPollTimer); tgPollTimer = null; }
+    document.getElementById('auth-modal').classList.remove('open');
+  }
+
+  async function loginWithPassword() {
+    const nick = document.getElementById('nick-inp').value.trim(), pass = document.getElementById('pass-inp').value;
+    if (!nick) return alert('Введите ваш позывной!'); if (!pass && !myVerified) return alert('Введите пароль!');
+    const res = await fetch('/api/auth-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, nick: nick, password: pass }) });
+    const d = await res.json(); if (d.error) return alert(d.error); completeClientAuth(d);
+  }
+
+  function postVoiceState(st) {
+    return fetch('/api/voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ id: clientId }, st)) }).then(function (r) { return r.json(); }).catch(function () { return {}; });
+  }
+
+  function createProcessedAudioStream(stream) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = audioCtx.createMediaStreamSource(stream); micGainNode = audioCtx.createGain(); micGainNode.gain.value = (appSettings.micVolume || 100) / 100;
+      const dst = audioCtx.createMediaStreamDestination(); src.connect(micGainNode); micGainNode.connect(dst); return dst.stream;
+    } catch (e) { return stream; }
   }
 
   async function ensureVoiceConnected() {
@@ -1280,45 +1761,47 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (inVoice && peer && myPeerId) return true;
     try {
       rawMicStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: appSettings.micDeviceId ? { ideal: appSettings.micDeviceId } : undefined, noiseSuppression: appSettings.noiseSuppression !== false, echoCancellation: appSettings.echoCancellation !== false, autoGainControl: appSettings.autoGainControl !== false } });
-      localStream = rawMicStream; isMuted = false;
+      localStream = createProcessedAudioStream(rawMicStream); isMuted = false;
     } catch (e) {
       localStream = (new (window.AudioContext || window.webkitAudioContext)()).createMediaStreamDestination().stream; isMuted = true;
     }
     inVoice = true; if (appSettings.soundVoice) playUiBeep(720, 0.09);
     document.getElementById('connect-voice-btn').textContent = 'ОТКЛЮЧИТЬСЯ'; document.getElementById('connect-voice-btn').className = 'btn-danger';
     document.getElementById('mute-btn').style.display = 'inline-block'; document.getElementById('deafen-btn').style.display = 'inline-block';
+    document.getElementById('mute-btn').textContent = isMuted ? '🔇 Выкл' : '🎤 Микр. вкл';
     document.getElementById('voice-active-area').classList.add('show');
     startBackgroundCallPersistence(); renderServerChannels();
 
-    return new Promise(resolve => {
+    return new Promise(function (resolve) {
       peer = new Peer();
-      peer.on('open', id => { myPeerId = id; postVoiceState({ inVoice: true, inScreen, inCam: inWebcam, peerId: id, voiceChannel: currentVoiceChannel }).then(() => resolve(true)); });
-      peer.on('call', call => {
-        const kind = call.metadata?.kind || 'audio', n = call.metadata?.nick || 'Участник';
+      peer.on('open', function (id) { myPeerId = id; postVoiceState({ inVoice: true, inScreen: inScreen, inCam: inWebcam, peerId: id, voiceChannel: currentVoiceChannel }).then(function () { resolve(true); }); });
+      peer.on('call', function (call) {
+        const kind = (call.metadata && call.metadata.kind) || 'audio', n = (call.metadata && call.metadata.nick) || 'Участник';
         if (kind === 'screen' || kind === 'cam') {
-          call.answer(); call.on('stream', st => renderMediaTile(kind + '-' + call.peer, st, n + (kind === 'cam' ? ' (Камера)' : ' (Экран)'), false, kind));
-          call.on('close', () => removeMediaTile(kind + '-' + call.peer)); call.on('error', () => removeMediaTile(kind + '-' + call.peer));
+          call.answer(); call.on('stream', function (st) { renderMediaTile(kind + '-' + call.peer, st, n + (kind === 'cam' ? ' (Камера)' : ' (Экран)'), false, kind); });
+          call.on('close', function () { removeMediaTile(kind + '-' + call.peer); }); call.on('error', function () { removeMediaTile(kind + '-' + call.peer); });
         } else {
-          call.answer(localStream || undefined); call.on('stream', st => playStream(call.peer, st));
-          call.on('close', () => removeAudio(call.peer)); call.on('error', () => removeAudio(call.peer));
+          call.answer(localStream || undefined); call.on('stream', function (st) { playStream(call.peer, st); });
+          call.on('close', function () { removeAudio(call.peer); }); call.on('error', function () { removeAudio(call.peer); });
         }
       });
-      peer.on('error', () => resolve(false));
+      peer.on('error', function () { resolve(false); });
     });
   }
 
   async function toggleVoiceCall() {
     if (inVoice) {
       if (inScreen) stopScreenShare(true); if (inWebcam) stopWebcam(true);
-      rawMicStream?.getTracks().forEach(t => t.stop()); localStream?.getTracks().forEach(t => t.stop());
-      peer?.destroy();
+      if (rawMicStream) rawMicStream.getTracks().forEach(function (t) { t.stop(); });
+      if (localStream) localStream.getTracks().forEach(function (t) { t.stop(); });
+      if (peer) peer.destroy();
       rawMicStream = null; localStream = null; peer = null; myPeerId = null; inVoice = false; isMuted = false; isDeafened = false;
       if (appSettings.soundVoice) playUiBeep(420, 0.09);
       document.getElementById('connect-voice-btn').textContent = 'ПОДКЛЮЧИТЬСЯ'; document.getElementById('connect-voice-btn').className = 'btn-cyan';
       document.getElementById('mute-btn').style.display = 'none'; document.getElementById('deafen-btn').style.display = 'none';
       document.getElementById('voice-active-area').classList.remove('show');
       document.getElementById('audio-box').innerHTML = ''; document.getElementById('screen-grid').innerHTML = '';
-      stopBackgroundCallPersistence(); postVoiceState({ inVoice: false, inScreen: false, inCam: false }); return;
+      stopBackgroundCallPersistence(); renderServerChannels(); postVoiceState({ inVoice: false, inScreen: false, inCam: false }); return;
     }
     await ensureVoiceConnected();
   }
@@ -1327,31 +1810,31 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (!peer || !webcamStream || !pid || pid === myPeerId) return;
     if (camCalls[pid]) try { camCalls[pid].close(); } catch (e) {}
     const c = peer.call(pid, webcamStream, { metadata: { kind: 'cam', nick: myNick, voiceChannel: currentVoiceChannel } });
-    if (c) { camCalls[pid] = c; c.on('close', () => delete camCalls[pid]); c.on('error', () => delete camCalls[pid]); }
+    if (c) { camCalls[pid] = c; c.on('close', function () { delete camCalls[pid]; }); c.on('error', function () { delete camCalls[pid]; }); }
   }
 
   async function toggleWebcam() {
     if (!myVerified) return openAuthModal(true);
     if (inWebcam) { stopWebcam(false); return; }
     try {
-      webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }, audio: false });
-    } catch (e) { alert('Ошибка доступа к камере.'); return; }
-    if (!(await ensureVoiceConnected())) { webcamStream.getTracks().forEach(t => t.stop()); return; }
+      webcamStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: appSettings.camDeviceId ? { ideal: appSettings.camDeviceId } : undefined, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }, audio: false });
+    } catch (e) { alert('Разрешите доступ к камере!'); return; }
+    if (!(await ensureVoiceConnected())) { webcamStream.getTracks().forEach(function (t) { t.stop(); }); return; }
     inWebcam = true; document.getElementById('cam-btn').textContent = '🛑 Выкл камеру'; document.getElementById('cam-btn').classList.add('active-cam');
     document.getElementById('voice-active-area').classList.add('show');
-    webcamStream.getVideoTracks()[0].onended = () => stopWebcam(false);
+    webcamStream.getVideoTracks()[0].onended = function () { stopWebcam(false); };
     renderMediaTile('cam-local', webcamStream, myNick + ' (Ваша камера)', true, 'cam');
-    const d = await postVoiceState({ inVoice: true, inScreen, inCam: true, peerId: myPeerId, voiceChannel: currentVoiceChannel });
-    if (d?.peers) d.peers.forEach(p => callPeerWithWebcam(p));
+    const d = await postVoiceState({ inVoice: true, inScreen: inScreen, inCam: true, peerId: myPeerId, voiceChannel: currentVoiceChannel });
+    if (d && d.peers) d.peers.forEach(function (p) { callPeerWithWebcam(p); });
     updateFloatingOverlayUI();
   }
 
   function stopWebcam(silent) {
-    webcamStream?.getTracks().forEach(t => t.stop()); webcamStream = null;
-    Object.keys(camCalls).forEach(p => { try { camCalls[p].close(); } catch (e) {} }); camCalls = {};
+    if (webcamStream) { webcamStream.getTracks().forEach(function (t) { t.stop(); }); webcamStream = null; }
+    Object.keys(camCalls).forEach(function (p) { try { camCalls[p].close(); } catch (e) {} }); camCalls = {};
     inWebcam = false; document.getElementById('cam-btn').textContent = '📷 Камера'; document.getElementById('cam-btn').classList.remove('active-cam');
     removeMediaTile('cam-local');
-    if (!silent && inVoice) postVoiceState({ inVoice: true, inScreen, inCam: false, peerId: myPeerId, voiceChannel: currentVoiceChannel });
+    if (!silent && inVoice) postVoiceState({ inVoice: true, inScreen: inScreen, inCam: false, peerId: myPeerId, voiceChannel: currentVoiceChannel });
     updateFloatingOverlayUI();
   }
 
@@ -1359,27 +1842,27 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (!peer || !screenStream || !pid || pid === myPeerId) return;
     if (screenCalls[pid]) try { screenCalls[pid].close(); } catch (e) {}
     const c = peer.call(pid, screenStream, { metadata: { kind: 'screen', nick: myNick, voiceChannel: currentVoiceChannel } });
-    if (c) { screenCalls[pid] = c; c.on('close', () => delete screenCalls[pid]); c.on('error', () => delete screenCalls[pid]); }
+    if (c) { screenCalls[pid] = c; c.on('close', function () { delete screenCalls[pid]; }); c.on('error', function () { delete screenCalls[pid]; }); }
   }
 
   async function toggleScreenShare() {
     if (!myVerified) return openAuthModal(true);
     if (inScreen) { stopScreenShare(false); return; }
-    if (!navigator.mediaDevices?.getDisplayMedia) { alert('Демонстрация экрана недоступна.'); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) { alert('Демонстрация экрана недоступна на этом устройстве.'); return; }
     try { screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always', frameRate: { ideal: 30 } }, audio: true }); } catch (e) { return; }
-    if (!(await ensureVoiceConnected())) { screenStream.getTracks().forEach(t => t.stop()); return; }
+    if (!(await ensureVoiceConnected())) { screenStream.getTracks().forEach(function (t) { t.stop(); }); return; }
     inScreen = true; document.getElementById('screen-btn').textContent = '🛑 Стоп экран'; document.getElementById('screen-btn').classList.add('active-screen');
     document.getElementById('voice-active-area').classList.add('show');
-    screenStream.getVideoTracks()[0].onended = () => stopScreenShare(false);
+    screenStream.getVideoTracks()[0].onended = function () { stopScreenShare(false); };
     renderMediaTile('screen-local', screenStream, myNick + ' (Ваш экран)', true, 'screen');
     const d = await postVoiceState({ inVoice: true, inScreen: true, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel });
-    if (d?.peers) d.peers.forEach(p => callPeerWithScreen(p));
+    if (d && d.peers) d.peers.forEach(function (p) { callPeerWithScreen(p); });
     updateFloatingOverlayUI();
   }
 
   function stopScreenShare(silent) {
-    screenStream?.getTracks().forEach(t => t.stop()); screenStream = null;
-    Object.keys(screenCalls).forEach(p => { try { screenCalls[p].close(); } catch (e) {} }); screenCalls = {};
+    if (screenStream) { screenStream.getTracks().forEach(function (t) { t.stop(); }); screenStream = null; }
+    Object.keys(screenCalls).forEach(function (p) { try { screenCalls[p].close(); } catch (e) {} }); screenCalls = {};
     inScreen = false; document.getElementById('screen-btn').textContent = '🖥️ Экран'; document.getElementById('screen-btn').classList.remove('active-screen');
     removeMediaTile('screen-local');
     if (!silent && inVoice) postVoiceState({ inVoice: true, inScreen: false, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel });
@@ -1400,123 +1883,46 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       card = el('div', 'screen-card'); card.id = 'media-tile-' + id;
       const head = el('div', 'screen-card-head'), left = el('div', ''), right = el('div', ''); right.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;';
       left.appendChild(el('span', '', icon + title)); left.appendChild(el('span', 'screen-live-pill' + (kind === 'cam' ? ' cam' : ''), kind === 'cam' ? 'КАМЕРА' : 'СТРИМ'));
-      
-      const shieldBtn = el('button', 'btn-fs', '🛡️ Скрыть 18+'); shieldBtn.onclick = () => toggleMediaNsfwShield(card, shieldBtn); right.appendChild(shieldBtn);
-      const pipBtn = el('button', 'btn-fs', '🪟 В окне'); pipBtn.onclick = () => toggleExternalOverlay(); right.appendChild(pipBtn);
-      const fsBtn = el('button', 'btn-fs', '⛶ На весь экран'); fsBtn.onclick = () => card.querySelector('video')?.requestFullscreen?.(); right.appendChild(fsBtn);
-      if (isLocal) { const stopBtn = el('button', 'btn-fs', '✕ Выкл'); stopBtn.style.cssText = 'border-color:#f43f5e;color:#fda4af;'; stopBtn.onclick = () => kind === 'cam' ? stopWebcam(false) : stopScreenShare(false); right.appendChild(stopBtn); }
+      const shieldBtn = el('button', 'btn-fs', '🛡️ Скрыть 18+'); shieldBtn.onclick = function () { toggleMediaNsfwShield(card, shieldBtn); }; right.appendChild(shieldBtn);
+      const pipBtn = el('button', 'btn-fs', '🪟 В окне'); pipBtn.onclick = function () { toggleExternalOverlay(); }; right.appendChild(pipBtn);
+      const fsBtn = el('button', 'btn-fs', '⛶ Полный экран'); fsBtn.onclick = function () { const v = card.querySelector('video'); if (v && v.requestFullscreen) v.requestFullscreen(); }; right.appendChild(fsBtn);
+      if (isLocal) { const stopBtn = el('button', 'btn-fs', '✕ Выкл'); stopBtn.style.cssText = 'border-color:#f43f5e;color:#fda4af;'; stopBtn.onclick = function () { if (kind === 'cam') stopWebcam(false); else stopScreenShare(false); }; right.appendChild(stopBtn); }
       head.appendChild(left); head.appendChild(right);
-      
       const wrap = el('div', 'screen-video-wrap'), vid = document.createElement('video'); vid.autoplay = true; vid.playsInline = true; if (isLocal) vid.muted = true;
       const shield = el('div', 'media-nsfw-shield'); shield.innerHTML = '<div>🔞 Видеопоток скрыт фильтром 18+</div><span class="btn-cyan" style="padding:5px 12px;font-size:10px;">👁️ Показать камеру обратно</span>';
-      shield.onclick = () => toggleMediaNsfwShield(card, shieldBtn);
+      shield.onclick = function () { toggleMediaNsfwShield(card, shieldBtn); };
       wrap.appendChild(vid); wrap.appendChild(shield); card.appendChild(head); card.appendChild(wrap); grid.appendChild(card);
     } else {
       card.querySelector('.screen-card-head span').textContent = icon + title;
     }
-    const vEl = card.querySelector('video'); if (vEl && vEl.srcObject !== stream) { vEl.srcObject = stream; vEl.play().catch(() => {}); }
+    const vEl = card.querySelector('video'); if (vEl && vEl.srcObject !== stream) { vEl.srcObject = stream; vEl.play().catch(function () {}); }
   }
 
-  function removeMediaTile(id) { document.getElementById('media-tile-' + id)?.remove(); }
+  function removeMediaTile(id) { const c = document.getElementById('media-tile-' + id); if (c) c.remove(); }
 
   function toggleMute() {
     if (!localStream) return; isMuted = !isMuted;
-    localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+    localStream.getAudioTracks().forEach(function (t) { t.enabled = !isMuted; });
+    if (rawMicStream) rawMicStream.getAudioTracks().forEach(function (t) { t.enabled = !isMuted; });
     document.getElementById('mute-btn').textContent = isMuted ? '🔇 Микр. выкл' : '🎤 Микр. вкл'; updateFloatingOverlayUI();
   }
 
   function toggleDeafen() {
     isDeafened = !isDeafened; document.getElementById('deafen-btn').textContent = isDeafened ? '🔇 Звук выкл' : '🎧 Звук вкл';
-    document.querySelectorAll('#audio-box audio').forEach(a => { a.muted = isDeafened; a.volume = isDeafened ? 0 : 1; });
-    updateFloatingOverlayUI();
+    applyOutputVolumeToAll(); updateFloatingOverlayUI();
   }
 
   function playStream(id, stream) {
     if (document.getElementById('aud-' + id)) return;
     const a = document.createElement('audio'); a.id = 'aud-' + id; a.srcObject = stream; a.autoplay = true; a.playsInline = true;
-    document.getElementById('audio-box').appendChild(a); a.play().catch(() => {});
+    document.getElementById('audio-box').appendChild(a); applyOutputVolumeToAll(); a.play().catch(function () {});
   }
-  function removeAudio(id) { document.getElementById('aud-' + id)?.remove(); }
+  function removeAudio(id) { const a = document.getElementById('aud-' + id); if (a) a.remove(); }
 
-  function openSettingsModal(pane) {
-    closeMobileDrawers(); setMobActiveTab('mob-tab-profile');
-    document.getElementById('prof-nick-inp').value = myNick;
-    document.getElementById('prof-presence-sel').value = myProfile.presence || 'online';
-    document.getElementById('prof-status-inp').value = myProfile.customStatus || '';
-    document.getElementById('prof-bio-inp').value = myProfile.bio || '';
-    document.getElementById('prof-interests-inp').value = myProfile.interests || '';
-    updateProfilePreview(true);
-    switchSettingsPane(pane || 'profile');
-    document.getElementById('settings-modal').classList.add('open');
-  }
-
-  function closeSettingsModal() { document.getElementById('settings-modal').classList.remove('open'); setMobActiveTab('mob-tab-chat'); }
-  function switchSettingsPane(pId) {
-    document.querySelectorAll('.settings-nav-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-pane') === pId));
-    document.querySelectorAll('.settings-pane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + pId));
-  }
-
-  function updateProfilePreview(skipSync) {
-    const n = document.getElementById('prof-nick-inp').value.trim().slice(0, 24) || myNick;
-    const pr = document.getElementById('prof-presence-sel').value || 'online';
-    const st = document.getElementById('prof-status-inp').value.trim().slice(0, 60);
-    const bio = document.getElementById('prof-bio-inp').value.trim().slice(0, 220);
-    const intr = document.getElementById('prof-interests-inp').value.trim().slice(0, 160);
-
-    document.getElementById('preview-banner').style.background = myProfile.bannerColor || '#0d9488';
-    const ava = document.getElementById('preview-ava'); ava.textContent = n.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#e11d48';
-    document.getElementById('preview-nick').textContent = n; document.getElementById('preview-status').textContent = st || 'В эфире'; document.getElementById('preview-bio').textContent = bio || 'О себе...';
-    const tb = document.getElementById('preview-tags'); tb.innerHTML = '';
-    intr.split(',').map(x => x.trim()).filter(Boolean).forEach(tg => tb.appendChild(el('span', 'dp-tag', tg)));
-
-    if (!skipSync) {
-      myNick = n; myProfile.presence = pr; myProfile.customStatus = st; myProfile.bio = bio; myProfile.interests = intr;
-      try { localStorage.setItem('cyber_nick', myNick); localStorage.setItem('cyber_profile', JSON.stringify(myProfile)); } catch (e) {}
-      setPersistCookie('cyber_nick', myNick); saveLocalVault(); applyNickUI();
-      if (profileSyncTimer) clearTimeout(profileSyncTimer);
-      profileSyncTimer = setTimeout(() => syncProfileToServer(), 350);
-    }
-  }
-
-  function syncProfileToServer() {
-    return fetch('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, nick: myNick, presence: myProfile.presence, customStatus: myProfile.customStatus, bio: myProfile.bio, interests: myProfile.interests, bannerColor: myProfile.bannerColor, avatarColor: myProfile.avatarColor }) }).catch(() => {});
-  }
-  async function saveProfileSettings() { updateProfilePreview(false); await syncProfileToServer(); closeSettingsModal(); }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeSettingsModal(); closeViewProfileModal(); closeInviteModal(); closeMobileDrawers(); } });
 
   applyNickUI(); applyAppearanceFromStorage(); renderServersRail(); renderServerChannels(); connectEventStream();
   if (!myVerified) openAuthModal(true);
-
-  function rerenderChatMessages() {
-    const box = document.getElementById('messages-list'); box.innerHTML = '';
-    if (!cachedMessages?.length) { box.innerHTML = '<div id="empty-hint" style="font-size:11px;color:var(--text-muted);">Здесь пока тихо. Напишите первым.</div>'; return; }
-    cachedMessages.forEach(addMsgToDOM);
-  }
-
-  function addMsgToDOM(m) {
-    const box = document.getElementById('messages-list'); document.getElementById('empty-hint')?.remove();
-    const author = String(m.author || '?'), viol = checkContentViolation(m.text, m.flags);
-    const div = el('div', 'msg-item');
-    div.innerHTML = '<div class="msg-ava">' + escapeHtml(author.charAt(0).toUpperCase()) + '</div><div style="flex:1;min-width:0;"><div><span class="msg-author">' + escapeHtml(author) + '</span><span class="msg-time">' + escapeHtml(m.time) + '</span></div><div class="msg-text">' + buildMessageBodyHTML(m.text, viol) + '</div></div>';
-    box.appendChild(div); document.getElementById('chat-scroll').scrollTop = document.getElementById('chat-scroll').scrollHeight;
-  }
-
-  function buildMessageBodyHTML(text, violations) {
-    const safeText = escapeHtml(text), imgMatch = String(text || '').match(IMAGE_URL_RX);
-    let inner = '<div>' + safeText + '</div>';
-    if (imgMatch) inner += '<img class="chat-inline-media" src="' + escapeHtml(imgMatch[0]) + '" alt="media" loading="lazy">';
-    if (!violations?.length) return inner;
-    const rStr = escapeHtml(violations.join(', '));
-    if (appSettings.filterAction === 'blur') {
-      return '<div class="spoiler-blur-wrap" onclick="toggleSpoiler(this)"><div class="spoiler-badge">🛡️ Скрыто фильтром (' + rStr + ')</div><div class="spoiler-blur-content">' + inner + '</div></div>';
-    }
-    return '<div class="filtered-block-card">🛡️ Заблокировано фильтром (' + rStr + ')</div>';
-  }
-
-  function friendAction(action, pid) {
-    if (!myVerified) { openAuthModal(true); return Promise.resolve(); }
-    if (action === 'remove') { localVault.friends = (localVault.friends || []).filter(x => x !== pid); saveLocalVault(); }
-    return fetch('/api/friend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, action, target: pid }) }).then(r => r.json()).catch(() => {});
-  }
 </script>
 </body>
 </html>`;
@@ -1550,6 +1956,11 @@ const server = http.createServer(async (req, res) => {
         name: 'СИГНАЛ — Ночной клуб', short_name: 'СИГНАЛ', start_url: '/', display: 'standalone', background_color: '#040609', theme_color: '#040609',
         icons: [{ src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23e11d48' width='100' height='100' rx='22'/><text y='.88em' font-size='68' x='16' fill='white'>⚡</text></svg>", sizes: '192x192 512x512', type: 'image/svg+xml' }]
       }));
+    }
+
+    if (req.method === 'GET' && url.pathname === '/sw.js') {
+      res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+      return res.end("self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',()=>{});");
     }
 
     if (req.method === 'GET' && url.pathname === '/healthz') {
@@ -1655,7 +2066,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/api/history') {
       const room = safeRoom(url.searchParams.get('room')), ch = safeChannel(room, url.searchParams.get('channel'));
-      return sendJson(res, 200, (rooms[room]?.[ch]) || []);
+      return sendJson(res, 200, (rooms[room] && rooms[room][ch]) || []);
     }
 
     if (req.method === 'GET' && url.pathname === '/api/invite-info') return sendJson(res, 200, { publicUrl: null });
@@ -1663,19 +2074,19 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/auth-password') {
       const body = await readBody(req), nick = cleanNick(body.nick), pass = String(body.password || ''), room = safeRoom(body.room), prevUid = validUid(body.uid) ? body.uid : null;
       if (!nick || nick.length < 2) return sendJson(res, 400, { error: 'Введите позывной!' });
-      if (prevUid && users[prevUid]?.verified && !pass) {
+      if (prevUid && users[prevUid] && users[prevUid].verified && !pass) {
         users[prevUid].nick = nick; scheduleSave(); notifyAllRoomsOfUser(prevUid); notifyFriendsOf(prevUid); sendSocial(prevUid);
         return sendJson(res, 200, { ok: true, uid: prevUid, pid: users[prevUid].pid, nick });
       }
       if (pass.length < 4) return sendJson(res, 400, { error: 'Пароль от 4 символов!' });
       const exUid = nickToUid[nick.toLowerCase()];
-      if (exUid && users[exUid]?.passHash) {
+      if (exUid && users[exUid] && users[exUid].passHash) {
         if (!verifyPassword(pass, users[exUid].passHash)) return sendJson(res, 400, { error: 'Неверный пароль!' });
         const u = mergeAccount(prevUid, exUid, nick, '', '', ''); addMember(room, exUid);
         scheduleSave(); notifyAllRoomsOfUser(exUid); notifyFriendsOf(exUid); sendSocial(exUid);
         return sendJson(res, 200, { ok: true, uid: exUid, pid: u.pid, nick: u.nick });
       }
-      const finalUid = exUid || (prevUid && !users[prevUid]?.verified ? prevUid : crypto.randomBytes(16).toString('hex'));
+      const finalUid = exUid || (prevUid && (!users[prevUid] || !users[prevUid].verified) ? prevUid : crypto.randomBytes(16).toString('hex'));
       const u = mergeAccount(prevUid, finalUid, nick, '', '', hashPassword(pass)); addMember(room, finalUid);
       scheduleSave(); notifyAllRoomsOfUser(finalUid); notifyFriendsOf(finalUid); sendSocial(finalUid);
       return sendJson(res, 200, { ok: true, uid: finalUid, pid: u.pid, nick: u.nick });
@@ -1687,7 +2098,7 @@ const server = http.createServer(async (req, res) => {
       if (!name) return sendJson(res, 400, { error: 'Введите название сервера!' });
       const newId = 'cy-' + crypto.randomBytes(2).toString('hex');
       ensureServer(newId, name, String(body.desc || '').trim().slice(0, 80)); addMember(newId, uid);
-      rooms[newId]['игровая-комната'].push({ author: 'СИСТЕМА', time: '00:00', text: `Сервер «${name}» создан!` });
+      rooms[newId]['игровая-комната'].push({ author: 'СИСТЕМА', time: '00:00', text: 'Сервер «' + name + '» создан!' });
       scheduleSave(newId); broadcastServers();
       return sendJson(res, 200, { ok: true, serverId: newId });
     }
@@ -1712,7 +2123,7 @@ const server = http.createServer(async (req, res) => {
       if (!text) return sendJson(res, 400, { error: 'Пусто' });
       const c = clients.find(x => x.id === body.id), uid = c ? c.uid : body.uid;
       if (!validUid(uid)) return sendJson(res, 403, { error: 'Войдите в аккаунт' });
-      const u = ensureUser(uid, body.author || c?.nick || 'Участник', true);
+      const u = ensureUser(uid, body.author || (c && c.nick) || 'Участник', true);
       const now = new Date(), time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
       const msg = { author: u.nick, time, text, flags: detectFlags(text) };
       const rm = getRoom(room); if (!rm[ch]) rm[ch] = []; rm[ch].push(msg);
@@ -1759,7 +2170,10 @@ async function boot() {
   for (let i = 1; i <= 5; i++) {
     try { await loadData(); break; } catch (e) { if (i === 5) process.exit(1); await new Promise(r => setTimeout(r, 2000)); }
   }
-  server.listen(PORT, '0.0.0.0', () => startTelegramBotPolling());
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log('⚡ СЕРВЕР СИГНАЛ ЗАПУЩЕН НА ПОРТУ ' + PORT);
+    startTelegramBotPolling();
+  });
 }
 boot();
 
