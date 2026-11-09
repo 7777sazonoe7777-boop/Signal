@@ -352,40 +352,46 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#1e1f22">
-<title>СИГНАЛ — Сообщество</title>
+<meta name="theme-color" content="#04060a">
+<title>СИГНАЛ // CYBER.NET</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
   :root {
-    --bg-servers: #1e1f22;
-    --bg-channels: #2b2d31;
-    --bg-chat: #313338;
-    --bg-members: #2b2d31;
-    --bg-userbar: #232428;
-    --bg-input: #383a40;
-    --bg-hover: #35373c;
-    --bg-active: #404249;
-    --brand: #5865f2;
-    --brand-hover: #4752c4;
-    --streamer: #593695;
-    --green: #23a55a;
-    --red: #f23f43;
-    --yellow: #f0b232;
-    --text-main: #f2f3f5;
-    --text-normal: #dbdee1;
-    --text-muted: #949ba4;
-    --text-dim: #80848e;
-    --border: rgba(255, 255, 255, 0.06);
-    --cyan: #5865f2;
-    --cyan-bright: #5865f2;
-    --cyan-border: rgba(88, 101, 242, 0.45);
+    --bg-servers: #04060a;
+    --bg-channels: #070b12;
+    --bg-chat: #090e17;
+    --bg-members: #070b12;
+    --bg-userbar: #030508;
+    --bg-input: #0d1522;
+    --bg-hover: rgba(0, 240, 255, 0.08);
+    --bg-active: rgba(0, 240, 255, 0.16);
+    --brand: #00f0ff;
+    --brand-hover: #38f6ff;
+    --pink: #ff0055;
+    --streamer: #1a0933;
+    --green: #00ff9d;
+    --red: #ff0055;
+    --yellow: #fcee09;
+    --text-main: #e2f8ff;
+    --text-normal: #b8d4e3;
+    --text-muted: #5e7a90;
+    --text-dim: #3d5568;
+    --border: rgba(0, 240, 255, 0.14);
+    --cyan: #00f0ff;
+    --cyan-bright: #00f0ff;
+    --cyan-border: rgba(0, 240, 255, 0.4);
     --chat-font-size: 14px;
+    --pentagon: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+    --cyber-cut: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    --cyber-cut-sm: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+    --pcb-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='none' stroke='%2300f0ff' stroke-width='0.8' stroke-opacity='0.055'%3E%3Cpath d='M0 20h30l15 15v30l15 15h40l20-20h20M20 0v25l20 20h35l15-15h50M0 95h25l20 20v25M80 140v-25l20-20h40M55 140v-30l-15-15H15L0 80M110 0v30l-15 15v25'/%3E%3C/g%3E%3Cg fill='%2300f0ff' fill-opacity='0.08'%3E%3Ccircle cx='30' cy='20' r='2'/%3E%3Ccircle cx='45' cy='35' r='2'/%3E%3Ccircle cx='60' cy='80' r='2'/%3E%3Ccircle cx='90' cy='30' r='2'/%3E%3Ccircle cx='45' cy='115' r='2'/%3E%3Ccircle cx='100' cy='95' r='2'/%3E%3Ccircle cx='95' cy='70' r='2'/%3E%3C/g%3E%3Cg fill='%23ff0055' fill-opacity='0.06'%3E%3Ccircle cx='40' cy='45' r='1.8'/%3E%3Ccircle cx='100' cy='80' r='1.8'/%3E%3Ccircle cx='25' cy='95' r='1.8'/%3E%3C/g%3E%3C/svg%3E");
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body {
-    font-family: 'gg sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background: var(--bg-servers);
+    font-family: 'Segoe UI', 'Rajdhani', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    background-color: var(--bg-servers);
+    background-image: var(--pcb-pattern);
     color: var(--text-main);
     height: 100vh;
     height: 100dvh;
@@ -394,7 +400,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     user-select: none;
   }
 
-  /* Основная сетка как в примере: 72px серверы слева на всю высоту + правая часть с баннером стримера сверху */
   .app-layout {
     display: flex;
     width: 100%;
@@ -402,18 +407,21 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     overflow: hidden;
   }
 
-  /* 1. ЛЕВАЯ КОЛОНКА СЕРВЕРОВ (72px) */
+  /* 1. ЛЕВАЯ КОЛОНКА СЕРВЕРОВ (72px) — ПЯТИУГОЛЬНЫЕ ЗНАЧКИ */
   .servers-rail {
     width: 72px;
-    background: var(--bg-servers);
+    background-color: var(--bg-servers);
+    background-image: var(--pcb-pattern);
+    border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 12px 0;
-    gap: 8px;
+    gap: 10px;
     overflow-y: auto;
     flex-shrink: 0;
     z-index: 20;
+    box-shadow: inset -4px 0 16px rgba(0, 0, 0, 0.7);
   }
   .servers-rail::-webkit-scrollbar { display: none; }
 
@@ -423,76 +431,97 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     display: flex;
     justify-content: center;
     align-items: center;
+    filter: drop-shadow(0 0 5px rgba(0, 240, 255, 0.18));
+    transition: filter 0.2s;
+  }
+  .srv-pill-wrap:hover, .srv-pill-wrap.active {
+    filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.65));
   }
   .srv-pill-bar {
     position: absolute;
     left: 0;
     width: 4px;
-    height: 8px;
-    background: #fff;
-    border-radius: 0 4px 4px 0;
+    height: 10px;
+    background: var(--brand);
+    box-shadow: 0 0 8px var(--brand);
+    clip-path: polygon(0 0, 100% 20%, 100% 80%, 0 100%);
     opacity: 0;
     transition: 0.18s;
   }
-  .srv-pill-wrap:hover .srv-pill-bar { opacity: 1; height: 20px; }
-  .srv-pill-wrap.active .srv-pill-bar { opacity: 1; height: 40px; }
+  .srv-pill-wrap:hover .srv-pill-bar { opacity: 1; height: 22px; }
+  .srv-pill-wrap.active .srv-pill-bar { opacity: 1; height: 40px; background: var(--pink); box-shadow: 0 0 12px var(--pink); }
 
+  /* Пятиугольные значки серверов */
   .srv-ico {
     width: 48px;
     height: 48px;
-    border-radius: 50%;
-    background: var(--bg-chat);
-    color: var(--text-normal);
-    font-weight: 700;
-    font-size: 15px;
+    clip-path: var(--pentagon);
+    background: linear-gradient(145deg, #101929, #090f1a);
+    color: var(--brand);
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.5px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: border-radius 0.18s, background 0.18s, color 0.18s;
+    transition: transform 0.18s, background 0.18s, color 0.18s;
     flex-shrink: 0;
-    overflow: hidden;
+    padding-top: 3px;
   }
   .srv-ico:hover, .srv-pill-wrap.active .srv-ico {
-    border-radius: 16px;
-    background: var(--brand);
-    color: #fff;
+    background: linear-gradient(135deg, var(--brand), #0077ff);
+    color: #03060c;
+    transform: scale(1.06);
   }
-  .srv-ico.home-ico { background: var(--bg-chat); font-size: 20px; }
-  .srv-ico.home-ico:hover { background: var(--brand); }
+  .srv-ico.home-ico {
+    background: linear-gradient(135deg, var(--pink), #990033);
+    color: #fff;
+    font-size: 19px;
+  }
 
   .rail-sep {
-    width: 32px;
-    height: 2px;
-    background: rgba(255,255,255,0.08);
-    border-radius: 1px;
+    width: 36px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--brand), transparent);
+    opacity: 0.4;
     margin: 2px 0;
     flex-shrink: 0;
   }
 
   .srv-ico-action {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: var(--bg-chat);
+    width: 46px;
+    height: 46px;
+    clip-path: var(--pentagon);
+    background: #0c1422;
     color: var(--green);
-    font-size: 22px;
+    font-size: 20px;
+    font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: 0.18s;
     flex-shrink: 0;
+    padding-top: 2px;
+    filter: drop-shadow(0 0 4px rgba(0, 255, 157, 0.25));
   }
   .srv-ico-action:hover {
-    border-radius: 16px;
     background: var(--green);
-    color: #fff;
+    color: #03060c;
+    transform: scale(1.06);
   }
-  .srv-ico-action.neutral { color: var(--text-normal); font-size: 18px; }
-  .srv-ico-action.neutral:hover { background: var(--brand); color: #fff; }
+  .srv-ico-action.neutral {
+    color: var(--brand);
+    font-size: 17px;
+    filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.25));
+  }
+  .srv-ico-action.neutral:hover {
+    background: var(--brand);
+    color: #03060c;
+  }
 
-  /* ПРАВАЯ ОБЛАСТЬ (Баннер стримера сверху + 3 колонки внизу) */
+  /* ПРАВАЯ ОБЛАСТЬ */
   .right-area {
     flex: 1;
     display: flex;
@@ -502,46 +531,51 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     overflow: hidden;
   }
 
-  /* Фиолетовая плашка режима стримера сверху */
+  /* Верхняя кибер-плашка режима стримера */
   .streamer-bar {
     height: 36px;
-    background: linear-gradient(90deg, #593695 0%, #6441a5 100%);
+    background: linear-gradient(90deg, #16072b 0%, #3b0747 50%, #16072b 100%);
+    border-bottom: 1px solid rgba(255, 0, 85, 0.45);
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0 14px;
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
     position: relative;
     flex-shrink: 0;
     gap: 12px;
+    box-shadow: 0 2px 14px rgba(255, 0, 85, 0.18);
   }
   .streamer-bar.hidden { display: none; }
   .streamer-btn-disable {
-    background: #fff;
-    color: #1e1f22;
+    background: var(--pink);
+    color: #fff;
     border: none;
-    border-radius: 4px;
-    padding: 3px 10px;
-    font-size: 12px;
-    font-weight: 700;
+    clip-path: var(--cyber-cut-sm);
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
     cursor: pointer;
+    letter-spacing: 0.5px;
   }
   .streamer-btn-hide {
     position: absolute;
     right: 12px;
-    background: transparent;
-    color: #fff;
-    border: 1px solid rgba(255,255,255,0.45);
-    border-radius: 4px;
+    background: rgba(0, 240, 255, 0.08);
+    color: var(--brand);
+    border: 1px solid var(--border);
+    clip-path: var(--cyber-cut-sm);
     padding: 3px 10px;
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: 700;
     cursor: pointer;
   }
 
-  /* Рабочая область из 3 колонок: 240px каналы | 1fr чат | 240px участники */
+  /* Рабочая сетка: 240px каналы | 1fr чат | 240px участники */
   .workspace {
     flex: 1;
     display: grid;
@@ -559,7 +593,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   /* 2. КОЛОНКА КАНАЛОВ (240px) */
   .channels-panel {
-    background: var(--bg-channels);
+    background-color: var(--bg-channels);
+    background-image: var(--pcb-pattern);
+    border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -569,7 +605,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .srv-header {
     height: 48px;
     padding: 0 16px;
-    border-bottom: 1px solid rgba(0,0,0,0.28);
+    border-bottom: 1px solid var(--border);
+    background: rgba(0, 240, 255, 0.03);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -580,13 +617,16 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .srv-header:hover { background: var(--bg-hover); }
   .srv-title {
     font-size: 15px;
-    font-weight: 700;
-    color: #fff;
+    font-weight: 800;
+    color: var(--brand);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    text-shadow: 0 0 8px rgba(0, 240, 255, 0.35);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .srv-chevron { color: var(--text-normal); font-size: 14px; }
+  .srv-chevron { color: var(--brand); font-size: 13px; font-weight: 800; }
 
   .channels-scroll {
     flex: 1;
@@ -594,55 +634,66 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     padding: 8px 8px 12px;
   }
   .channels-scroll::-webkit-scrollbar { width: 4px; }
-  .channels-scroll::-webkit-scrollbar-thumb { background: #1a1b1e; border-radius: 4px; }
+  .channels-scroll::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, 0.25); }
 
-  /* Блок "Нужно бустов" как на скриншоте */
+  /* Кибер-шкала бустов (Энергоблок узла) */
   .boost-box {
-    padding: 6px 8px 10px;
+    padding: 8px 10px 10px;
     margin-bottom: 6px;
+    background: rgba(0, 240, 255, 0.03);
+    border: 1px solid rgba(0, 240, 255, 0.12);
+    clip-path: var(--cyber-cut-sm);
   }
   .boost-top {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 12px;
-    color: var(--text-normal);
-    font-weight: 600;
+    font-size: 11px;
+    color: var(--text-main);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
     margin-bottom: 6px;
   }
-  .boost-count { color: var(--text-muted); font-size: 11px; font-weight: 500; }
+  .boost-count { color: var(--pink); font-size: 10px; font-weight: 800; }
   .boost-bar-bg {
-    height: 4px;
-    background: #1e1f22;
-    border-radius: 999px;
+    height: 5px;
+    background: #030508;
+    border: 1px solid rgba(0, 240, 255, 0.2);
     overflow: hidden;
   }
   .boost-bar-fill {
-    width: 14%;
+    width: 24%;
     height: 100%;
-    background: linear-gradient(90deg, #5865f2, #eb459e);
-    border-radius: 999px;
+    background: linear-gradient(90deg, var(--brand), var(--pink));
+    box-shadow: 0 0 8px var(--brand);
   }
 
-  /* Навигационные пункты под бустами (Пригласить людей, Участники, Бусты сервера) */
   .QuickNav-item {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 7px 8px;
-    border-radius: 4px;
-    color: var(--text-muted);
-    font-size: 14px;
-    font-weight: 500;
+    padding: 7px 9px;
+    clip-path: var(--cyber-cut-sm);
+    color: var(--text-normal);
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
     margin-bottom: 2px;
+    border-left: 2px solid transparent;
+    transition: 0.15s;
   }
-  .QuickNav-item:hover { background: var(--bg-hover); color: var(--text-normal); }
-  .QuickNav-ico { width: 18px; text-align: center; font-size: 14px; color: var(--text-muted); }
+  .QuickNav-item:hover {
+    background: var(--bg-hover);
+    color: var(--brand);
+    border-left-color: var(--brand);
+  }
+  .QuickNav-ico { width: 18px; text-align: center; font-size: 13px; color: var(--brand); }
 
   .sidebar-divider {
     height: 1px;
-    background: rgba(255,255,255,0.06);
+    background: linear-gradient(90deg, var(--brand), transparent);
+    opacity: 0.22;
     margin: 8px 4px;
   }
 
@@ -650,62 +701,77 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 4px 4px 4px;
-    font-size: 12px;
-    font-weight: 600;
+    padding: 10px 6px 4px 6px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
     color: var(--text-muted);
     cursor: pointer;
   }
-  .cat-header:hover { color: var(--text-normal); }
+  .cat-header:hover { color: var(--brand); }
   .cat-add-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-size: 18px;
+    background: rgba(0, 240, 255, 0.08);
+    border: 1px solid var(--border);
+    color: var(--brand);
+    width: 20px;
+    height: 20px;
+    clip-path: var(--pentagon);
+    font-size: 14px;
+    font-weight: 800;
     line-height: 1;
     cursor: pointer;
-    padding: 0 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
-  .cat-add-btn:hover { color: #fff; }
+  .cat-add-btn:hover { background: var(--brand); color: #03060c; }
 
   .ch-btn, .voice-ch-box {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 8px;
-    border-radius: 4px;
-    font-size: 14px;
-    font-weight: 500;
+    padding: 7px 9px;
+    clip-path: var(--cyber-cut-sm);
+    font-size: 13.5px;
+    font-weight: 600;
     color: var(--text-muted);
     cursor: pointer;
-    margin-bottom: 2px;
+    margin-bottom: 3px;
+    border-left: 2px solid transparent;
+    transition: 0.15s;
   }
   .ch-btn:hover, .voice-ch-box:hover {
     background: var(--bg-hover);
-    color: var(--text-normal);
+    color: var(--text-main);
+    border-left-color: rgba(0, 240, 255, 0.5);
   }
   .ch-btn.active {
     background: var(--bg-active);
     color: #fff;
+    border-left-color: var(--brand);
+    box-shadow: inset 0 0 12px rgba(0, 240, 255, 0.12);
   }
   .voice-ch-box.active {
-    background: rgba(35, 165, 90, 0.16);
-    color: #fff;
+    background: rgba(0, 255, 157, 0.14);
+    color: var(--green);
+    border-left-color: var(--green);
   }
   .ch-left {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
     min-width: 0;
     flex: 1;
   }
   .ch-hash {
-    color: var(--text-dim);
-    font-size: 18px;
-    font-weight: 600;
+    color: var(--brand);
+    font-size: 14px;
+    font-weight: 800;
     line-height: 1;
     width: 18px;
     text-align: center;
+    opacity: 0.8;
   }
   .ch-name-txt {
     white-space: nowrap;
@@ -717,31 +783,32 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     align-items: center;
     gap: 6px;
     opacity: 0;
-    color: var(--text-muted);
-    font-size: 12px;
+    color: var(--brand);
+    font-size: 11px;
   }
   .ch-btn:hover .ch-right-icons, .ch-btn.active .ch-right-icons { opacity: 1; }
   .ch-unread-badge {
-    background: var(--red);
+    background: var(--pink);
     color: #fff;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 1px 6px;
-    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 6px;
+    clip-path: var(--pentagon);
   }
   .off-badge {
-    font-size: 10px;
+    font-size: 9px;
     color: var(--text-muted);
     padding: 1px 5px;
-    border-radius: 4px;
+    font-weight: 800;
   }
-  .off-badge.on { color: #23a55a; font-weight: 700; }
+  .off-badge.on { color: var(--green); text-shadow: 0 0 6px var(--green); }
 
-  /* Нижняя панель пользователя (52px) как в Discord */
+  /* Нижняя панель пользователя (52px) с пятиугольным аватаром */
   .user-bar {
     height: 52px;
     padding: 0 8px;
     background: var(--bg-userbar);
+    border-top: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -753,41 +820,45 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     align-items: center;
     gap: 8px;
     padding: 4px;
-    border-radius: 4px;
+    clip-path: var(--cyber-cut-sm);
     cursor: pointer;
     flex: 1;
     min-width: 0;
   }
   .user-info:hover { background: var(--bg-hover); }
-  .user-ava-wrap { position: relative; flex-shrink: 0; }
+  .user-ava-wrap {
+    position: relative;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.35));
+  }
   .user-ava {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: var(--brand);
+    width: 34px;
+    height: 34px;
+    clip-path: var(--pentagon);
+    background: var(--pink);
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 11px;
+    font-weight: 800;
+    padding-top: 2px;
   }
   .user-presence-dot {
     position: absolute;
-    right: -1px;
-    bottom: -1px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
+    right: -2px;
+    bottom: -2px;
+    width: 11px;
+    height: 11px;
+    clip-path: var(--pentagon);
     background: var(--green);
-    border: 2px solid var(--bg-userbar);
   }
   .user-presence-dot.idle { background: var(--yellow); }
   .user-presence-dot.dnd { background: var(--red); }
   .user-presence-dot.invisible, .user-presence-dot.offline { background: var(--text-dim); }
   .user-name {
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     color: #fff;
     white-space: nowrap;
     overflow: hidden;
@@ -795,8 +866,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     line-height: 1.2;
   }
   .user-sub {
-    font-size: 11px;
-    color: var(--text-muted);
+    font-size: 10px;
+    color: var(--brand);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -805,27 +876,31 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .user-bar-controls {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 3px;
   }
   .ub-ctrl-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
-    background: transparent;
+    width: 30px;
+    height: 30px;
+    clip-path: var(--pentagon);
+    background: rgba(0, 240, 255, 0.07);
     border: none;
-    color: var(--text-normal);
-    font-size: 15px;
+    color: var(--brand);
+    font-size: 13px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    transition: 0.15s;
   }
-  .ub-ctrl-btn:hover { background: var(--bg-hover); color: #fff; }
-  .ub-ctrl-btn.off { color: var(--red); }
+  .ub-ctrl-btn:hover { background: var(--brand); color: #03060c; }
+  .ub-ctrl-btn.off { background: rgba(255, 0, 85, 0.22); color: var(--pink); }
 
-  /* 3. ЦЕНТРАЛЬНАЯ ОБЛАСТЬ ЧАТА */
+  /* 3. ЦЕНТРАЛЬНАЯ ОБЛАСТЬ ЧАТА (ФОН ПЛАТЫ PCB) */
   .main-chat {
-    background: var(--bg-chat);
+    background-color: var(--bg-chat);
+    background-image:
+      radial-gradient(circle at 50% 15%, rgba(0, 240, 255, 0.045), transparent 60%),
+      var(--pcb-pattern);
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -833,11 +908,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     height: 100%;
   }
 
-  /* Верхняя панель канала (48px) с иконками колокольчика, пина, участников и поиском */
   .chat-topbar {
     height: 48px;
     padding: 0 16px;
-    border-bottom: 1px solid rgba(0,0,0,0.28);
+    border-bottom: 1px solid var(--border);
+    background: rgba(4, 7, 12, 0.8);
+    backdrop-filter: blur(6px);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -852,50 +928,57 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     flex: 1;
   }
   .hash-large {
-    color: var(--text-dim);
-    font-size: 22px;
-    font-weight: 500;
+    color: var(--brand);
+    font-size: 18px;
+    font-weight: 800;
     line-height: 1;
+    text-shadow: 0 0 8px var(--brand);
   }
   .top-ch-name {
     font-size: 15px;
-    font-weight: 700;
+    font-weight: 800;
     color: #fff;
+    letter-spacing: 0.4px;
     white-space: nowrap;
   }
   .top-ch-desc {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     margin-left: 8px;
     padding-left: 10px;
-    border-left: 1px solid rgba(255,255,255,0.1);
+    border-left: 1px solid var(--border);
   }
   .chat-topbar-right {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
     flex-shrink: 0;
   }
   .top-ico-btn {
-    background: transparent;
+    width: 30px;
+    height: 30px;
+    clip-path: var(--pentagon);
+    background: rgba(0, 240, 255, 0.08);
     border: none;
-    color: var(--text-normal);
-    font-size: 17px;
+    color: var(--brand);
+    font-size: 14px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: 0.15s;
   }
-  .top-ico-btn:hover { color: #fff; }
+  .top-ico-btn:hover { background: var(--brand); color: #03060c; }
   .top-search-box {
     width: 195px;
-    height: 24px;
-    background: #1e1f22;
-    border-radius: 4px;
-    padding: 0 8px;
+    height: 26px;
+    background: #04070c;
+    border: 1px solid var(--border);
+    clip-path: var(--cyber-cut-sm);
+    padding: 0 10px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -904,22 +987,22 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     background: transparent;
     border: none;
     color: var(--text-normal);
-    font-size: 12px;
+    font-size: 11.5px;
     width: 100%;
     outline: none;
   }
-  .top-search-box span { color: var(--text-muted); font-size: 12px; }
+  .top-search-box span { color: var(--brand); font-size: 12px; }
 
   .mob-top-btn {
     display: none;
     background: transparent;
     border: none;
-    color: var(--text-normal);
+    color: var(--brand);
     font-size: 20px;
     cursor: pointer;
   }
 
-  /* Лента сообщений как в Discord */
+  /* Лента сообщений */
   .chat-scroll-area {
     flex: 1;
     overflow-y: auto;
@@ -929,108 +1012,137 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     gap: 4px;
     min-height: 0;
   }
-  .chat-scroll-area::-webkit-scrollbar { width: 8px; }
-  .chat-scroll-area::-webkit-scrollbar-thumb { background: #1a1b1e; border-radius: 4px; }
+  .chat-scroll-area::-webkit-scrollbar { width: 6px; }
+  .chat-scroll-area::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, 0.25); }
 
   .hero-banner {
-    padding: 12px 16px 16px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 14px 16px 16px;
+    background: linear-gradient(135deg, rgba(0, 240, 255, 0.06), rgba(255, 0, 85, 0.04));
+    border: 1px solid var(--border);
+    clip-path: var(--cyber-cut);
     margin: 0 16px 8px;
   }
-  .hero-banner h2 { font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 4px; }
-  .hero-banner p { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+  .hero-banner h2 {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--brand);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 4px;
+  }
+  .hero-banner p { font-size: 12.5px; color: var(--text-normal); margin-bottom: 10px; }
   .pill-tags-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .pill-tag {
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 600;
-    background: #2b2d31;
-    color: var(--text-normal);
+    padding: 5px 12px;
+    clip-path: var(--cyber-cut-sm);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: rgba(0, 240, 255, 0.1);
+    border: 1px solid var(--border);
+    color: var(--brand);
     cursor: pointer;
+    transition: 0.15s;
   }
-  .pill-tag:hover { background: var(--bg-active); color: #fff; }
-  .pill-tag.pink { background: var(--brand); color: #fff; }
+  .pill-tag:hover { background: var(--brand); color: #03060c; }
+  .pill-tag.pink {
+    background: rgba(255, 0, 85, 0.18);
+    border-color: rgba(255, 0, 85, 0.5);
+    color: #ff4d88;
+  }
+  .pill-tag.pink:hover { background: var(--pink); color: #fff; }
 
-  /* Разделитель дат */
   .date-divider {
     display: flex;
     align-items: center;
-    margin: 12px 16px 8px;
-    color: var(--text-muted);
-    font-size: 11px;
-    font-weight: 600;
+    margin: 10px 16px 6px;
+    color: var(--brand);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
   .date-divider::before, .date-divider::after {
     content: '';
     flex: 1;
     height: 1px;
-    background: rgba(255,255,255,0.07);
+    background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.3), transparent);
   }
-  .date-divider span { padding: 0 8px; }
+  .date-divider span {
+    padding: 2px 10px;
+    background: rgba(0, 240, 255, 0.06);
+    border: 1px solid var(--border);
+    clip-path: var(--cyber-cut-sm);
+  }
 
   .messages-container { display: flex; flex-direction: column; }
   .msg-item {
     display: flex;
-    gap: 16px;
-    padding: 6px 16px;
-    transition: background 0.1s;
+    gap: 14px;
+    padding: 7px 16px;
+    border-left: 2px solid transparent;
+    transition: background 0.12s;
   }
-  .msg-item:hover { background: rgba(0, 0, 0, 0.08); }
+  .msg-item:hover {
+    background: rgba(0, 240, 255, 0.04);
+    border-left-color: var(--brand);
+  }
   body.compact-chat .msg-item { padding: 3px 16px; }
 
+  /* Пятиугольная аватарка в чате */
   .msg-ava {
     width: 40px;
     height: 40px;
-    border-radius: 50%;
-    background: var(--brand);
-    color: #fff;
-    font-weight: 700;
-    font-size: 14px;
+    clip-path: var(--pentagon);
+    background: linear-gradient(135deg, var(--brand), #0066ff);
+    color: #03060c;
+    font-weight: 800;
+    font-size: 13px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
     margin-top: 2px;
+    padding-top: 2px;
   }
   .msg-author {
-    font-size: 15px;
-    font-weight: 600;
-    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--brand);
     margin-right: 8px;
     cursor: pointer;
   }
-  .msg-author:hover { text-decoration: underline; }
-  .msg-time { font-size: 11px; color: var(--text-muted); }
+  .msg-author:hover { text-shadow: 0 0 8px var(--brand); }
+  .msg-time { font-size: 10.5px; color: var(--text-muted); font-family: monospace; }
   .msg-text {
     font-size: var(--chat-font-size);
-    color: var(--text-normal);
+    color: var(--text-main);
     margin-top: 2px;
-    line-height: 1.38;
+    line-height: 1.4;
     user-select: text;
     word-break: break-word;
   }
-  .msg-text a { color: #00a8fc; text-decoration: none; }
-  .msg-text a:hover { text-decoration: underline; }
+  .msg-text a { color: var(--brand); text-decoration: none; border-bottom: 1px dashed var(--brand); }
+  .msg-text a:hover { color: var(--pink); border-bottom-color: var(--pink); }
 
   .chat-inline-media {
     max-width: min(100%, 480px);
     max-height: 300px;
-    border-radius: 8px;
+    clip-path: var(--cyber-cut);
     margin-top: 8px;
     display: block;
-    border: 1px solid rgba(0,0,0,0.3);
+    border: 1px solid var(--cyan-border);
   }
 
   .filtered-block-card {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: rgba(242, 63, 67, 0.12);
-    border: 1px solid rgba(242, 63, 67, 0.4);
-    color: #fca5a5;
+    background: rgba(255, 0, 85, 0.12);
+    border: 1px dashed rgba(255, 0, 85, 0.5);
+    color: #ff80aa;
     padding: 6px 10px;
-    border-radius: 6px;
+    clip-path: var(--cyber-cut-sm);
     font-size: 12px;
     margin-top: 4px;
   }
@@ -1038,68 +1150,73 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     position: relative;
     display: inline-block;
     width: 100%;
-    background: #232428;
-    border-radius: 6px;
+    background: #060a10;
+    border: 1px solid rgba(255, 0, 85, 0.4);
+    clip-path: var(--cyber-cut-sm);
     padding: 8px 10px;
     margin-top: 4px;
     cursor: pointer;
   }
   .spoiler-blur-content { filter: blur(8px); user-select: none; pointer-events: none; }
   .spoiler-blur-wrap.revealed .spoiler-blur-content { filter: none; user-select: text; pointer-events: auto; }
-  .spoiler-badge { font-size: 11px; font-weight: 600; color: #fca5a5; margin-bottom: 4px; }
+  .spoiler-badge { font-size: 11px; font-weight: 700; color: var(--pink); margin-bottom: 4px; }
   .spoiler-blur-wrap.revealed .spoiler-badge { display: none; }
 
-  /* Панель голосовой связи внутри чата */
+  /* Кибер-панель голосовой связи */
   .voice-panel {
     margin: 8px 16px;
-    background: #232428;
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(6, 12, 22, 0.95), rgba(10, 20, 34, 0.9));
+    border: 1px solid var(--cyan-border);
+    clip-path: var(--cyber-cut);
     padding: 12px 14px;
     display: flex;
     flex-direction: column;
     gap: 10px;
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.08);
   }
   .voice-panel-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .voice-label { font-size: 10px; text-transform: uppercase; color: var(--green); font-weight: 700; }
-  .voice-title { font-size: 14px; font-weight: 700; color: #fff; margin: 2px 0; }
-  .voice-sub { font-size: 12px; color: var(--text-muted); }
+  .voice-label { font-size: 10px; text-transform: uppercase; color: var(--green); font-weight: 800; letter-spacing: 0.8px; }
+  .voice-title { font-size: 14px; font-weight: 800; color: #fff; margin: 2px 0; }
+  .voice-sub { font-size: 11.5px; color: var(--text-normal); }
   .voice-active-area { display: none; flex-direction: column; gap: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
   .voice-active-area.show { display: flex; }
-  .voice-user-card { display: flex; align-items: center; gap: 8px; background: #1e1f22; padding: 6px 10px; border-radius: 6px; width: fit-content; }
-  .vu-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .voice-user-card { display: flex; align-items: center; gap: 8px; background: #04070c; border: 1px solid var(--border); padding: 6px 10px; clip-path: var(--cyber-cut-sm); width: fit-content; }
+  .vu-dot { width: 9px; height: 9px; clip-path: var(--pentagon); background: var(--green); }
 
-  /* Нижнее поле ввода как в Discord (+ слева, Написать в #канал, иконки справа) */
+  /* Нижнее поле ввода чата (с пятиугольной кнопкой +) */
   .chat-bottom {
-    padding: 0 16px 20px;
-    background: var(--bg-chat);
+    padding: 0 16px 18px;
+    background: transparent;
     flex-shrink: 0;
   }
   .input-row {
     background: var(--bg-input);
-    border-radius: 8px;
+    border: 1px solid var(--cyan-border);
+    clip-path: var(--cyber-cut);
     padding: 0 12px;
     height: 44px;
     display: flex;
     align-items: center;
     gap: 12px;
+    box-shadow: 0 0 16px rgba(0, 240, 255, 0.08);
   }
   .input-plus-btn {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: #b5bac1;
-    color: #313338;
+    width: 26px;
+    height: 26px;
+    clip-path: var(--pentagon);
+    background: var(--brand);
+    color: #03060c;
     border: none;
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     flex-shrink: 0;
+    padding-top: 1px;
   }
-  .input-plus-btn:hover { background: #fff; }
+  .input-plus-btn:hover { background: var(--pink); color: #fff; }
   .chat-inp {
     flex: 1;
     min-width: 0;
@@ -1109,22 +1226,24 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     font-size: 14px;
     outline: none;
   }
-  .chat-inp::placeholder { color: #6d6f78; }
+  .chat-inp::placeholder { color: var(--text-muted); }
   .input-right-icons {
     display: flex;
     align-items: center;
     gap: 10px;
-    color: #b5bac1;
-    font-size: 17px;
+    color: var(--brand);
+    font-size: 16px;
   }
-  .input-right-icons span { cursor: pointer; }
-  .input-right-icons span:hover { color: #fff; }
+  .input-right-icons span { cursor: pointer; transition: 0.15s; }
+  .input-right-icons span:hover { color: var(--pink); transform: scale(1.12); }
 
-  /* 4. ПРАВАЯ КОЛОНКА УЧАСТНИКОВ (240px) */
+  /* 4. ПРАВАЯ КОЛОНКА УЧАСТНИКОВ (240px) — ПЯТИУГОЛЬНЫЕ АВАТАРЫ */
   .right-panel {
     width: 240px;
-    background: var(--bg-members);
-    padding: 16px 8px 16px 16px;
+    background-color: var(--bg-members);
+    background-image: var(--pcb-pattern);
+    border-left: 1px solid var(--border);
+    padding: 14px 8px 16px 14px;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -1132,63 +1251,69 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     height: 100%;
   }
   .right-panel::-webkit-scrollbar { width: 4px; }
-  .right-panel::-webkit-scrollbar-thumb { background: #1a1b1e; border-radius: 4px; }
+  .right-panel::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, 0.25); }
 
   .right-sec-title {
     font-size: 11px;
     text-transform: uppercase;
-    color: var(--text-muted);
-    font-weight: 700;
-    padding: 10px 8px 4px;
-    letter-spacing: 0.4px;
+    color: var(--brand);
+    font-weight: 800;
+    padding: 10px 6px 4px;
+    letter-spacing: 0.8px;
   }
   .online-user-item {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 5px 8px;
-    border-radius: 4px;
+    clip-path: var(--cyber-cut-sm);
     cursor: pointer;
     min-width: 0;
+    border-left: 2px solid transparent;
+    transition: 0.15s;
   }
-  .online-user-item:hover { background: var(--bg-hover); }
+  .online-user-item:hover {
+    background: var(--bg-hover);
+    border-left-color: var(--brand);
+  }
   .member-ava-wrap {
     position: relative;
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     flex-shrink: 0;
+    filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.28));
   }
   .member-ava {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
+    width: 34px;
+    height: 34px;
+    clip-path: var(--pentagon);
     background: var(--brand);
-    color: #fff;
-    font-size: 12px;
-    font-weight: 700;
+    color: #03060c;
+    font-size: 11px;
+    font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding-top: 2px;
   }
   .online-dot {
     position: absolute;
-    right: -1px;
-    bottom: -1px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
+    right: -2px;
+    bottom: -2px;
+    width: 11px;
+    height: 11px;
+    clip-path: var(--pentagon);
     background: var(--green);
-    border: 2px solid var(--bg-members);
   }
   .online-dot.idle { background: var(--yellow); }
   .online-dot.dnd { background: var(--red); }
-  .online-dot.off, .online-dot.offline { background: #80848e; }
+  .online-dot.off, .online-dot.offline { background: #3d5568; }
 
   .member-text-col { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
   .member-nick-row {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-normal);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-main);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1196,136 +1321,217 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     align-items: center;
     gap: 5px;
   }
-  .bot-badge {
-    background: var(--brand);
-    color: #fff;
-    font-size: 9px;
-    font-weight: 700;
-    padding: 1px 4px;
-    border-radius: 3px;
-    text-transform: uppercase;
-  }
   .member-status-sub {
-    font-size: 11px;
+    font-size: 10.5px;
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .mini-btn {
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.18);
-    color: var(--text-normal);
-    padding: 2px 6px;
-    border-radius: 4px;
+    background: rgba(0, 240, 255, 0.08);
+    border: 1px solid var(--border);
+    color: var(--brand);
+    padding: 2px 7px;
+    clip-path: var(--cyber-cut-sm);
     font-size: 10px;
+    font-weight: 800;
     cursor: pointer;
     flex-shrink: 0;
   }
-  .mini-btn:hover { background: var(--brand); border-color: var(--brand); color: #fff; }
-  .friend-tag { font-size: 10px; color: var(--green); font-weight: 600; }
+  .mini-btn:hover { background: var(--brand); color: #03060c; }
+  .friend-tag { font-size: 9.5px; color: var(--green); font-weight: 800; text-transform: uppercase; }
 
-  /* Кнопки и виджеты */
-  .btn-cyan { background: var(--brand); color: #fff; border: none; padding: 7px 14px; border-radius: 4px; font-weight: 600; font-size: 12px; cursor: pointer; white-space: nowrap; }
-  .btn-cyan:hover { background: var(--brand-hover); }
-  .btn-danger { background: var(--red); color: #fff; border: none; padding: 7px 12px; border-radius: 4px; font-weight: 600; font-size: 12px; cursor: pointer; }
-  .btn-mute { background: #2b2d31; color: var(--text-normal); border: 1px solid rgba(255,255,255,0.1); padding: 6px 10px; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer; }
-  .btn-mute:hover { background: var(--bg-active); color: #fff; }
-  .btn-mute.active-screen { background: var(--red); border-color: var(--red); color: #fff; }
-  .btn-mute.active-cam { background: var(--green); border-color: var(--green); color: #fff; }
-  .btn-login-mini { background: #383a40; border: none; color: var(--text-normal); padding: 6px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; }
-  .btn-tg { background: #229ED9; color: #fff; border: none; width: 100%; padding: 10px 14px; border-radius: 4px; font-weight: 700; font-size: 13px; cursor: pointer; margin-bottom: 10px; }
+  /* Кибер-кнопки */
+  .btn-cyan {
+    background: var(--brand);
+    color: #03060c;
+    border: none;
+    padding: 7px 14px;
+    clip-path: var(--cyber-cut-sm);
+    font-weight: 800;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-cyan:hover { background: var(--brand-hover); box-shadow: 0 0 12px var(--brand); }
+  .btn-danger {
+    background: var(--pink);
+    color: #fff;
+    border: none;
+    padding: 7px 12px;
+    clip-path: var(--cyber-cut-sm);
+    font-weight: 800;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .btn-mute {
+    background: #0d1522;
+    color: var(--text-main);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    clip-path: var(--cyber-cut-sm);
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-mute:hover { border-color: var(--brand); color: var(--brand); }
+  .btn-mute.active-screen { background: var(--pink); border-color: var(--pink); color: #fff; }
+  .btn-mute.active-cam { background: var(--green); border-color: var(--green); color: #03060c; }
+  .btn-login-mini {
+    background: #0d1522;
+    border: 1px solid var(--border);
+    color: var(--brand);
+    padding: 6px 10px;
+    clip-path: var(--cyber-cut-sm);
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-tg {
+    background: #00f0ff;
+    color: #03060c;
+    border: none;
+    width: 100%;
+    padding: 10px 14px;
+    clip-path: var(--cyber-cut-sm);
+    font-weight: 800;
+    font-size: 12.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
 
-  /* Оверлей звонка и видеосетка */
-  .floating-call-overlay { position: fixed; right: 18px; bottom: 72px; width: 290px; background: #1e1f22; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 10px 12px; z-index: 980; box-shadow: 0 12px 32px rgba(0,0,0,0.6); display: none; flex-direction: column; gap: 8px; }
+  /* Плавающий кибер-оверлей звонка */
+  .floating-call-overlay {
+    position: fixed;
+    right: 18px;
+    bottom: 72px;
+    width: 295px;
+    background: rgba(5, 9, 16, 0.96);
+    border: 1px solid var(--brand);
+    clip-path: var(--cyber-cut);
+    padding: 10px 12px;
+    z-index: 980;
+    box-shadow: 0 0 25px rgba(0, 240, 255, 0.25);
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+  }
   .floating-call-overlay.show { display: flex; }
   .fco-head { display: flex; justify-content: space-between; align-items: center; cursor: move; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
-  .fco-live { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--green); }
-  .fco-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
-  .fco-timer { font-size: 11px; font-family: monospace; color: var(--text-normal); }
+  .fco-live { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: var(--green); text-transform: uppercase; }
+  .fco-pulse { width: 9px; height: 9px; clip-path: var(--pentagon); background: var(--green); }
+  .fco-timer { font-size: 11px; font-family: monospace; color: var(--brand); }
   .fco-peers { display: flex; flex-wrap: wrap; gap: 5px; max-height: 74px; overflow-y: auto; }
-  .fco-peer-chip { display: inline-flex; align-items: center; gap: 5px; background: #2b2d31; padding: 3px 8px; border-radius: 999px; font-size: 11px; color: #fff; }
+  .fco-peer-chip { display: inline-flex; align-items: center; gap: 5px; background: #0d1522; border: 1px solid var(--border); padding: 3px 8px; clip-path: var(--cyber-cut-sm); font-size: 11px; color: #fff; }
   .fco-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-  .fco-btn { background: #2b2d31; border: none; color: #fff; padding: 6px 4px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; }
-  .fco-btn.danger { background: var(--red); }
-  .fco-btn.active-pip { background: var(--brand); }
+  .fco-btn { background: #0d1522; border: 1px solid var(--border); color: var(--brand); padding: 6px 4px; clip-path: var(--cyber-cut-sm); font-size: 10.5px; font-weight: 700; cursor: pointer; }
+  .fco-btn.danger { background: var(--pink); border-color: var(--pink); color: #fff; }
+  .fco-btn.active-pip { background: var(--brand); color: #03060c; }
 
   .screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; width: 100%; }
   .screen-grid:empty { display: none; }
-  .screen-card { background: #1e1f22; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
-  .screen-card-head { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #111214; font-size: 12px; font-weight: 600; color: #fff; gap: 6px; flex-wrap: wrap; }
-  .screen-live-pill { background: var(--red); color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
-  .screen-live-pill.cam { background: var(--green); }
+  .screen-card { background: #05080f; border: 1px solid var(--cyan-border); clip-path: var(--cyber-cut); overflow: hidden; display: flex; flex-direction: column; }
+  .screen-card-head { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #030509; border-bottom: 1px solid var(--border); font-size: 11.5px; font-weight: 700; color: var(--brand); gap: 6px; flex-wrap: wrap; }
+  .screen-live-pill { background: var(--pink); color: #fff; font-size: 9px; padding: 2px 6px; clip-path: var(--cyber-cut-sm); margin-left: 6px; }
+  .screen-live-pill.cam { background: var(--green); color: #03060c; }
   .screen-video-wrap { position: relative; width: 100%; background: #000; display: flex; align-items: center; justify-content: center; min-height: 160px; max-height: 360px; overflow: hidden; }
   .screen-video-wrap video { width: 100%; max-height: 360px; object-fit: contain; background: #000; display: block; transition: filter 0.25s; }
   .screen-card.nsfw-masked .screen-video-wrap video { filter: blur(26px) brightness(0.3); }
-  .media-nsfw-shield { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.75); color: #fff; font-size: 12px; font-weight: 700; text-align: center; padding: 14px; z-index: 5; cursor: pointer; }
+  .media-nsfw-shield { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: rgba(4, 7, 12, 0.82); color: var(--pink); font-size: 12px; font-weight: 800; text-align: center; padding: 14px; z-index: 5; cursor: pointer; }
   .screen-card.nsfw-masked .media-nsfw-shield { display: flex; }
-  .btn-fs { background: #2b2d31; border: none; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
-  .btn-fs.active-shield { background: var(--red); }
+  .btn-fs { background: #0d1522; border: 1px solid var(--border); color: var(--brand); padding: 4px 8px; clip-path: var(--cyber-cut-sm); font-size: 10.5px; font-weight: 700; cursor: pointer; }
+  .btn-fs.active-shield { background: var(--pink); border-color: var(--pink); color: #fff; }
 
   /* Модальные окна */
-  .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); display: none; align-items: center; justify-content: center; z-index: 999; padding: 12px; }
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(2, 4, 8, 0.84); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 999; padding: 12px; }
   .modal-backdrop.open { display: flex; }
-  .modal-box { background: #313338; border-radius: 8px; padding: 20px; width: 400px; max-width: 100%; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-  .modal-box input[type="text"], .modal-box input[type="password"], .modal-box textarea, .modal-box select { width: 100%; padding: 10px; background: #1e1f22; border: none; border-radius: 4px; color: #fff; margin-bottom: 10px; font-size: 13px; outline: none; }
-  .link-box { background: #1e1f22; padding: 10px; color: #00a8fc; font-size: 12px; word-break: break-all; margin-bottom: 10px; border-radius: 4px; display: block; text-align: center; text-decoration: none; }
-  .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; background: #1e1f22; padding: 4px; border-radius: 6px; }
-  .auth-tab { padding: 7px; font-size: 12px; font-weight: 600; text-align: center; border-radius: 4px; cursor: pointer; color: var(--text-muted); }
-  .auth-tab.active { background: var(--brand); color: #fff; }
+  .modal-box {
+    background-color: #080d16;
+    background-image: var(--pcb-pattern);
+    border: 1px solid var(--brand);
+    clip-path: var(--cyber-cut);
+    padding: 20px;
+    width: 400px;
+    max-width: 100%;
+    box-shadow: 0 0 35px rgba(0, 240, 255, 0.2);
+  }
+  .modal-box input[type="text"], .modal-box input[type="password"], .modal-box textarea, .modal-box select {
+    width: 100%; padding: 10px; background: #04070c; border: 1px solid var(--border); clip-path: var(--cyber-cut-sm); color: #fff; margin-bottom: 10px; font-size: 13px; outline: none;
+  }
+  .link-box { background: #04070c; border: 1px dashed var(--brand); padding: 10px; color: var(--brand); font-size: 12px; word-break: break-all; margin-bottom: 10px; clip-path: var(--cyber-cut-sm); display: block; text-align: center; text-decoration: none; }
+  .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; background: #04070c; padding: 4px; border: 1px solid var(--border); }
+  .auth-tab { padding: 7px; font-size: 12px; font-weight: 700; text-align: center; cursor: pointer; color: var(--text-muted); }
+  .auth-tab.active { background: var(--brand); color: #03060c; }
 
-  .settings-modal-box { background: #313338; border-radius: 8px; width: 820px; max-width: 100%; height: 590px; max-height: 92vh; display: grid; grid-template-columns: 215px minmax(0, 1fr); overflow: hidden; }
-  .settings-nav { background: #2b2d31; padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
-  .settings-nav-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); padding: 8px 10px 4px; }
-  .settings-nav-btn { padding: 8px 10px; border-radius: 4px; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-  .settings-nav-btn:hover { background: var(--bg-hover); color: var(--text-normal); }
-  .settings-nav-btn.active { background: var(--bg-active); color: #fff; }
+  .settings-modal-box {
+    background-color: #080d16;
+    background-image: var(--pcb-pattern);
+    border: 1px solid var(--brand);
+    clip-path: var(--cyber-cut);
+    width: 820px;
+    max-width: 100%;
+    height: 590px;
+    max-height: 92vh;
+    display: grid;
+    grid-template-columns: 215px minmax(0, 1fr);
+    overflow: hidden;
+  }
+  .settings-nav { background: #05080e; border-right: 1px solid var(--border); padding: 16px 10px; display: flex; flex-direction: column; gap: 3px; overflow-y: auto; }
+  .settings-nav-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--brand); padding: 8px 10px 4px; letter-spacing: 0.8px; }
+  .settings-nav-btn { padding: 8px 10px; clip-path: var(--cyber-cut-sm); font-size: 12.5px; font-weight: 600; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .settings-nav-btn:hover { background: var(--bg-hover); color: var(--text-main); }
+  .settings-nav-btn.active { background: var(--bg-active); color: var(--brand); border-left: 2px solid var(--brand); }
   .settings-content { padding: 20px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   .settings-pane { display: none; flex-direction: column; gap: 12px; min-width: 0; }
   .settings-pane.active { display: flex; }
   .settings-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 10px; flex-wrap: wrap; }
-  .settings-head h3 { font-size: 16px; font-weight: 700; color: #fff; }
-  .field-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; display: block; }
-  .settings-card { background: #2b2d31; border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .settings-head h3 { font-size: 16px; font-weight: 800; color: var(--brand); text-transform: uppercase; letter-spacing: 0.6px; }
+  .field-label { font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: var(--brand); margin-bottom: 6px; display: block; letter-spacing: 0.5px; }
+  .settings-card { background: rgba(4, 7, 12, 0.85); border: 1px solid var(--border); clip-path: var(--cyber-cut); padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .settings-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; width: 100%; }
-  .settings-card input[type="text"], .settings-card textarea, .settings-card select { width: 100%; min-width: 0; padding: 8px 10px; background: #1e1f22; border: none; border-radius: 4px; color: #fff; font-size: 13px; outline: none; margin: 0; }
+  .settings-card input[type="text"], .settings-card textarea, .settings-card select { width: 100%; min-width: 0; padding: 8px 10px; background: #030508; border: 1px solid var(--border); clip-path: var(--cyber-cut-sm); color: #fff; font-size: 13px; outline: none; margin: 0; }
   .toggle-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); }
   .toggle-row:last-child { border-bottom: none; }
-  .toggle-title { font-size: 13px; font-weight: 500; color: #fff; }
+  .toggle-title { font-size: 13px; font-weight: 600; color: #fff; }
   .cyber-switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; cursor: pointer; }
   .cyber-switch input { opacity: 0; width: 0; height: 0; }
-  .cyber-slider { position: absolute; inset: 0; background: #80848e; border-radius: 999px; transition: 0.2s; }
-  .cyber-slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
-  .cyber-switch input:checked + .cyber-slider { background: var(--green); }
-  .cyber-switch input:checked + .cyber-slider::before { transform: translateX(18px); }
-  .cyber-range { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; background: #1e1f22; border-radius: 999px; outline: none; margin-top: 4px; }
-  .cyber-range::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--brand); cursor: pointer; }
+  .cyber-slider { position: absolute; inset: 0; background: #101929; border: 1px solid var(--border); clip-path: var(--cyber-cut-sm); transition: 0.2s; }
+  .cyber-slider::before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; background: var(--text-muted); clip-path: var(--pentagon); transition: 0.2s; }
+  .cyber-switch input:checked + .cyber-slider { background: rgba(0, 240, 255, 0.22); border-color: var(--brand); }
+  .cyber-switch input:checked + .cyber-slider::before { transform: translateX(18px); background: var(--brand); }
+  .cyber-range { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; background: #030508; border: 1px solid var(--border); outline: none; margin-top: 4px; }
+  .cyber-range::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; clip-path: var(--pentagon); background: var(--brand); cursor: pointer; }
   .theme-pills-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .theme-pill-btn { background: #1e1f22; border: none; color: #fff; padding: 8px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; }
-  .theme-dot-swatch { width: 12px; height: 12px; border-radius: 50%; }
-  .color-swatches { display: flex; gap: 7px; flex-wrap: wrap; }
-  .color-swatch { width: 24px; height: 24px; border-radius: 4px; cursor: pointer; border: 2px solid rgba(255,255,255,0.15); }
-  .mic-meter-wrap { width: 100%; height: 8px; background: #1e1f22; border-radius: 999px; overflow: hidden; }
-  .mic-meter-bar { height: 100%; width: 0%; background: var(--green); transition: width 0.06s; }
-  .discord-profile-card { background: #111214; border-radius: 8px; overflow: hidden; }
-  .dp-banner { height: 60px; background: var(--brand); }
-  .dp-body { padding: 30px 14px 14px; position: relative; }
-  .dp-ava { width: 56px; height: 56px; border-radius: 50%; background: var(--brand); border: 4px solid #111214; position: absolute; top: -28px; left: 14px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; color: #fff; }
-  .dp-nick { font-size: 16px; font-weight: 700; color: #fff; }
-  .dp-status { font-size: 12px; color: var(--text-normal); margin-top: 2px; }
-  .dp-sec { margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); }
-  .dp-sec-title { font-size: 10px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; }
+  .theme-pill-btn { background: #04070c; border: 1px solid var(--border); color: #fff; padding: 8px 10px; clip-path: var(--cyber-cut-sm); font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+  .theme-dot-swatch { width: 14px; height: 14px; clip-path: var(--pentagon); }
+  .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+  .color-swatch { width: 26px; height: 26px; clip-path: var(--pentagon); cursor: pointer; }
+  .mic-meter-wrap { width: 100%; height: 8px; background: #030508; border: 1px solid var(--border); overflow: hidden; }
+  .mic-meter-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--green), var(--brand), var(--pink)); transition: width 0.06s; }
+  .discord-profile-card { background: #04070c; border: 1px solid var(--border); clip-path: var(--cyber-cut); overflow: hidden; }
+  .dp-banner { height: 60px; background: linear-gradient(90deg, var(--brand), var(--pink)); }
+  .dp-body { padding: 32px 14px 14px; position: relative; }
+  .dp-ava { width: 56px; height: 56px; clip-path: var(--pentagon); background: var(--pink); position: absolute; top: -28px; left: 14px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; color: #fff; padding-top: 3px; }
+  .dp-nick { font-size: 16px; font-weight: 800; color: #fff; }
+  .dp-status { font-size: 12px; color: var(--brand); margin-top: 2px; }
+  .dp-sec { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .dp-sec-title { font-size: 10px; font-weight: 800; color: var(--brand); margin-bottom: 4px; }
   .dp-bio { font-size: 12px; color: var(--text-normal); white-space: pre-wrap; }
   .dp-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
-  .dp-tag { background: #2b2d31; color: var(--text-normal); padding: 2px 8px; border-radius: 4px; font-size: 11px; }
-  .status-pill { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
-  .status-pill.on { background: rgba(35,165,90,0.2); color: #23a55a; }
-  .status-pill.off { background: rgba(255,255,255,0.06); color: var(--text-muted); }
+  .dp-tag { background: rgba(0, 240, 255, 0.12); border: 1px solid var(--border); color: var(--brand); padding: 2px 8px; clip-path: var(--cyber-cut-sm); font-size: 11px; font-weight: 700; }
+  .status-pill { font-size: 10px; padding: 2px 6px; clip-path: var(--cyber-cut-sm); font-weight: 800; }
+  .status-pill.on { background: rgba(0, 255, 157, 0.18); color: var(--green); }
+  .status-pill.off { background: rgba(255, 255, 255, 0.06); color: var(--text-muted); }
 
-  .mob-drawer-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 940; }
-  .mob-bottom-nav { display: none; height: 52px; background: #1e1f22; border-top: 1px solid var(--border); grid-template-columns: repeat(5, 1fr); align-items: center; flex-shrink: 0; z-index: 960; }
-  .mob-nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: 100%; color: var(--text-muted); font-size: 10px; font-weight: 600; cursor: pointer; }
-  .mob-nav-item.active { color: #fff; }
+  .mob-drawer-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 940; }
+  .mob-bottom-nav { display: none; height: 52px; background: #04060a; border-top: 1px solid var(--border); grid-template-columns: repeat(5, 1fr); align-items: center; flex-shrink: 0; z-index: 960; }
+  .mob-nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: 100%; color: var(--text-muted); font-size: 10px; font-weight: 700; cursor: pointer; }
+  .mob-nav-item.active { color: var(--brand); background: rgba(0, 240, 255, 0.08); }
 
   @media (max-width: 900px) {
     .streamer-bar, .top-ch-desc, .top-search-box { display: none; }
@@ -1352,27 +1558,27 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   <div class="app-layout">
     <div class="mob-drawer-backdrop" onclick="closeMobileDrawers()"></div>
 
-    <!-- 1. ЛЕВАЯ ПАНЕЛЬ СЕРВЕРОВ (72px) -->
+    <!-- 1. ЛЕВАЯ ПАНЕЛЬ СЕРВЕРОВ (72px, пятиугольные значки) -->
     <div class="servers-rail">
-      <div class="srv-pill-wrap" title="Личные сообщения и профиль" onclick="openSettingsModal('profile')">
+      <div class="srv-pill-wrap" title="Личный кибер-узел и профиль" onclick="openSettingsModal('profile')">
         <span class="srv-pill-bar"></span>
-        <div class="srv-ico home-ico">💬</div>
+        <div class="srv-ico home-ico">⚡</div>
       </div>
       <div class="rail-sep"></div>
-      <div id="servers-list-box" style="display:flex;flex-direction:column;gap:8px;align-items:center;width:100%;"></div>
-      <div class="srv-ico-action" title="Добавить сервер" onclick="openCreateServerModal()">+</div>
-      <div class="srv-ico-action neutral" title="Путешествие по серверам" onclick="openInviteModal()">🧭</div>
+      <div id="servers-list-box" style="display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;"></div>
+      <div class="srv-ico-action" title="Создать новый кибер-сервер" onclick="openCreateServerModal()">+</div>
+      <div class="srv-ico-action neutral" title="Сетевой радар и ссылки" onclick="openInviteModal()">◈</div>
       <div class="rail-sep"></div>
-      <div class="srv-ico-action neutral" title="Настройки и фильтры" onclick="openSettingsModal('voice')">⚙️</div>
+      <div class="srv-ico-action neutral" title="Системные настройки" onclick="openSettingsModal('voice')">⚙️</div>
     </div>
 
     <!-- ПРАВАЯ ЧАСТЬ ЭКРАНА -->
     <div class="right-area">
-      <!-- Фиолетовый баннер режима стримера сверху как в примере -->
+      <!-- Кибер-плашка режима стримера сверху -->
       <div class="streamer-bar" id="streamer-bar">
-        <span>Включён режим стримера — некоторая информация скрыта.</span>
-        <button class="streamer-btn-disable" onclick="openSettingsModal('safety')">Настроить 18+</button>
-        <button class="streamer-btn-hide" onclick="document.getElementById('streamer-bar').classList.add('hidden')">Скрыть</button>
+        <span>⚡ ВКЛЮЧЁН РЕЖИМ СТРИМЕРА // НЕКОТОРАЯ ИНФОРМАЦИЯ СКРЫТА</span>
+        <button class="streamer-btn-disable" onclick="openSettingsModal('safety')">ФИЛЬТР 18+</button>
+        <button class="streamer-btn-hide" onclick="document.getElementById('streamer-bar').classList.add('hidden')">СКРЫТЬ</button>
       </div>
 
       <div class="workspace">
@@ -1380,47 +1586,47 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div class="channels-panel">
           <div class="srv-header" onclick="openInviteModal()" title="Пригласить людей на сервер">
             <div class="srv-title" id="srv-title-label">Sezorgame</div>
-            <span class="srv-chevron">⌄</span>
+            <span class="srv-chevron">▼</span>
           </div>
 
           <div class="channels-scroll">
             <div class="boost-box">
               <div class="boost-top">
-                <span>Нужно бустов</span>
-                <span class="boost-count">Бусты: 0/26 ›</span>
+                <span>⚡ Энергия узла</span>
+                <span class="boost-count">БУСТЫ: 0/26 ›</span>
               </div>
               <div class="boost-bar-bg"><div class="boost-bar-fill"></div></div>
             </div>
 
             <div class="QuickNav-item" onclick="openInviteModal()">
-              <span class="QuickNav-ico">👤+</span>
+              <span class="QuickNav-ico">⬢</span>
               <span>Пригласить людей</span>
             </div>
             <div class="QuickNav-item" onclick="document.body.classList.toggle('hide-members-panel')">
-              <span class="QuickNav-ico">👥</span>
-              <span>Участники</span>
+              <span class="QuickNav-ico">◈</span>
+              <span>Участники сети</span>
             </div>
             <div class="QuickNav-item" onclick="openSettingsModal('appearance')">
-              <span class="QuickNav-ico">💎</span>
+              <span class="QuickNav-ico">⚡</span>
               <span>Бусты сервера</span>
             </div>
 
             <div class="sidebar-divider"></div>
 
             <div class="cat-header">
-              <span>Текстовые каналы ⌄</span>
+              <span>◈ Текстовые каналы</span>
               <button class="cat-add-btn" title="Создать текстовый канал" onclick="openCreateChannelModal('text')">+</button>
             </div>
             <div id="text-channels-list"></div>
 
             <div class="cat-header" style="margin-top:8px;">
-              <span>Голосовые каналы ⌄</span>
+              <span>📡 Голосовые каналы</span>
               <button class="cat-add-btn" title="Создать голосовой канал" onclick="openCreateChannelModal('voice')">+</button>
             </div>
             <div id="voice-channels-list"></div>
           </div>
 
-          <!-- Нижний бар пользователя (52px) как в примере -->
+          <!-- Нижний бар пользователя (52px) с пятиугольным значком -->
           <div class="user-bar">
             <div class="user-info" onclick="openSettingsModal('profile')">
               <div class="user-ava-wrap">
@@ -1429,13 +1635,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
               </div>
               <div style="overflow:hidden;min-width:0;">
                 <div class="user-name" id="user-name-label">Гость</div>
-                <div class="user-sub" id="user-email-label">В сети</div>
+                <div class="user-sub" id="user-email-label">ОНЛАЙН // СЕТЬ</div>
               </div>
             </div>
             <div class="user-bar-controls">
               <button class="ub-ctrl-btn" id="ub-mic-btn" title="Микрофон" onclick="if(inVoice)toggleMute();else toggleVoiceCall();">🎙️</button>
-              <button class="ub-ctrl-btn" id="ub-deaf-btn" title="Звук" onclick="if(inVoice)toggleDeafen();else openSettingsModal('voice');">🎧</button>
-              <button class="ub-ctrl-btn" title="Настройки пользователя" onclick="openSettingsModal('profile')">⚙️</button>
+              <button class="ub-ctrl-btn" id="ub-deaf-btn" title="Аудиоканал" onclick="if(inVoice)toggleDeafen();else openSettingsModal('voice');">🎧</button>
+              <button class="ub-ctrl-btn" title="Настройки системы" onclick="openSettingsModal('profile')">⚙️</button>
             </div>
           </div>
         </div>
@@ -1445,41 +1651,41 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           <div class="chat-topbar">
             <div class="chat-topbar-left">
               <button class="mob-top-btn" onclick="toggleMobileLeft()">☰</button>
-              <span class="hash-large">#</span>
+              <span class="hash-large">◈</span>
               <div class="top-ch-name" id="top-ch-name">общий</div>
-              <div class="top-ch-desc" id="top-ch-desc">Общение участников сообщества</div>
+              <div class="top-ch-desc" id="top-ch-desc">Защищённый канал связи</div>
             </div>
             <div class="chat-topbar-right">
-              <button class="top-ico-btn" title="Уведомления" onclick="openSettingsModal('notifications')">🔔</button>
-              <button class="top-ico-btn" title="Закреплённые и ссылка" onclick="openInviteModal()">📌</button>
-              <button class="top-ico-btn" title="Показать/скрыть список участников" onclick="if(window.innerWidth<=900)toggleMobileRight();else document.body.classList.toggle('hide-members-panel');">👥</button>
+              <button class="top-ico-btn" title="Сигналы и уведомления" onclick="openSettingsModal('notifications')">🔔</button>
+              <button class="top-ico-btn" title="Ссылка на узел" onclick="openInviteModal()">📌</button>
+              <button class="top-ico-btn" title="Показать/скрыть участников" onclick="if(window.innerWidth<=900)toggleMobileRight();else document.body.classList.toggle('hide-members-panel');">👥</button>
               <div class="top-search-box">
                 <input type="text" id="top-search-inp" placeholder="Искать на сервере" readonly onclick="document.getElementById('chat-input').focus()">
-                <span>🔍</span>
+                <span>⌕</span>
               </div>
             </div>
           </div>
 
           <div class="chat-scroll-area" id="chat-scroll">
             <div class="hero-banner">
-              <h2>Добро пожаловать на канал!</h2>
-              <p id="banner-desc">Это начало истории канала. Включайте голос, камеру, демонстрацию экрана или оверлей.</p>
+              <h2>⚡ ТЕРМИНАЛ КАНАЛА АКТИВИРОВАН</h2>
+              <p id="banner-desc">Синхронизация P2P активна. Включайте голос, камеру, демонстрацию экрана или кибер-оверлей.</p>
               <div class="pill-tags-row">
-                <span class="pill-tag" onclick="openSettingsModal('profile')">👤 Мой профиль</span>
-                <span class="pill-tag" onclick="openSettingsModal('safety')">🛡️ Фильтр 18+</span>
-                <span class="pill-tag pink" onclick="openInviteModal()">+ Пригласить людей</span>
+                <span class="pill-tag" onclick="openSettingsModal('profile')">⬢ ПРОФИЛЬ</span>
+                <span class="pill-tag" onclick="openSettingsModal('safety')">🛡️ ФИЛЬТР 18+</span>
+                <span class="pill-tag pink" onclick="openInviteModal()">+ ПРИГЛАСИТЬ В УЗЕЛ</span>
               </div>
             </div>
 
-            <div class="date-divider"><span>Сегодня</span></div>
+            <div class="date-divider"><span>СЕГОДНЯ // АКТИВНЫЙ ЭФИР</span></div>
             <div class="messages-container" id="messages-list"></div>
 
             <div class="voice-panel" id="voice-panel-card">
               <div class="voice-panel-top">
                 <div>
-                  <div class="voice-label">ГОЛОСОВАЯ СВЯЗЬ И СТРИМ // WEBRTC P2P</div>
+                  <div class="voice-label">📡 ГОЛОСОВОЙ ПРОТОКОЛ И СТРИМ // WEBRTC P2P</div>
                   <div class="voice-title" id="voice-panel-title">Голосовой канал («Ночной эфир»)</div>
-                  <div class="voice-sub">Звонок удерживается активным при сворачивании браузера на телефоне и ПК.</div>
+                  <div class="voice-sub">Фоновый мост PWA + Base64 WAV + Web Worker удерживает связь при блокировке телефона.</div>
                 </div>
                 <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
                   <button class="btn-mute" id="mute-btn" style="display:none;" onclick="toggleMute()">🎤 Микр. вкл</button>
@@ -1488,7 +1694,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
                   <button class="btn-mute" id="screen-btn" onclick="toggleScreenShare()">🖥️ Экран</button>
                   <button class="btn-mute" id="pip-overlay-btn" onclick="toggleExternalOverlay()">🪟 Оверлей</button>
                   <button class="btn-mute" onclick="openSettingsModal('voice')">⚙️</button>
-                  <button class="btn-cyan" id="connect-voice-btn" onclick="toggleVoiceCall()">Подключиться</button>
+                  <button class="btn-cyan" id="connect-voice-btn" onclick="toggleVoiceCall()">ПОДКЛЮЧИТЬСЯ</button>
                 </div>
               </div>
               <div class="voice-active-area" id="voice-active-area">
@@ -1501,27 +1707,27 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
           <div class="chat-bottom">
             <form class="input-row" onsubmit="sendChatMessage(event)">
-              <button type="button" class="input-plus-btn" title="Пригласить или вставить медиа-ссылку" onclick="openInviteModal()">+</button>
+              <button type="button" class="input-plus-btn" title="Пригласить или отправить ссылку" onclick="openInviteModal()">+</button>
               <input type="text" id="chat-input" class="chat-inp" placeholder="Написать в #общий" autocomplete="off" maxlength="1000">
               <div class="input-right-icons">
-                <span title="Голосовой канал" onclick="toggleVoiceCall()">🎙️</span>
-                <span title="Оверлей поверх окон" onclick="toggleExternalOverlay()">🪟</span>
-                <span title="Отправить сообщение" onclick="sendChatMessage(event)">➤</span>
+                <span title="Голосовой эфир" onclick="toggleVoiceCall()">🎙️</span>
+                <span title="Кибер-оверлей поверх окон" onclick="toggleExternalOverlay()">🪟</span>
+                <span title="Отправить" onclick="sendChatMessage(event)">➤</span>
               </div>
             </form>
           </div>
         </div>
 
-        <!-- 4. ПРАВАЯ КОЛОНКА УЧАСТНИКОВ (240px) -->
+        <!-- 4. ПРАВАЯ КОЛОНКА УЧАСТНИКОВ (240px, пятиугольные аватары) -->
         <div class="right-panel">
-          <div class="right-sec-title">В сети — <span id="online-count">1</span></div>
+          <div class="right-sec-title">⬢ В сети — <span id="online-count">1</span></div>
           <div id="online-users-box"></div>
 
-          <div class="right-sec-title" id="offline-sec-header">Не в сети — <span id="total-members-count">0</span></div>
+          <div class="right-sec-title" id="offline-sec-header">⬡ Не в сети — <span id="total-members-count">0</span></div>
           <div id="offline-users-box"></div>
 
           <div class="sidebar-divider"></div>
-          <div class="right-sec-title">Друзья — <span id="friends-count">0</span></div>
+          <div class="right-sec-title">◈ Друзья — <span id="friends-count">0</span></div>
           <div id="requests-box"></div>
           <div id="friends-box"></div>
         </div>
@@ -1544,47 +1750,47 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   <!-- Мобильное нижнее меню -->
   <div class="mob-bottom-nav" id="mob-bottom-nav">
     <div class="mob-nav-item" id="mob-tab-left" onclick="toggleMobileLeft()"><span class="ico">☰</span><span>Каналы</span></div>
-    <div class="mob-nav-item active" id="mob-tab-chat" onclick="closeMobileDrawers()"><span class="ico">💬</span><span>Чат</span></div>
-    <div class="mob-nav-item" id="mob-tab-voice" onclick="scrollToVoiceMobile()"><span class="ico">🔊</span><span>Голос</span></div>
-    <div class="mob-nav-item" id="mob-tab-right" onclick="toggleMobileRight()"><span class="ico">👥</span><span>Участники</span></div>
-    <div class="mob-nav-item" id="mob-tab-profile" onclick="openSettingsModal('profile')"><span class="ico">👤</span><span>Профиль</span></div>
+    <div class="mob-nav-item active" id="mob-tab-chat" onclick="closeMobileDrawers()"><span class="ico">◈</span><span>Чат</span></div>
+    <div class="mob-nav-item" id="mob-tab-voice" onclick="scrollToVoiceMobile()"><span class="ico">📡</span><span>Голос</span></div>
+    <div class="mob-nav-item" id="mob-tab-right" onclick="toggleMobileRight()"><span class="ico">⬢</span><span>Участники</span></div>
+    <div class="mob-nav-item" id="mob-tab-profile" onclick="openSettingsModal('profile')"><span class="ico">⚡</span><span>Профиль</span></div>
   </div>
 
   <!-- Модальное окно настроек -->
   <div class="modal-backdrop" id="settings-modal" onclick="if(event.target===this)closeSettingsModal()">
     <div class="settings-modal-box">
       <div class="settings-nav">
-        <div class="settings-nav-label">Настройки пользователя</div>
-        <div class="settings-nav-btn active" data-pane="profile" onclick="switchSettingsPane('profile')">👤 Мой профиль</div>
+        <div class="settings-nav-label">Профиль оператора</div>
+        <div class="settings-nav-btn active" data-pane="profile" onclick="switchSettingsPane('profile')">⬢ Мой профиль</div>
         <div class="settings-nav-btn" data-pane="account" onclick="switchSettingsPane('account')">🔑 Учётная запись</div>
-        <div class="settings-nav-label">Безопасность</div>
-        <div class="settings-nav-btn" data-pane="safety" onclick="switchSettingsPane('safety')">🛡️ Фильтр контента</div>
-        <div class="settings-nav-label">Настройки приложения</div>
+        <div class="settings-nav-label">Защита сети</div>
+        <div class="settings-nav-btn" data-pane="safety" onclick="switchSettingsPane('safety')">🛡️ Фильтр 18+</div>
+        <div class="settings-nav-label">Конфигурация</div>
         <div class="settings-nav-btn" data-pane="voice" onclick="switchSettingsPane('voice')">🎙️ Голос и видео</div>
-        <div class="settings-nav-btn" data-pane="appearance" onclick="switchSettingsPane('appearance')">🎨 Внешний вид</div>
-        <div class="settings-nav-btn" data-pane="notifications" onclick="switchSettingsPane('notifications')">🔔 Уведомления</div>
-        <div style="margin-top:auto;padding-top:10px;"><button class="btn-login-mini" style="width:100%;" onclick="closeSettingsModal()">✕ Закрыть (ESC)</button></div>
+        <div class="settings-nav-btn" data-pane="appearance" onclick="switchSettingsPane('appearance')">🎨 Кибер-интерфейс</div>
+        <div class="settings-nav-btn" data-pane="notifications" onclick="switchSettingsPane('notifications')">🔔 Сигналы</div>
+        <div style="margin-top:auto;padding-top:10px;"><button class="btn-login-mini" style="width:100%;" onclick="closeSettingsModal()">✕ ЗАКРЫТЬ (ESC)</button></div>
       </div>
       <div class="settings-content">
         <div class="settings-pane active" id="pane-profile">
-          <div class="settings-head"><h3>Мой профиль</h3><button class="btn-cyan" onclick="saveProfileSettings()">Сохранить изменения</button></div>
-          <div class="discord-profile-card"><div class="dp-banner" id="preview-banner"></div><div class="dp-body"><div class="dp-ava" id="preview-ava">ГО</div><div class="dp-nick" id="preview-nick">Гость</div><div class="dp-status" id="preview-status"></div><div class="dp-sec"><div class="dp-sec-title">ОБО МНЕ</div><div class="dp-bio" id="preview-bio"></div></div><div class="dp-sec"><div class="dp-sec-title">ИНТЕРЕСЫ</div><div class="dp-tags" id="preview-tags"></div></div></div></div>
+          <div class="settings-head"><h3>⬢ Мой кибер-профиль</h3><button class="btn-cyan" onclick="saveProfileSettings()">СОХРАНИТЬ</button></div>
+          <div class="discord-profile-card"><div class="dp-banner" id="preview-banner"></div><div class="dp-body"><div class="dp-ava" id="preview-ava">ГО</div><div class="dp-nick" id="preview-nick">Гость</div><div class="dp-status" id="preview-status"></div><div class="dp-sec"><div class="dp-sec-title">ДОСЬЕ ОПЕРАТОРА</div><div class="dp-bio" id="preview-bio"></div></div><div class="dp-sec"><div class="dp-sec-title">СПЕЦИАЛИЗАЦИЯ И ИНТЕРЕСЫ</div><div class="dp-tags" id="preview-tags"></div></div></div></div>
           <div class="settings-card">
             <div class="settings-grid-2">
-              <div><label class="field-label">Отображаемое имя</label><input type="text" id="prof-nick-inp" maxlength="24" oninput="updateProfilePreview()"></div>
-              <div><label class="field-label">Статус</label><select id="prof-presence-sel" onchange="updateProfilePreview()"><option value="online">🟢 В сети</option><option value="idle">🌙 Не активен</option><option value="dnd">⛔ Не беспокоить</option><option value="invisible">⚪ Невидимка</option></select></div>
+              <div><label class="field-label">Позывной (Никнейм)</label><input type="text" id="prof-nick-inp" maxlength="24" oninput="updateProfilePreview()"></div>
+              <div><label class="field-label">Режим сети</label><select id="prof-presence-sel" onchange="updateProfilePreview()"><option value="online">⬢ В сети (Online)</option><option value="idle">🌙 Ожидание (Idle)</option><option value="dnd">⛔ Не беспокоить (DND)</option><option value="invisible">⬡ Скрытый (Stealth)</option></select></div>
             </div>
-            <div><label class="field-label">Пользовательский статус</label><input type="text" id="prof-status-inp" maxlength="60" oninput="updateProfilePreview()"></div>
-            <div><label class="field-label">Обо мне</label><textarea id="prof-bio-inp" rows="2" maxlength="220" oninput="updateProfilePreview()"></textarea></div>
+            <div><label class="field-label">Статус-строка под ником</label><input type="text" id="prof-status-inp" maxlength="60" oninput="updateProfilePreview()"></div>
+            <div><label class="field-label">О себе</label><textarea id="prof-bio-inp" rows="2" maxlength="220" oninput="updateProfilePreview()"></textarea></div>
             <div><label class="field-label">Интересы (через запятую)</label><input type="text" id="prof-interests-inp" maxlength="160" oninput="updateProfilePreview()"></div>
             <div class="settings-grid-2">
-              <div><label class="field-label">Цвет баннера</label><div class="color-swatches"><div class="color-swatch" style="background:#5865f2;" onclick="selectBannerColor('#5865f2')"></div><div class="color-swatch" style="background:#eb459e;" onclick="selectBannerColor('#eb459e')"></div><div class="color-swatch" style="background:#23a55a;" onclick="selectBannerColor('#23a55a')"></div><div class="color-swatch" style="background:#f0b232;" onclick="selectBannerColor('#f0b232')"></div><div class="color-swatch" style="background:#f23f43;" onclick="selectBannerColor('#f23f43')"></div></div></div>
-              <div><label class="field-label">Цвет аватара</label><div class="color-swatches"><div class="color-swatch" style="background:#5865f2;" onclick="selectAvatarColor('#5865f2')"></div><div class="color-swatch" style="background:#23a55a;" onclick="selectAvatarColor('#23a55a')"></div><div class="color-swatch" style="background:#eb459e;" onclick="selectAvatarColor('#eb459e')"></div><div class="color-swatch" style="background:#f23f43;" onclick="selectAvatarColor('#f23f43')"></div><div class="color-swatch" style="background:#f0b232;" onclick="selectAvatarColor('#f0b232')"></div></div></div>
+              <div><label class="field-label">Цвет баннера</label><div class="color-swatches"><div class="color-swatch" style="background:#00f0ff;" onclick="selectBannerColor('#00f0ff')"></div><div class="color-swatch" style="background:#ff0055;" onclick="selectBannerColor('#ff0055')"></div><div class="color-swatch" style="background:#00ff9d;" onclick="selectBannerColor('#00ff9d')"></div><div class="color-swatch" style="background:#fcee09;" onclick="selectBannerColor('#fcee09')"></div><div class="color-swatch" style="background:#7c3aed;" onclick="selectBannerColor('#7c3aed')"></div></div></div>
+              <div><label class="field-label">Цвет пятиугольника аватара</label><div class="color-swatches"><div class="color-swatch" style="background:#ff0055;" onclick="selectAvatarColor('#ff0055')"></div><div class="color-swatch" style="background:#00f0ff;" onclick="selectAvatarColor('#00f0ff')"></div><div class="color-swatch" style="background:#00ff9d;" onclick="selectAvatarColor('#00ff9d')"></div><div class="color-swatch" style="background:#fcee09;" onclick="selectAvatarColor('#fcee09')"></div><div class="color-swatch" style="background:#7c3aed;" onclick="selectAvatarColor('#7c3aed')"></div></div></div>
             </div>
           </div>
         </div>
         <div class="settings-pane" id="pane-safety">
-          <div class="settings-head"><h3>🛡️ Фильтр контента 18+ и режим стримера</h3></div>
+          <div class="settings-head"><h3>🛡️ Фильтр контента 18+</h3></div>
           <div class="settings-card">
             <div class="toggle-row"><div><div class="toggle-title">🔞 Блокировать откровенный контент (18+)</div></div><label class="cyber-switch"><input type="checkbox" id="chk-filter-sexual" checked onchange="saveSafetySettings()"><span class="cyber-slider"></span></label></div>
             <div class="toggle-row"><div><div class="toggle-title">🩸 Блокировать шок-контент и насилие</div></div><label class="cyber-switch"><input type="checkbox" id="chk-filter-gore" checked onchange="saveSafetySettings()"><span class="cyber-slider"></span></label></div>
@@ -1594,44 +1800,44 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           </div>
         </div>
         <div class="settings-pane" id="pane-voice">
-          <div class="settings-head"><h3>Голос, видео и игровой оверлей</h3><button class="btn-login-mini" onclick="refreshMediaDevices()">🔄 Обновить устройства</button></div>
+          <div class="settings-head"><h3>🎙️ Голос, видео и оверлей</h3><button class="btn-login-mini" onclick="refreshMediaDevices()">🔄 ОБНОВИТЬ</button></div>
           <div class="settings-card">
-            <div class="settings-grid-2"><div><label class="field-label">Устройство ввода</label><select id="set-mic-select" onchange="saveAudioVideoSettings()"></select></div><div><label class="field-label">Устройство вывода</label><select id="set-spk-select" onchange="saveAudioVideoSettings()"></select></div></div>
-            <div class="settings-grid-2"><div><label class="field-label">Громкость микрофона: <span id="lbl-mic-vol">100%</span></label><input type="range" class="cyber-range" id="set-mic-vol" min="0" max="200" value="100" oninput="onAudioSlidersChange()"></div><div><label class="field-label">Громкость звука: <span id="lbl-out-vol">100%</span></label><input type="range" class="cyber-range" id="set-out-vol" min="0" max="200" value="100" oninput="onAudioSlidersChange()"></div></div>
-            <div><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><label class="field-label">Проверка микрофона</label><button class="btn-login-mini" id="btn-mic-test" onclick="toggleMicTest()">🎙️ Давайте проверим</button></div><div class="mic-meter-wrap"><div class="mic-meter-bar" id="mic-test-bar"></div></div></div>
-            <div class="settings-grid-2"><div><label class="field-label">Камера</label><select id="set-cam-select" onchange="saveAudioVideoSettings()"></select></div><div><label class="field-label">Разрешение камеры</label><select id="set-cam-res" onchange="saveAudioVideoSettings()"><option value="720">HD 720p</option><option value="480">SD 480p</option></select></div></div>
-            <div class="toggle-row"><div><div class="toggle-title">🪟 Показывать плавающий виджет звонка</div></div><label class="cyber-switch"><input type="checkbox" id="chk-auto-overlay" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
-            <div class="toggle-row"><div><div class="toggle-title">Шумоподавление</div></div><label class="cyber-switch"><input type="checkbox" id="chk-noise" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
-            <div class="toggle-row"><div><div class="toggle-title">Эхоподавление</div></div><label class="cyber-switch"><input type="checkbox" id="chk-echo" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
-            <div class="toggle-row"><div><div class="toggle-title">Авторегулировка усиления</div></div><label class="cyber-switch"><input type="checkbox" id="chk-agc" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
+            <div class="settings-grid-2"><div><label class="field-label">Микрофон</label><select id="set-mic-select" onchange="saveAudioVideoSettings()"></select></div><div><label class="field-label">Аудиовыход</label><select id="set-spk-select" onchange="saveAudioVideoSettings()"></select></div></div>
+            <div class="settings-grid-2"><div><label class="field-label">Усиление микрофона: <span id="lbl-mic-vol">100%</span></label><input type="range" class="cyber-range" id="set-mic-vol" min="0" max="200" value="100" oninput="onAudioSlidersChange()"></div><div><label class="field-label">Громкость эфира: <span id="lbl-out-vol">100%</span></label><input type="range" class="cyber-range" id="set-out-vol" min="0" max="200" value="100" oninput="onAudioSlidersChange()"></div></div>
+            <div><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><label class="field-label">Тест аудиосенсора</label><button class="btn-login-mini" id="btn-mic-test" onclick="toggleMicTest()">🎙️ ПРОВЕРИТЬ</button></div><div class="mic-meter-wrap"><div class="mic-meter-bar" id="mic-test-bar"></div></div></div>
+            <div class="settings-grid-2"><div><label class="field-label">Видеосенсор (Камера)</label><select id="set-cam-select" onchange="saveAudioVideoSettings()"></select></div><div><label class="field-label">Разрешение</label><select id="set-cam-res" onchange="saveAudioVideoSettings()"><option value="720">HD 720p</option><option value="480">SD 480p</option></select></div></div>
+            <div class="toggle-row"><div><div class="toggle-title">🪟 Показывать плавающий кибер-оверлей звонка</div></div><label class="cyber-switch"><input type="checkbox" id="chk-auto-overlay" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
+            <div class="toggle-row"><div><div class="toggle-title">Подавление шумов</div></div><label class="cyber-switch"><input type="checkbox" id="chk-noise" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
+            <div class="toggle-row"><div><div class="toggle-title">Подавление эха</div></div><label class="cyber-switch"><input type="checkbox" id="chk-echo" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
+            <div class="toggle-row"><div><div class="toggle-title">Автоусиление голоса</div></div><label class="cyber-switch"><input type="checkbox" id="chk-agc" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
           </div>
         </div>
         <div class="settings-pane" id="pane-appearance">
-          <div class="settings-head"><h3>Внешний вид</h3></div>
+          <div class="settings-head"><h3>🎨 Кибер-интерфейс</h3></div>
           <div class="settings-card">
             <div class="theme-pills-grid">
-              <button class="theme-pill-btn" onclick="setAccentTheme('#5865f2','#5865f2')"><span class="theme-dot-swatch" style="background:#5865f2;"></span><span>Discord Blurple</span></button>
-              <button class="theme-pill-btn" onclick="setAccentTheme('#14b8a6','#2dd4bf')"><span class="theme-dot-swatch" style="background:#2dd4bf;"></span><span>Кибер Бирюза</span></button>
-              <button class="theme-pill-btn" onclick="setAccentTheme('#db2777','#f43f5e')"><span class="theme-dot-swatch" style="background:#f43f5e;"></span><span>Розовый Неон</span></button>
-              <button class="theme-pill-btn" onclick="setAccentTheme('#d97706','#fbbf24')"><span class="theme-dot-swatch" style="background:#fbbf24;"></span><span>Золотой</span></button>
+              <button class="theme-pill-btn" onclick="setAccentTheme('#00f0ff','#00f0ff')"><span class="theme-dot-swatch" style="background:#00f0ff;"></span><span>Кибер-Циан (#00F0FF)</span></button>
+              <button class="theme-pill-btn" onclick="setAccentTheme('#ff0055','#ff0055')"><span class="theme-dot-swatch" style="background:#ff0055;"></span><span>Неон-Маджента (#FF0055)</span></button>
+              <button class="theme-pill-btn" onclick="setAccentTheme('#00ff9d','#00ff9d')"><span class="theme-dot-swatch" style="background:#00ff9d;"></span><span>Матрица (#00FF9D)</span></button>
+              <button class="theme-pill-btn" onclick="setAccentTheme('#fcee09','#fcee09')"><span class="theme-dot-swatch" style="background:#fcee09;"></span><span>Кибер-Золото (#FCEE09)</span></button>
             </div>
-            <div class="toggle-row"><div><div class="toggle-title">Компактный режим сообщений</div></div><label class="cyber-switch"><input type="checkbox" id="chk-compact" onchange="applyAppearanceSettings()"><span class="cyber-slider"></span></label></div>
-            <div><label class="field-label">Размер шрифта чата</label><select id="sel-font-size" onchange="applyAppearanceSettings()"><option value="13px">13px</option><option value="14px" selected>14px (Стандарт)</option><option value="16px">16px</option></select></div>
+            <div class="toggle-row"><div><div class="toggle-title">Компактный режим чата</div></div><label class="cyber-switch"><input type="checkbox" id="chk-compact" onchange="applyAppearanceSettings()"><span class="cyber-slider"></span></label></div>
+            <div><label class="field-label">Размер шрифта</label><select id="sel-font-size" onchange="applyAppearanceSettings()"><option value="13px">13px</option><option value="14px" selected>14px (Стандарт)</option><option value="16px">16px</option></select></div>
           </div>
         </div>
         <div class="settings-pane" id="pane-notifications">
-          <div class="settings-head"><h3>Уведомления</h3></div>
+          <div class="settings-head"><h3>🔔 Звуковые сигналы</h3></div>
           <div class="settings-card">
-            <div class="toggle-row"><div><div class="toggle-title">Звук при новом сообщении</div></div><label class="cyber-switch"><input type="checkbox" id="chk-snd-msg" checked onchange="saveNotificationSettings()"><span class="cyber-slider"></span></label></div>
-            <div class="toggle-row"><div><div class="toggle-title">Звук подключения к голосовому каналу</div></div><label class="cyber-switch"><input type="checkbox" id="chk-snd-voice" checked onchange="saveNotificationSettings()"><span class="cyber-slider"></span></label></div>
+            <div class="toggle-row"><div><div class="toggle-title">Сигнал при новом сообщении</div></div><label class="cyber-switch"><input type="checkbox" id="chk-snd-msg" checked onchange="saveNotificationSettings()"><span class="cyber-slider"></span></label></div>
+            <div class="toggle-row"><div><div class="toggle-title">Сигнал подключения к голосовому эфиру</div></div><label class="cyber-switch"><input type="checkbox" id="chk-snd-voice" checked onchange="saveNotificationSettings()"><span class="cyber-slider"></span></label></div>
           </div>
         </div>
         <div class="settings-pane" id="pane-account">
-          <div class="settings-head"><h3>Учётная запись</h3></div>
+          <div class="settings-head"><h3>🔑 Учётная запись</h3></div>
           <div class="settings-card">
             <div class="settings-grid-2">
-              <button class="btn-cyan" onclick="closeSettingsModal();openAuthModal(false)">✈️ Сменить аккаунт</button>
-              <button class="btn-danger" onclick="logoutAccount()">Выйти</button>
+              <button class="btn-cyan" onclick="closeSettingsModal();openAuthModal(false)">✈️ СМЕНИТЬ АККАУНТ</button>
+              <button class="btn-danger" onclick="logoutAccount()">ВЫЙТИ</button>
             </div>
           </div>
         </div>
@@ -1641,42 +1847,42 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   <!-- Карточка участника -->
   <div class="modal-backdrop" id="view-profile-modal" onclick="if(event.target===this)closeViewProfileModal()">
-    <div class="modal-box" style="padding:0;width:340px;"><div class="discord-profile-card"><div class="dp-banner" id="vp-banner"></div><div class="dp-body"><div class="dp-ava" id="vp-ava">УЧ</div><div style="display:flex;justify-content:space-between;align-items:center;"><div class="dp-nick" id="vp-nick"></div><span class="status-pill on" id="vp-online-pill">В сети</span></div><div class="dp-status" id="vp-status"></div><div class="dp-sec"><div class="dp-sec-title">ОБО МНЕ</div><div class="dp-bio" id="vp-bio"></div></div><div class="dp-sec"><div class="dp-sec-title">ИНТЕРЕСЫ</div><div class="dp-tags" id="vp-tags"></div></div><div style="margin-top:14px;display:flex;gap:8px;"><button class="btn-cyan" id="vp-friend-btn" style="flex:1;">Добавить в друзья</button><button class="btn-login-mini" onclick="closeViewProfileModal()">Закрыть</button></div></div></div></div>
+    <div class="modal-box" style="padding:0;width:340px;"><div class="discord-profile-card" style="border:none;"><div class="dp-banner" id="vp-banner"></div><div class="dp-body"><div class="dp-ava" id="vp-ava">УЧ</div><div style="display:flex;justify-content:space-between;align-items:center;"><div class="dp-nick" id="vp-nick"></div><span class="status-pill on" id="vp-online-pill">ОНЛАЙН</span></div><div class="dp-status" id="vp-status"></div><div class="dp-sec"><div class="dp-sec-title">ДОСЬЕ</div><div class="dp-bio" id="vp-bio"></div></div><div class="dp-sec"><div class="dp-sec-title">ИНТЕРЕСЫ</div><div class="dp-tags" id="vp-tags"></div></div><div style="margin-top:14px;display:flex;gap:8px;"><button class="btn-cyan" id="vp-friend-btn" style="flex:1;">+ В ДРУЗЬЯ</button><button class="btn-login-mini" onclick="closeViewProfileModal()">ЗАКРЫТЬ</button></div></div></div></div>
   </div>
 
   <!-- Модальное окно приглашения -->
   <div class="modal-backdrop" id="invite-modal" onclick="if(event.target===this)closeInviteModal()">
-    <div class="modal-box"><h3 style="color:#fff;font-size:16px;margin-bottom:8px;">Пригласить друзей на сервер</h3><a class="link-box" id="public-invite-url" href="#" target="_blank"></a><button class="btn-cyan" style="width:100%;margin-bottom:6px;" onclick="copyInviteLink()">Скопировать ссылку</button><button class="btn-login-mini" style="width:100%;" onclick="closeInviteModal()">Закрыть</button></div>
+    <div class="modal-box"><h3 style="color:var(--brand);font-size:16px;margin-bottom:8px;">⚡ КОД ДОСТУПА К УЗЛУ</h3><a class="link-box" id="public-invite-url" href="#" target="_blank"></a><button class="btn-cyan" style="width:100%;margin-bottom:6px;" onclick="copyInviteLink()">СКОПИРОВАТЬ ССЫЛКУ</button><button class="btn-login-mini" style="width:100%;" onclick="closeInviteModal()">ЗАКРЫТЬ</button></div>
   </div>
 
   <!-- Модальное окно авторизации -->
   <div class="modal-backdrop" id="auth-modal" onclick="if(!authLocked && event.target===this)closeAuthModal()">
     <div class="modal-box">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h3 style="color:#fff;font-size:16px;">Вход в аккаунт</h3><span style="font-size:10px;background:var(--brand);color:#fff;padding:2px 6px;border-radius:4px;font-weight:700;">СИГНАЛ ID</span></div>
-      <div class="auth-tabs"><div class="auth-tab active" id="tab-tg-btn" onclick="switchAuthTab('tg')">✈️ Через Telegram</div><div class="auth-tab" id="tab-pass-btn" onclick="switchAuthTab('pass')">🔑 По паролю</div></div>
-      <input type="text" id="nick-inp" placeholder="Ваш никнейм" maxlength="24">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h3 style="color:var(--brand);font-size:16px;">⚡ ИДЕНТИФИКАЦИЯ</h3><span style="font-size:10px;background:var(--pink);color:#fff;padding:2px 6px;font-weight:800;">CYBER ID</span></div>
+      <div class="auth-tabs"><div class="auth-tab active" id="tab-tg-btn" onclick="switchAuthTab('tg')">✈️ TELEGRAM</div><div class="auth-tab" id="tab-pass-btn" onclick="switchAuthTab('pass')">🔑 ПАРОЛЬ</div></div>
+      <input type="text" id="nick-inp" placeholder="Ваш позывной (никнейм)" maxlength="24">
       <div id="auth-tg-panel">
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;" id="tg-status-hint">Откройте бота и нажмите /start — вход выполнится автоматически:</p>
-        <button type="button" class="btn-tg" id="tg-open-bot-btn" onclick="openTelegramBot()">✈️ Открыть Telegram и получить код</button>
-        <input type="text" id="tg-code-inp" placeholder="Код из Telegram (4 цифры)" maxlength="6" style="text-align:center;font-size:15px;font-weight:700;letter-spacing:4px;">
-        <button class="btn-cyan" style="width:100%;" onclick="verifyTelegramCode()">Подтвердить код и войти</button>
+        <p style="font-size:12px;color:var(--text-normal);margin-bottom:10px;" id="tg-status-hint">Откройте бота и нажмите /start — вход выполнится автоматически:</p>
+        <button type="button" class="btn-tg" id="tg-open-bot-btn" onclick="openTelegramBot()">✈️ ОТКРЫТЬ TELEGRAM И ПОЛУЧИТЬ КОД</button>
+        <input type="text" id="tg-code-inp" placeholder="КОД (4 ЦИФРЫ)" maxlength="6" style="text-align:center;font-size:15px;font-weight:800;letter-spacing:4px;">
+        <button class="btn-cyan" style="width:100%;" onclick="verifyTelegramCode()">ПОДТВЕРДИТЬ И ВОЙТИ</button>
       </div>
       <div id="auth-pass-panel" style="display:none;">
         <input type="password" id="pass-inp" placeholder="Пароль (минимум 4 символа)" maxlength="64">
-        <button class="btn-cyan" style="width:100%;" onclick="loginWithPassword()">Войти навсегда</button>
+        <button class="btn-cyan" style="width:100%;" onclick="loginWithPassword()">ВОЙТИ НАВСЕГДА</button>
       </div>
-      <button class="btn-login-mini" id="auth-close-btn" style="width:100%;margin-top:8px;" onclick="closeAuthModal()">Закрыть</button>
+      <button class="btn-login-mini" id="auth-close-btn" style="width:100%;margin-top:8px;" onclick="closeAuthModal()">ЗАКРЫТЬ</button>
     </div>
   </div>
 
   <!-- Модальное окно создания сервера -->
   <div class="modal-backdrop" id="create-server-modal" onclick="if(event.target===this)closeCreateServerModal()">
-    <div class="modal-box"><h3 style="color:#fff;font-size:16px;margin-bottom:8px;">Создать свой сервер</h3><input type="text" id="new-srv-name" placeholder="Название сервера (например: Sezorgame)" maxlength="28"><input type="text" id="new-srv-desc" placeholder="Описание сообщества" maxlength="80"><button class="btn-cyan" style="width:100%;margin-bottom:6px;" onclick="submitCreateServer()">Создать</button><button class="btn-login-mini" style="width:100%;" onclick="closeCreateServerModal()">Отмена</button></div>
+    <div class="modal-box"><h3 style="color:var(--brand);font-size:16px;margin-bottom:8px;">⬢ СОЗДАТЬ НОВЫЙ СЕРВЕР</h3><input type="text" id="new-srv-name" placeholder="Название узла (например: Sezorgame)" maxlength="28"><input type="text" id="new-srv-desc" placeholder="Описание" maxlength="80"><button class="btn-cyan" style="width:100%;margin-bottom:6px;" onclick="submitCreateServer()">СОЗДАТЬ</button><button class="btn-login-mini" style="width:100%;" onclick="closeCreateServerModal()">ОТМЕНА</button></div>
   </div>
 
   <!-- Модальное окно создания канала -->
   <div class="modal-backdrop" id="create-channel-modal" onclick="if(event.target===this)closeCreateChannelModal()">
-    <div class="modal-box"><h3 id="create-ch-title" style="color:#fff;font-size:16px;margin-bottom:6px;">Создать канал</h3><p id="create-ch-sub" style="font-size:12px;color:var(--text-muted);margin-bottom:10px;"></p><input type="text" id="new-ch-name" placeholder="новый-канал" maxlength="28"><button class="btn-cyan" style="width:100%;margin-bottom:6px;" onclick="submitCreateChannel()">Создать канал</button><button class="btn-login-mini" style="width:100%;" onclick="closeCreateChannelModal()">Отмена</button></div>
+    <div class="modal-box"><h3 id="create-ch-title" style="color:var(--brand);font-size:16px;margin-bottom:6px;">◈ СОЗДАТЬ КАНАЛ</h3><p id="create-ch-sub" style="font-size:12px;color:var(--text-normal);margin-bottom:10px;"></p><input type="text" id="new-ch-name" placeholder="название-канала" maxlength="28"><button class="btn-cyan" style="width:100%;margin-bottom:6px;" onclick="submitCreateChannel()">СОЗДАТЬ</button><button class="btn-login-mini" style="width:100%;" onclick="closeCreateChannelModal()">ОТМЕНА</button></div>
   </div>
 
 <script>
@@ -1747,7 +1953,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     try { window.history.replaceState({}, '', window.location.pathname + '?room=' + encodeURIComponent(currentRoom) + '&channel=' + encodeURIComponent(currentChannel)); } catch (e) {}
   }
 
-  let myProfile = { bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#5865f2', avatarColor: '#5865f2' };
+  let myProfile = { bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#00f0ff', avatarColor: '#ff0055' };
   try { myProfile = Object.assign(myProfile, JSON.parse(localStorage.getItem('cyber_profile') || '{}')); } catch (e) {}
 
   let appSettings = { micDeviceId: '', spkDeviceId: '', camDeviceId: '', micVolume: 100, outVolume: 100, camRes: '720', autoOverlay: true, noiseSuppression: true, echoCancellation: true, autoGainControl: true, compactChat: false, fontSize: '14px', soundMsg: true, soundVoice: true, filterSexual: true, filterGore: true, filterOutgoing: true, filterAction: 'block', customBlockedWords: '' };
@@ -1768,8 +1974,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       interests: u.interests !== undefined ? u.interests : (prev.interests || ''),
       customStatus: u.customStatus !== undefined ? u.customStatus : (prev.customStatus || ''),
       presence: u.presence || prev.presence || 'online',
-      bannerColor: u.bannerColor || prev.bannerColor || '#5865f2',
-      avatarColor: u.avatarColor || prev.avatarColor || '#5865f2'
+      bannerColor: u.bannerColor || prev.bannerColor || '#00f0ff',
+      avatarColor: u.avatarColor || prev.avatarColor || '#ff0055'
     };
   }
 
@@ -1888,27 +2094,29 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function drawSystemPipOverlayFrame() {
     if (!pipCanvas || !pipCtx) return;
     const ctx = pipCtx, w = pipCanvas.width, h = pipCanvas.height;
-    ctx.fillStyle = '#1e1f22'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#05080f'; ctx.fillRect(0, 0, w, h);
     const activeVideoEl = document.querySelector('#screen-grid .screen-card:not(.nsfw-masked) video');
     if (activeVideoEl && activeVideoEl.readyState >= 2) {
       try { ctx.drawImage(activeVideoEl, 0, 38, w, h - 38); } catch (e) {}
-      ctx.fillStyle = 'rgba(17, 18, 20, 0.88)'; ctx.fillRect(0, 0, w, 38);
+      ctx.fillStyle = 'rgba(4, 7, 13, 0.88)'; ctx.fillRect(0, 0, w, 38);
     } else {
-      ctx.fillStyle = '#2b2d31';
+      ctx.fillStyle = '#0c1422';
       ctx.fillRect(14, 48, w - 28, 34);
-      ctx.fillStyle = isMuted ? '#f23f43' : '#23a55a'; ctx.font = 'bold 13px sans-serif';
+      ctx.strokeStyle = isMuted ? '#ff0055' : '#00f0ff'; ctx.lineWidth = 1.5; ctx.strokeRect(14, 48, w - 28, 34);
+      ctx.fillStyle = isMuted ? '#ff0055' : '#00ff9d'; ctx.font = 'bold 13px sans-serif';
       ctx.fillText((isMuted ? '🔇 Микрофон выкл' : '🎤 Микрофон вкл') + (isDeafened ? ' • 🔇 Звук выкл' : ' • 🎧 Звук вкл'), 26, 70);
-      ctx.fillStyle = '#949ba4'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('УЧАСТНИКИ В ГОЛОСОВОМ КАНАЛЕ:', 16, 104);
+      ctx.fillStyle = '#00f0ff'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('ОПЕРАТОРЫ В КАНАЛЕ:', 16, 104);
       getVoiceChannelMembers().slice(0, 5).forEach(function (u, i) {
-        const y = 128 + i * 25; ctx.fillStyle = '#2b2d31'; ctx.fillRect(14, y - 16, w - 28, 22);
-        ctx.fillStyle = '#23a55a'; ctx.beginPath(); ctx.arc(26, y - 5, 4.5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#f2f3f5'; ctx.font = 'bold 13px sans-serif';
+        const y = 128 + i * 25; ctx.fillStyle = '#0c1422'; ctx.fillRect(14, y - 16, w - 28, 22);
+        ctx.fillStyle = '#00ff9d'; ctx.beginPath(); ctx.arc(26, y - 5, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#e2f8ff'; ctx.font = 'bold 13px sans-serif';
         ctx.fillText(u.nick + (u.pid === myPid ? ' (Вы)' : '') + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : ''), 38, y);
       });
     }
-    ctx.fillStyle = '#5865f2'; ctx.fillRect(14, 9, 72, 20); ctx.fillStyle = '#ffffff'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('СИГНАЛ', 23, 23);
-    ctx.fillStyle = '#f2f3f5'; ctx.font = 'bold 14px sans-serif'; ctx.fillText('🔊 ' + String(currentVoiceChannel || 'Эфир').slice(0, 20), 96, 24);
-    ctx.fillStyle = '#dbdee1'; ctx.font = 'bold 13px monospace'; ctx.fillText(formatCallTime(callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0), w - 58, 24);
+    ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, w - 2, h - 2);
+    ctx.fillStyle = '#ff0055'; ctx.fillRect(14, 9, 72, 20); ctx.fillStyle = '#ffffff'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('СИГНАЛ', 23, 23);
+    ctx.fillStyle = '#00f0ff'; ctx.font = 'bold 14px sans-serif'; ctx.fillText('🔊 ' + String(currentVoiceChannel || 'Эфир').slice(0, 20), 96, 24);
+    ctx.fillStyle = '#e2f8ff'; ctx.font = 'bold 13px monospace'; ctx.fillText(formatCallTime(callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0), w - 58, 24);
   }
 
   function openStandalonePopupOverlay() {
@@ -1916,7 +2124,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     popupOverlayWin = window.open('', 'SignalCallOverlay', 'width=340,height=250,menubar=no,toolbar=no,location=no,status=no,resizable=yes');
     if (!popupOverlayWin) return;
     const doc = popupOverlayWin.document; doc.open();
-    doc.write('<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>СИГНАЛ — Оверлей</title><style>*{box-sizing:border-box;margin:0;padding:0;font-family:sans-serif;}body{background:#1e1f22;color:#f2f3f5;padding:12px;height:100vh;display:flex;flex-direction:column;justify-content:space-between;}.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px;}.badge{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#23a55a;}.dot{width:8px;height:8px;border-radius:50%;background:#23a55a;}.timer{font-family:monospace;font-size:11px;color:#dbdee1;}.peers{display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;overflow-y:auto;flex:1;align-content:flex-start;}.chip{display:inline-flex;align-items:center;gap:6px;background:#2b2d31;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;}.btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);}button{background:#2b2d31;border:none;color:#fff;padding:8px 6px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;}button.off{background:#f23f43;}button.hang{background:#f23f43;color:#fff;}</style></head><body><div class="top"><div class="badge"><span class="dot"></span><span id="pop-ch"></span></div><span class="timer" id="pop-timer">00:00</span></div><div class="peers" id="pop-peers"></div><div class="btns"><button id="pop-mute"></button><button id="pop-deaf"></button><button class="hang" id="pop-hang">🛑 Выход</button></div></body></html>');
+    doc.write('<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>СИГНАЛ — Кибер-Оверлей</title><style>*{box-sizing:border-box;margin:0;padding:0;font-family:sans-serif;}body{background:#05080f;color:#e2f8ff;padding:12px;height:100vh;display:flex;flex-direction:column;justify-content:space-between;border:1px solid #00f0ff;}.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(0,240,255,0.2);padding-bottom:8px;}.badge{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#00ff9d;}.dot{width:8px;height:8px;background:#00ff9d;}.timer{font-family:monospace;font-size:11px;color:#00f0ff;}.peers{display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;overflow-y:auto;flex:1;align-content:flex-start;}.chip{display:inline-flex;align-items:center;gap:6px;background:#0c1422;border:1px solid rgba(0,240,255,0.3);padding:4px 9px;font-size:11px;font-weight:700;color:#fff;}.btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding-top:6px;border-top:1px solid rgba(0,240,255,0.2);}button{background:#0c1422;border:1px solid #00f0ff;color:#00f0ff;padding:8px 6px;font-size:11px;font-weight:700;cursor:pointer;}button.off{background:#ff0055;border-color:#ff0055;color:#fff;}button.hang{background:#ff0055;border-color:#ff0055;color:#fff;}</style></head><body><div class="top"><div class="badge"><span class="dot"></span><span id="pop-ch"></span></div><span class="timer" id="pop-timer">00:00</span></div><div class="peers" id="pop-peers"></div><div class="btns"><button id="pop-mute"></button><button id="pop-deaf"></button><button class="hang" id="pop-hang">🛑 Выход</button></div></body></html>');
     doc.close();
     doc.getElementById('pop-mute').onclick = function () { toggleMute(); };
     doc.getElementById('pop-deaf').onclick = function () { toggleDeafen(); };
@@ -1932,7 +2140,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const m = doc.getElementById('pop-mute'); m.textContent = isMuted ? '🔇 Микр. выкл' : '🎤 Микр. вкл'; m.className = isMuted ? 'off' : '';
       const d = doc.getElementById('pop-deaf'); d.textContent = isDeafened ? '🔇 Звук выкл' : '🎧 Звук вкл'; d.className = isDeafened ? 'off' : '';
       const pb = doc.getElementById('pop-peers'); pb.innerHTML = '';
-      getVoiceChannelMembers().forEach(function (u) { const c = doc.createElement('div'); c.className = 'chip'; c.textContent = '🟢 ' + u.nick; pb.appendChild(c); });
+      getVoiceChannelMembers().forEach(function (u) { const c = doc.createElement('div'); c.className = 'chip'; c.textContent = '⬢ ' + u.nick; pb.appendChild(c); });
     } catch (e) {}
   }
 
@@ -2108,13 +2316,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function applyNickUI() {
     document.getElementById('user-name-label').textContent = myNick;
-    const ava = document.getElementById('user-ava'); ava.textContent = myNick.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#5865f2';
+    const ava = document.getElementById('user-ava'); ava.textContent = myNick.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#ff0055';
     document.getElementById('user-presence-dot').className = 'user-presence-dot ' + (myProfile.presence || 'online');
     document.getElementById('voice-my-name').textContent = myNick + ' (Вы)';
     const stViol = checkContentViolation(myProfile.customStatus || '');
     const sStat = stViol.length ? '' : myProfile.customStatus;
     if (sStat) { document.getElementById('user-email-label').textContent = sStat; }
-    else { document.getElementById('user-email-label').textContent = 'В сети'; }
+    else { document.getElementById('user-email-label').textContent = 'ОНЛАЙН // СЕТЬ'; }
   }
 
   function renderServersRail() {
@@ -2145,7 +2353,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     tList.forEach(function (ch) {
       const row = el('div', 'ch-btn' + (ch === currentChannel ? ' active' : '')); row.setAttribute('data-ch', ch);
       const left = el('div', 'ch-left');
-      left.appendChild(el('span', 'ch-hash', '#'));
+      left.appendChild(el('span', 'ch-hash', '◈'));
       left.appendChild(el('span', 'ch-name-txt', ch));
       row.appendChild(left);
 
@@ -2154,7 +2362,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         row.appendChild(el('span', 'ch-unread-badge', String(unread)));
       } else {
         const ri = el('div', 'ch-right-icons');
-        ri.innerHTML = '<span>👤+</span><span>⚙️</span>';
+        ri.innerHTML = '<span>⬢</span><span>⚙️</span>';
         row.appendChild(ri);
       }
       row.onclick = function () { setChannel(ch); };
@@ -2166,7 +2374,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const isAct = inVoice && currentVoiceChannel === vch;
       const row = el('div', 'voice-ch-box' + (isAct ? ' active' : ''));
       const left = el('div', 'ch-left');
-      left.appendChild(el('span', 'ch-hash', '🔊'));
+      left.appendChild(el('span', 'ch-hash', '📡'));
       left.appendChild(el('span', 'ch-name-txt', vch));
       row.appendChild(left);
       row.appendChild(el('span', 'off-badge' + (isAct ? ' on' : ''), isAct ? 'LIVE' : ''));
@@ -2179,8 +2387,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function applyChannelUI(ch) {
     const sName = currentServerMeta.name || 'Ночной клуб';
     document.getElementById('top-ch-name').textContent = ch;
-    document.getElementById('top-ch-desc').textContent = 'Канал сообщества «' + sName + '»';
-    document.getElementById('banner-desc').textContent = 'Это начало канала #' + ch + ' на сервере «' + sName + '».';
+    document.getElementById('top-ch-desc').textContent = 'Канал узла «' + sName + '»';
+    document.getElementById('banner-desc').textContent = 'Это начало канала #' + ch + ' на кибер-узле «' + sName + '».';
     document.getElementById('chat-input').placeholder = 'Написать в #' + ch;
     document.querySelectorAll('.ch-btn').forEach(function (i) { i.classList.toggle('active', i.getAttribute('data-ch') === ch); });
   }
@@ -2256,7 +2464,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function rerenderChatMessages() {
     const box = document.getElementById('messages-list'); box.innerHTML = '';
-    if (!cachedMessages || !cachedMessages.length) { box.innerHTML = '<div id="empty-hint" style="font-size:13px;color:var(--text-muted);padding:8px 16px;">Сообщений пока нет. Напишите первым!</div>'; return; }
+    if (!cachedMessages || !cachedMessages.length) { box.innerHTML = '<div id="empty-hint" style="font-size:13px;color:var(--text-muted);padding:8px 16px;">Канал чист. Отправьте первый пакет данных!</div>'; return; }
     cachedMessages.forEach(addMsgToDOM);
   }
 
@@ -2291,18 +2499,18 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function renderMemberRow(u, friendPids, isFirstOnline) {
     const d = el('div', 'online-user-item' + (u.online ? ' is-online' : ''));
-    if (!u.online) d.style.opacity = '0.55';
+    if (!u.online) d.style.opacity = '0.5';
 
     const avaWrap = el('div', 'member-ava-wrap');
     const ava = el('div', 'member-ava', String(u.nick || '?').slice(0, 2).toUpperCase());
-    ava.style.background = u.avatarColor || '#5865f2';
+    ava.style.background = u.avatarColor || '#00f0ff';
     avaWrap.appendChild(ava);
     avaWrap.appendChild(el('span', 'online-dot ' + (u.online ? (u.presence || 'online') : 'off')));
     d.appendChild(avaWrap);
 
     const col = el('div', 'member-text-col');
     const nr = el('div', 'member-nick-row');
-    nr.appendChild(el('span', '', u.nick + (isFirstOnline ? ' 👑' : '') + (u.inVoice ? ' 🔊' : '') + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '')));
+    nr.appendChild(el('span', '', u.nick + (isFirstOnline ? ' ⚡' : '') + (u.inVoice ? ' 📡' : '') + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '')));
     col.appendChild(nr);
     if (u.customStatus) {
       const sv = checkContentViolation(u.customStatus);
@@ -2312,9 +2520,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
     if (myPid && u.pid !== myPid) {
       if (friendPids.includes(u.pid)) d.appendChild(el('span', 'friend-tag', 'друг'));
-      else if ((social.outgoing || []).includes(u.pid)) d.appendChild(el('span', 'friend-tag', 'заявка'));
+      else if ((social.outgoing || []).includes(u.pid)) d.appendChild(el('span', 'friend-tag', 'запрос'));
       else if ((social.incoming || []).some(function (i) { return i.pid === u.pid; })) {
-        const b = el('button', 'mini-btn', 'принять'); b.onclick = function (ev) { ev.stopPropagation(); friendAction('accept', u.pid); }; d.appendChild(b);
+        const b = el('button', 'mini-btn', '✓'); b.onclick = function (ev) { ev.stopPropagation(); friendAction('accept', u.pid); }; d.appendChild(b);
       } else {
         const b = el('button', 'mini-btn', '+'); b.title = 'Добавить в друзья'; b.onclick = function (ev) { ev.stopPropagation(); friendAction('request', u.pid); }; d.appendChild(b);
       }
@@ -2344,7 +2552,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const rq = document.getElementById('requests-box'); rq.innerHTML = '';
     incoming.forEach(function (r) {
       const d = el('div', 'online-user-item');
-      const nm = el('span', '', r.nick + ' (заявка)'); nm.style.cssText = 'flex:1;font-size:12px;';
+      const nm = el('span', '', r.nick + ' (запрос)'); nm.style.cssText = 'flex:1;font-size:12px;';
       const ok = el('button', 'mini-btn', '✓'); ok.onclick = function (ev) { ev.stopPropagation(); friendAction('accept', r.pid); };
       const no = el('button', 'mini-btn', '✕'); no.onclick = function (ev) { ev.stopPropagation(); friendAction('decline', r.pid); };
       d.appendChild(nm); d.appendChild(ok); d.appendChild(no); rq.appendChild(d);
@@ -2352,10 +2560,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const fb = document.getElementById('friends-box'); fb.innerHTML = '';
     friends.forEach(function (f) {
       const d = el('div', 'online-user-item');
-      if (!f.online) d.style.opacity = '0.55';
+      if (!f.online) d.style.opacity = '0.5';
       const avaWrap = el('div', 'member-ava-wrap');
       const ava = el('div', 'member-ava', String(f.nick || '?').slice(0, 2).toUpperCase());
-      ava.style.background = f.avatarColor || '#5865f2';
+      ava.style.background = f.avatarColor || '#00f0ff';
       avaWrap.appendChild(ava);
       avaWrap.appendChild(el('span', 'online-dot ' + (f.online ? (f.presence || 'online') : 'off')));
       d.appendChild(avaWrap);
@@ -2367,19 +2575,19 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function openUserProfileCard(u) {
     if (!u) return;
-    document.getElementById('vp-banner').style.background = u.bannerColor || '#5865f2';
-    const ava = document.getElementById('vp-ava'); ava.textContent = String(u.nick || '?').slice(0, 2).toUpperCase(); ava.style.background = u.avatarColor || '#5865f2';
+    document.getElementById('vp-banner').style.background = u.bannerColor || '#00f0ff';
+    const ava = document.getElementById('vp-ava'); ava.textContent = String(u.nick || '?').slice(0, 2).toUpperCase(); ava.style.background = u.avatarColor || '#ff0055';
     document.getElementById('vp-nick').textContent = u.nick || 'Участник';
-    const pill = document.getElementById('vp-online-pill'); pill.className = 'status-pill ' + (u.online ? 'on' : 'off'); pill.textContent = u.online ? 'В сети' : 'Не в сети';
+    const pill = document.getElementById('vp-online-pill'); pill.className = 'status-pill ' + (u.online ? 'on' : 'off'); pill.textContent = u.online ? 'ОНЛАЙН' : 'ОФФЛАЙН';
     document.getElementById('vp-status').textContent = checkContentViolation(u.customStatus || '').length ? '🛡️ [Статус скрыт]' : (u.customStatus || '');
-    document.getElementById('vp-bio').textContent = checkContentViolation(u.bio || '').length ? '🛡️ [Скрыто фильтром]' : (u.bio || 'Участник пока ничего о себе не указал.');
+    document.getElementById('vp-bio').textContent = checkContentViolation(u.bio || '').length ? '🛡️ [Скрыто фильтром]' : (u.bio || 'Оператор пока не заполнил досье.');
     const tb = document.getElementById('vp-tags'); tb.innerHTML = '';
     String(u.interests || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean).forEach(function (tg) { if (!checkContentViolation(tg).length) tb.appendChild(el('span', 'dp-tag', tg)); });
     if (!tb.childNodes.length) tb.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">Нет тегов</span>';
     const fBtn = document.getElementById('vp-friend-btn'), friendPids = (social.friends || []).map(function (f) { return f.pid; });
-    if (u.pid === myPid) { fBtn.textContent = '✏️ Редактировать профиль'; fBtn.onclick = function () { closeViewProfileModal(); openSettingsModal('profile'); }; }
-    else if (friendPids.includes(u.pid)) { fBtn.textContent = '✓ В друзьях'; fBtn.onclick = function () { closeViewProfileModal(); }; }
-    else { fBtn.textContent = '+ Добавить в друзья'; fBtn.onclick = function () { friendAction('request', u.pid); closeViewProfileModal(); }; }
+    if (u.pid === myPid) { fBtn.textContent = '✏️ РЕДАКТИРОВАТЬ'; fBtn.onclick = function () { closeViewProfileModal(); openSettingsModal('profile'); }; }
+    else if (friendPids.includes(u.pid)) { fBtn.textContent = '✓ В ДРУЗЬЯХ'; fBtn.onclick = function () { closeViewProfileModal(); }; }
+    else { fBtn.textContent = '+ В ДРУЗЬЯ'; fBtn.onclick = function () { friendAction('request', u.pid); closeViewProfileModal(); }; }
     document.getElementById('view-profile-modal').classList.add('open');
   }
   function closeViewProfileModal() { document.getElementById('view-profile-modal').classList.remove('open'); }
@@ -2439,9 +2647,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const bio = document.getElementById('prof-bio-inp').value.trim().slice(0, 220);
     const intr = document.getElementById('prof-interests-inp').value.trim().slice(0, 160);
 
-    document.getElementById('preview-banner').style.background = myProfile.bannerColor || '#5865f2';
-    const ava = document.getElementById('preview-ava'); ava.textContent = n.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#5865f2';
-    document.getElementById('preview-nick').textContent = n; document.getElementById('preview-status').textContent = st || 'В сети'; document.getElementById('preview-bio').textContent = bio || 'О себе...';
+    document.getElementById('preview-banner').style.background = myProfile.bannerColor || '#00f0ff';
+    const ava = document.getElementById('preview-ava'); ava.textContent = n.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#ff0055';
+    document.getElementById('preview-nick').textContent = n; document.getElementById('preview-status').textContent = st || 'ОНЛАЙН // СЕТЬ'; document.getElementById('preview-bio').textContent = bio || 'О себе...';
     const tb = document.getElementById('preview-tags'); tb.innerHTML = '';
     const tags = intr.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
     if (!tags.length) tb.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">Нет тегов</span>';
@@ -2508,7 +2716,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       micTestStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: appSettings.micDeviceId ? { ideal: appSettings.micDeviceId } : undefined } });
       const ctx = new (window.AudioContext || window.webkitAudioContext)(), src = ctx.createMediaStreamSource(micTestStream), an = ctx.createAnalyser();
       an.fftSize = 256; src.connect(an); const d = new Uint8Array(an.frequencyBinCount);
-      document.getElementById('btn-mic-test').textContent = '🛑 Остановить';
+      document.getElementById('btn-mic-test').textContent = '🛑 СТОП';
       micTestTimer = setInterval(function () { an.getByteFrequencyData(d); let sum = 0; for (let i = 0; i < d.length; i++) sum += d[i]; document.getElementById('mic-test-bar').style.width = Math.min(100, Math.round((sum / d.length / 90) * 100)) + '%'; }, 60);
     } catch (e) { alert('Ошибка доступа к микрофону.'); }
   }
@@ -2516,7 +2724,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function stopMicTest() {
     if (micTestTimer) { clearInterval(micTestTimer); micTestTimer = null; }
     if (micTestStream) { micTestStream.getTracks().forEach(function (t) { t.stop(); }); micTestStream = null; }
-    const b = document.getElementById('btn-mic-test'); if (b) b.textContent = '🎙️ Давайте проверим';
+    const b = document.getElementById('btn-mic-test'); if (b) b.textContent = '🎙️ ПРОВЕРИТЬ';
     const bar = document.getElementById('mic-test-bar'); if (bar) bar.style.width = '0%';
   }
 
@@ -2582,8 +2790,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function openCreateChannelModal(type) {
     if (!myVerified) return openAuthModal(true);
     closeMobileDrawers(); pendingChannelType = type === 'voice' ? 'voice' : 'text';
-    document.getElementById('create-ch-title').textContent = pendingChannelType === 'voice' ? 'Создать голосовой канал' : 'Создать текстовый канал';
-    document.getElementById('create-ch-sub').textContent = pendingChannelType === 'voice' ? 'Участники смогут общаться голосом, включать камеру и стрим экрана:' : 'Участники смогут отправлять сообщения и ссылки:';
+    document.getElementById('create-ch-title').textContent = pendingChannelType === 'voice' ? '📡 СОЗДАТЬ ГОЛОСОВОЙ КАНАЛ' : '◈ СОЗДАТЬ ТЕКСТОВЫЙ КАНАЛ';
+    document.getElementById('create-ch-sub').textContent = pendingChannelType === 'voice' ? 'Операторы смогут общаться голосом, включать камеру и стрим экрана:' : 'Операторы смогут обмениваться сообщениями и ссылками:';
     document.getElementById('new-ch-name').value = '';
     document.getElementById('create-channel-modal').classList.add('open');
   }
@@ -2616,7 +2824,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   async function initTelegramSession() {
     try {
       const res = await fetch('/api/tg-init'); const d = await res.json(); tgSessionToken = d.token || ''; tgBotUsername = d.botUsername || '';
-      if (tgBotUsername) document.getElementById('tg-open-bot-btn').innerHTML = '<span>✈️ Открыть @' + escapeHtml(tgBotUsername) + ' и войти</span>';
+      if (tgBotUsername) document.getElementById('tg-open-bot-btn').innerHTML = '<span>✈️ ОТКРЫТЬ @' + escapeHtml(tgBotUsername) + ' И ВОЙТИ</span>';
     } catch (e) {}
   }
 
@@ -2665,7 +2873,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   async function loginWithPassword() {
     const nick = document.getElementById('nick-inp').value.trim(), pass = document.getElementById('pass-inp').value;
-    if (!nick) return alert('Введите ваш никнейм!'); if (!pass && !myVerified) return alert('Введите пароль!');
+    if (!nick) return alert('Введите ваш позывной!'); if (!pass && !myVerified) return alert('Введите пароль!');
     const res = await fetch('/api/auth-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, nick: nick, password: pass }) });
     const d = await res.json(); if (d.error) return alert(d.error); completeClientAuth(d);
   }
@@ -2692,7 +2900,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       localStream = (new (window.AudioContext || window.webkitAudioContext)()).createMediaStreamDestination().stream; isMuted = true;
     }
     inVoice = true; if (appSettings.soundVoice) playUiBeep(720, 0.09);
-    document.getElementById('connect-voice-btn').textContent = 'Отключиться'; document.getElementById('connect-voice-btn').className = 'btn-danger';
+    document.getElementById('connect-voice-btn').textContent = 'ОТКЛЮЧИТЬСЯ'; document.getElementById('connect-voice-btn').className = 'btn-danger';
     document.getElementById('mute-btn').style.display = 'inline-block'; document.getElementById('deafen-btn').style.display = 'inline-block';
     document.getElementById('mute-btn').textContent = isMuted ? '🔇 Выкл' : '🎤 Микр. вкл';
     document.getElementById('voice-active-area').classList.add('show');
@@ -2723,7 +2931,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       if (peer) peer.destroy();
       rawMicStream = null; localStream = null; peer = null; myPeerId = null; inVoice = false; isMuted = false; isDeafened = false;
       if (appSettings.soundVoice) playUiBeep(420, 0.09);
-      document.getElementById('connect-voice-btn').textContent = 'Подключиться'; document.getElementById('connect-voice-btn').className = 'btn-cyan';
+      document.getElementById('connect-voice-btn').textContent = 'ПОДКЛЮЧИТЬСЯ'; document.getElementById('connect-voice-btn').className = 'btn-cyan';
       document.getElementById('mute-btn').style.display = 'none'; document.getElementById('deafen-btn').style.display = 'none';
       document.getElementById('voice-active-area').classList.remove('show');
       document.getElementById('audio-box').innerHTML = ''; document.getElementById('screen-grid').innerHTML = '';
@@ -2812,7 +3020,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const shieldBtn = el('button', 'btn-fs', '🛡️ Скрыть 18+'); shieldBtn.onclick = function () { toggleMediaNsfwShield(card, shieldBtn); }; right.appendChild(shieldBtn);
       const pipBtn = el('button', 'btn-fs', '🪟 В окне'); pipBtn.onclick = function () { toggleExternalOverlay(); }; right.appendChild(pipBtn);
       const fsBtn = el('button', 'btn-fs', '⛶ Полный экран'); fsBtn.onclick = function () { const v = card.querySelector('video'); if (v && v.requestFullscreen) v.requestFullscreen(); }; right.appendChild(fsBtn);
-      if (isLocal) { const stopBtn = el('button', 'btn-fs', '✕ Выкл'); stopBtn.style.background = '#f23f43'; stopBtn.onclick = function () { if (kind === 'cam') stopWebcam(false); else stopScreenShare(false); }; right.appendChild(stopBtn); }
+      if (isLocal) { const stopBtn = el('button', 'btn-fs', '✕ Выкл'); stopBtn.style.background = '#ff0055'; stopBtn.style.color = '#fff'; stopBtn.onclick = function () { if (kind === 'cam') stopWebcam(false); else stopScreenShare(false); }; right.appendChild(stopBtn); }
       head.appendChild(left); head.appendChild(right);
       const wrap = el('div', 'screen-video-wrap'), vid = document.createElement('video'); vid.autoplay = true; vid.playsInline = true; if (isLocal) vid.muted = true;
       const shield = el('div', 'media-nsfw-shield'); shield.innerHTML = '<div>🔞 Видеопоток скрыт фильтром 18+</div><span class="btn-cyan" style="padding:5px 12px;font-size:11px;">👁️ Показать видео</span>';
