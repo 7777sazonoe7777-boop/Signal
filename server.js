@@ -367,11 +367,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
   @keyframes neonSpin { 0%{transform:translate(-50%,-50%) rotate(0deg);} 100%{transform:translate(-50%,-50%) rotate(360deg);} }
   @keyframes neonSpinRev { 0%{transform:translate(-50%,-50%) rotate(360deg);} 100%{transform:translate(-50%,-50%) rotate(0deg);} }
-  @keyframes arcDash { 0%{stroke-dashoffset:240;opacity:0.35;} 50%{stroke-dashoffset:0;opacity:1;} 100%{stroke-dashoffset:-240;opacity:0.35;} }
-  @keyframes boltFlash { 0%,82%,100%{opacity:0;} 85%,92%{opacity:1;filter:drop-shadow(0 0 8px #00f0ff);} 88%{opacity:0.2;} }
+  @keyframes boltStrike { 0%,68%,100%{opacity:0;stroke-dashoffset:120;} 72%,84%{opacity:1;stroke-dashoffset:0;} 78%{opacity:0.25;} }
+  @keyframes sparkFloat { 0%{transform:translateY(0) scale(0.7);opacity:0;} 40%{opacity:1;} 100%{transform:translateY(-22px) scale(1.15);opacity:0;} }
   @keyframes eqPulse { 0%,100%{transform:scaleY(0.25);opacity:0.45;} 50%{transform:scaleY(1);opacity:1;} }
   @keyframes badgeFlow { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
-  @keyframes charFloat { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-4px);} }
+  @keyframes charBreath { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-3px) scale(1.015);} }
+  @keyframes rainFall { 0%{background-position:0 0;} 100%{background-position:-40px 160px;} }
 
   * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
   body {
@@ -380,7 +381,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     height:100vh; height:100dvh; display:flex; flex-direction:column; overflow:hidden; user-select:none;
   }
 
-  /* ДВОЙНЫЕ 6-УГОЛЬНЫЕ НЕОНОВЫЕ РАМКИ С МОЛНИЯМИ И ЭНЕРГЕТИЧЕСКИМИ ДУГАМИ (КАК В ВИДЕО) */
+  /* МИНИ-ШЕСТИУГОЛЬНИКИ В ЧАТЕ И СПИСКЕ УЧАСТНИКОВ С ДВОЙНЫМ НЕОНОМ */
   .hex-wrap { position:relative; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
   .hex-border {
     position:relative; width:100%; height:100%; clip-path:var(--hex);
@@ -391,37 +392,28 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .hex-wrap[class*="fx-set"] .hex-border::after {
     content:''; position:absolute; top:50%; left:50%; width:220%; height:220%; z-index:0;
   }
-  .hex-wrap[class*="fx-set"] .hex-border::before { animation:neonSpin 2.2s linear infinite; }
-  .hex-wrap[class*="fx-set"] .hex-border::after { width:190%; height:190%; animation:neonSpinRev 3.1s linear infinite; opacity:0.85; }
+  .hex-wrap[class*="fx-set"] .hex-border::before { animation:neonSpin 2.1s linear infinite; }
+  .hex-wrap[class*="fx-set"] .hex-border::after { width:190%; height:190%; animation:neonSpinRev 2.9s linear infinite; opacity:0.9; }
 
-  /* Внешнее кольцо энергетических дуг и молний вокруг 6-угольника */
-  .hex-wrap[class*="fx-set"]::before {
-    content:''; position:absolute; inset:-16%; clip-path:var(--hex);
-    pointer-events:none; z-index:1; opacity:0.9;
-    animation:boltFlash 2.6s infinite;
-  }
-  /* Набор 1 (Люси из видео: Розовый неон + Голубой циан + Электрические разряды) */
-  .hex-wrap.fx-set1 { filter:drop-shadow(0 0 7px rgba(0,240,255,0.75)) drop-shadow(0 0 12px rgba(255,30,138,0.65)); }
+  /* Набор 1: Люси из видео (Двойной контур Розовый + Голубой циан + электро-свечение) */
+  .hex-wrap.fx-set1 { filter:drop-shadow(0 0 6px #00f0ff) drop-shadow(0 0 11px #ff1e8a); }
   .hex-wrap.fx-set1 .hex-border::before { background:conic-gradient(from 0deg, #ff1e8a 0%, #00f0ff 35%, transparent 50%, #ff1e8a 75%, #00f0ff 100%); }
   .hex-wrap.fx-set1 .hex-border::after { background:conic-gradient(from 180deg, #00f0ff 0%, transparent 40%, #ff1e8a 70%, #ffffff 100%); }
-  .hex-wrap.fx-set1::before { border:1.5px solid #00f0ff; box-shadow:0 0 12px #ff1e8a, inset 0 0 10px #00f0ff; }
 
-  /* Набор 2 (Дэвид Сандевистан: Жёлтый + Изумрудный неон + Хром) */
-  .hex-wrap.fx-set2 { filter:drop-shadow(0 0 7px rgba(252,238,9,0.8)) drop-shadow(0 0 12px rgba(0,255,157,0.65)); }
+  /* Набор 2: Дэвид Сандевистан (Жёлтый + Изумрудный неон) */
+  .hex-wrap.fx-set2 { filter:drop-shadow(0 0 6px #fcee09) drop-shadow(0 0 11px #00ff9d); }
   .hex-wrap.fx-set2 .hex-border::before { background:conic-gradient(from 0deg, #fcee09 0%, #00ff9d 40%, transparent 55%, #ff0055 80%, #fcee09 100%); }
   .hex-wrap.fx-set2 .hex-border::after { background:conic-gradient(from 90deg, #00ff9d 0%, transparent 45%, #fcee09 80%, #ffffff 100%); }
-  .hex-wrap.fx-set2::before { border:1.5px solid #fcee09; box-shadow:0 0 12px #00ff9d, inset 0 0 10px #fcee09; }
 
-  /* Набор 3 (Киберпсихоз / Арасака: Красный неон + Огненный глитч) */
-  .hex-wrap.fx-set3 { filter:drop-shadow(0 0 8px rgba(255,0,60,0.9)) drop-shadow(0 0 14px rgba(255,90,0,0.65)); }
-  .hex-wrap.fx-set3 .hex-border::before { background:conic-gradient(from 0deg, #ff003c 0%, #ff6600 35%, transparent 50%, #ff003c 75%, #14f1d9 100%); }
-  .hex-wrap.fx-set3 .hex-border::after { background:conic-gradient(from 180deg, #14f1d9 0%, transparent 45%, #ff003c 80%, #ffffff 100%); }
-  .hex-wrap.fx-set3::before { border:1.5px solid #ff003c; box-shadow:0 0 14px #ff003c, inset 0 0 10px #14f1d9; }
+  /* Набор 3: Джонни Сильверхенд & V (Красный Relic + Циан) */
+  .hex-wrap.fx-set3 { filter:drop-shadow(0 0 7px #ff003c) drop-shadow(0 0 12px #00f0ff); }
+  .hex-wrap.fx-set3 .hex-border::before { background:conic-gradient(from 0deg, #ff003c 0%, #00f0ff 35%, transparent 50%, #ff003c 75%, #fcee09 100%); }
+  .hex-wrap.fx-set3 .hex-border::after { background:conic-gradient(from 180deg, #00f0ff 0%, transparent 45%, #ff003c 80%, #ffffff 100%); }
 
   .hex-core {
     position:relative; z-index:2; width:100%; height:100%; clip-path:var(--hex);
     background:linear-gradient(145deg,#101d30,#08101c); color:#fff; font-weight:800;
-    display:flex; align-items:center; justify-content:center;
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
   }
   .hex-status-dot {
     position:absolute; right:-2px; bottom:-2px; width:11px; height:11px;
@@ -431,27 +423,39 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .hex-status-dot.dnd { background:var(--red); }
   .hex-status-dot.invisible,.hex-status-dot.offline,.hex-status-dot.off { background:var(--text-dim); }
 
-  /* КРУПНЫЙ 6-УГОЛЬНЫЙ МЕДАЛЬОН В ПРОФИЛЕ С SVG-МОЛНИЯМИ И ПЕРСОНАЖЕМ СПРАВА КАК В ВИДЕО */
-  .hero-hex-stage {
-    position:relative; width:136px; height:116px; margin-top:-48px; margin-left:10px;
+  /* СЦЕНА ПРОФИЛЯ КАК НА ВИДЕО: ДВОЙНОЙ 6-УГОЛЬНИК + ЗИГЗАГИ МОЛНИЙ + ИСКРЫ + ПЕРСОНАЖ СПРАВА ВНАХЛЁСТ */
+  .cyber-diode-scene {
+    position:relative; width:195px; height:136px; margin-top:-58px; margin-left:6px;
     display:flex; align-items:center; justify-content:flex-start; flex-shrink:0;
   }
-  .hero-hex-svg {
-    position:absolute; left:-14px; top:-12px; width:124px; height:124px;
-    pointer-events:none; z-index:3; overflow:visible;
+  .cds-hex-frame {
+    position:relative; width:128px; height:128px; z-index:2;
   }
-  .hero-hex-svg .arc-line {
-    fill:none; stroke-width:2.4; stroke-linecap:round;
-    stroke-dasharray:80 160; animation:arcDash 2.2s linear infinite;
+  .cds-inner-art {
+    position:absolute; inset:16px; clip-path:var(--hex); z-index:1;
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+    background:#09111e;
   }
-  .hero-hex-svg .bolt-path {
-    fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;
-    animation:boltFlash 1.9s infinite;
+  .cds-nick-overlay {
+    position:relative; z-index:3; font-size:22px; font-weight:900; color:#fff;
+    text-shadow:0 0 10px rgba(0,0,0,0.9), 0 0 14px #00f0ff; letter-spacing:1px;
   }
-  .hero-char-holo {
-    position:absolute; right:-18px; bottom:-6px; width:76px; height:108px;
-    z-index:4; pointer-events:none; animation:charFloat 3.2s ease-in-out infinite;
-    filter:drop-shadow(0 0 10px rgba(0,240,255,0.55));
+  .cds-neon-svg {
+    position:absolute; inset:-14px; width:156px; height:156px; z-index:3;
+    pointer-events:none; overflow:visible;
+  }
+  .cds-bolt {
+    fill:none; stroke-width:2.3; stroke-linecap:round; stroke-linejoin:round;
+    stroke-dasharray:120; animation:boltStrike 2.3s infinite;
+  }
+  .cds-bolt.b2 { animation-delay:0.8s; }
+  .cds-bolt.b3 { animation-delay:1.5s; }
+  .cds-spark { animation:sparkFloat 2.1s ease-in-out infinite; }
+  .cds-spark.s2 { animation-delay:0.7s; }
+  .cds-spark.s3 { animation-delay:1.3s; }
+  .cds-character-right {
+    position:absolute; right:-8px; bottom:-4px; width:108px; height:142px;
+    z-index:4; pointer-events:none; animation:charBreath 3.4s ease-in-out infinite;
   }
 
   /* БЕЙДЖИ СПРАВА ОТ НИКА */
@@ -460,37 +464,31 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     font-size:9px; font-weight:900; letter-spacing:0.5px; text-transform:uppercase;
     white-space:nowrap; flex-shrink:0; background-size:200% 200%; animation:badgeFlow 2.5s ease infinite;
   }
-  .cyber-badge.b-set1 { background-image:linear-gradient(90deg,#ff1e8a,#00f0ff,#ff1e8a); color:#fff; box-shadow:0 0 8px rgba(0,240,255,0.6); }
-  .cyber-badge.b-set2 { background-image:linear-gradient(90deg,#fcee09,#00ff9d,#fcee09); color:#04120c; box-shadow:0 0 8px rgba(252,238,9,0.6); }
-  .cyber-badge.b-set3 { background-image:linear-gradient(90deg,#ff003c,#ff6600,#14f1d9); color:#fff; box-shadow:0 0 8px rgba(255,0,60,0.7); }
+  .cyber-badge.b-set1 { background-image:linear-gradient(90deg,#ff1e8a,#00f0ff,#ff1e8a); color:#fff; box-shadow:0 0 8px rgba(0,240,255,0.65); }
+  .cyber-badge.b-set2 { background-image:linear-gradient(90deg,#fcee09,#00ff9d,#fcee09); color:#04120c; box-shadow:0 0 8px rgba(252,238,9,0.65); }
+  .cyber-badge.b-set3 { background-image:linear-gradient(90deg,#ff003c,#00f0ff,#ff003c); color:#fff; box-shadow:0 0 8px rgba(255,0,60,0.7); }
 
-  /* ФОНЫ И РАМКИ КАРТОЧЕК ПРОФИЛЯ */
-  .profile-surface { position:relative; background:#050a14; border:1px solid var(--border); border-radius:10px; overflow:hidden; transition:0.25s; }
+  /* ТЕМАТИЧЕСКИЕ ФОНЫ И РАМКИ КАРТОЧЕК ПРОФИЛЯ (НАЙТ-СИТИ В ДОЖДЕ, ЛУНА, АРАСАКА) */
+  .profile-surface { position:relative; background:#050a14; border:1px solid var(--border); border-radius:12px; overflow:hidden; transition:0.25s; }
+  /* Набор 1: Дождливый Найт-Сити из видео с Люси */
   .profile-surface.theme-set1 {
     border:2px solid #00f0ff;
-    box-shadow:0 0 24px rgba(0,240,255,0.45), inset 0 0 22px rgba(255,30,138,0.25);
-    background:radial-gradient(circle at 80% 20%, rgba(255,30,138,0.22), rgba(0,240,255,0.12) 45%, #050914 90%);
-  }
-  .profile-surface.theme-set1 .dp-banner {
+    box-shadow:0 0 26px rgba(0,240,255,0.45), 0 0 14px rgba(255,30,138,0.45), inset 0 0 24px rgba(255,30,138,0.22);
     background:
-      repeating-linear-gradient(105deg, rgba(0,240,255,0.14) 0px, rgba(0,240,255,0.14) 1px, transparent 1px, transparent 14px),
-      linear-gradient(125deg, #1b062e 0%, #ff1e8a 52%, #00f0ff 100%) !important;
+      repeating-linear-gradient(108deg, rgba(0,240,255,0.06) 0px, rgba(0,240,255,0.06) 1px, transparent 1px, transparent 18px),
+      radial-gradient(circle at 80% 18%, rgba(255,30,138,0.28), rgba(0,240,255,0.14) 45%, #050914 92%);
   }
+  /* Набор 2: Изумрудно-жёлтый овердрайв Дэвида и купол Луны */
   .profile-surface.theme-set2 {
     border:2px solid #fcee09;
-    box-shadow:0 0 24px rgba(252,238,9,0.4), inset 0 0 20px rgba(0,255,157,0.2);
-    background:radial-gradient(circle at 80% 20%, rgba(252,238,9,0.2), rgba(0,255,157,0.1) 50%, #051014 95%);
+    box-shadow:0 0 26px rgba(252,238,9,0.45), inset 0 0 22px rgba(0,255,157,0.22);
+    background:radial-gradient(circle at 80% 18%, rgba(252,238,9,0.25), rgba(0,255,157,0.12) 48%, #041012 94%);
   }
-  .profile-surface.theme-set2 .dp-banner {
-    background:linear-gradient(125deg, #042419 0%, #00ff9d 50%, #fcee09 100%) !important;
-  }
+  /* Набор 3: Багрово-бирюзовый глитч Cyberpunk 2077 */
   .profile-surface.theme-set3 {
     border:2px solid #ff003c;
-    box-shadow:0 0 26px rgba(255,0,60,0.5), inset 0 0 20px rgba(255,0,60,0.22);
-    background:radial-gradient(circle at 80% 20%, rgba(255,0,60,0.25), rgba(20,241,217,0.08) 55%, #110409 95%);
-  }
-  .profile-surface.theme-set3 .dp-banner {
-    background:linear-gradient(125deg, #2b000a 0%, #ff003c 55%, #14f1d9 100%) !important;
+    box-shadow:0 0 26px rgba(255,0,60,0.55), inset 0 0 22px rgba(0,240,255,0.2);
+    background:radial-gradient(circle at 80% 18%, rgba(255,0,60,0.28), rgba(0,240,255,0.1) 52%, #110409 95%);
   }
 
   /* ВЕРХНЯЯ ШАПКА */
@@ -508,7 +506,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .ss-right { display:flex; align-items:center; gap:8px; }
   .ss-btn { background:rgba(20,241,217,0.07); border:1px solid var(--border); color:var(--text-main); font-size:10.5px; font-weight:700; padding:3px 10px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:5px; }
   .ss-btn:hover { border-color:var(--brand); color:var(--brand); }
-  .ss-btn.fx-btn { background:linear-gradient(90deg,rgba(255,30,138,0.25),rgba(0,240,255,0.22)); border-color:#ff1e8a; color:#fff; }
+  .ss-btn.fx-btn { background:linear-gradient(90deg,rgba(255,30,138,0.28),rgba(0,240,255,0.25)); border-color:#ff1e8a; color:#fff; }
 
   /* СЕТКА ПРИЛОЖЕНИЯ */
   .app-layout { flex:1; display:flex; width:100%; min-height:0; overflow:hidden; position:relative; }
@@ -649,16 +647,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   .profile-drawer-backdrop { position:fixed; inset:0; background:rgba(2,5,10,0.55); backdrop-filter:blur(2px); z-index:970; display:none; }
   .profile-drawer-backdrop.open { display:block; }
-  .profile-slide-drawer { position:fixed; top:40px; right:0; bottom:24px; width:360px; max-width:94vw; z-index:975; transform:translateX(106%); transition:transform 0.28s cubic-bezier(0.16,1,0.3,1); display:flex; flex-direction:column; padding:12px; pointer-events:none; }
+  .profile-slide-drawer { position:fixed; top:40px; right:0; bottom:24px; width:365px; max-width:94vw; z-index:975; transform:translateX(106%); transition:transform 0.28s cubic-bezier(0.16,1,0.3,1); display:flex; flex-direction:column; padding:12px; pointer-events:none; }
   .profile-slide-drawer.open { transform:translateX(0); pointer-events:auto; }
   .psd-inner { flex:1; display:flex; flex-direction:column; overflow-y:auto; }
-  .dp-banner { height:110px; background:linear-gradient(90deg,var(--brand),var(--pink)); position:relative; flex-shrink:0; }
-  .dp-close-x { position:absolute; top:10px; right:10px; width:28px; height:28px; border-radius:6px; background:rgba(4,7,13,0.75); border:1px solid var(--border); color:#fff; font-weight:800; cursor:pointer; }
+  .dp-banner { height:118px; background:linear-gradient(90deg,var(--brand),var(--pink)); position:relative; flex-shrink:0; overflow:hidden; }
+  .dp-banner-svg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none; }
+  .dp-close-x { position:absolute; top:10px; right:10px; width:28px; height:28px; border-radius:6px; background:rgba(4,7,13,0.78); border:1px solid var(--border); color:#fff; font-weight:800; cursor:pointer; z-index:5; }
   .dp-body { padding:10px 16px 16px; position:relative; flex:1; display:flex; flex-direction:column; gap:10px; }
   .dp-nick-line { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .dp-nick { font-size:18px; font-weight:900; color:#fff; }
   .dp-status { font-size:12.5px; color:var(--brand); }
-  .dp-sec { background:rgba(4,7,13,0.68); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px 12px; }
+  .dp-sec { background:rgba(4,7,13,0.72); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px 12px; }
   .dp-sec-title { font-size:10px; font-weight:800; color:var(--brand); margin-bottom:5px; text-transform:uppercase; }
   .dp-bio { font-size:12.5px; color:var(--text-normal); white-space:pre-wrap; }
   .dp-tags { display:flex; gap:5px; flex-wrap:wrap; margin-top:4px; }
@@ -697,7 +696,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .auth-tab { padding:7px; font-size:12px; font-weight:700; text-align:center; cursor:pointer; color:var(--text-muted); border-radius:4px; }
   .auth-tab.active { background:var(--brand); color:#031518; }
 
-  .settings-modal-box { background:#070d17; border:1px solid var(--brand); border-radius:10px; width:880px; max-width:100%; height:630px; max-height:92vh; display:grid; grid-template-columns:220px minmax(0,1fr); overflow:hidden; }
+  .settings-modal-box { background:#070d17; border:1px solid var(--brand); border-radius:10px; width:900px; max-width:100%; height:640px; max-height:92vh; display:grid; grid-template-columns:220px minmax(0,1fr); overflow:hidden; }
   .settings-nav { background:#050911; border-right:1px solid var(--border); padding:16px 10px; display:flex; flex-direction:column; gap:3px; overflow-y:auto; }
   .settings-nav-label { font-size:10px; font-weight:800; text-transform:uppercase; color:var(--brand); padding:8px 10px 4px; }
   .settings-nav-btn { padding:8px 10px; border-radius:6px; font-size:12.5px; font-weight:600; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; gap:8px; white-space:nowrap; }
@@ -727,12 +726,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .mic-meter-wrap { width:100%; height:8px; background:#03060c; border:1px solid var(--border); border-radius:4px; overflow:hidden; }
   .mic-meter-bar { height:100%; width:0%; background:linear-gradient(90deg,var(--green),var(--brand),var(--pink)); transition:width 0.06s; }
 
-  .fx-sets-grid { display:flex; flex-direction:column; gap:12px; }
-  .fx-bundle-card { border-radius:10px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:16px; border:1px solid var(--border); background:rgba(5,10,18,0.92); }
-  .fx-bundle-card.set1-card { border-color:#00f0ff; box-shadow:0 0 16px rgba(255,30,138,0.25); background:linear-gradient(135deg,rgba(255,30,138,0.16),rgba(0,240,255,0.12),rgba(5,10,18,0.95)); }
-  .fx-bundle-card.set2-card { border-color:#fcee09; box-shadow:0 0 16px rgba(252,238,9,0.2); background:linear-gradient(135deg,rgba(252,238,9,0.14),rgba(0,255,157,0.1),rgba(5,10,18,0.95)); }
-  .fx-bundle-card.set3-card { border-color:#ff003c; box-shadow:0 0 16px rgba(255,0,60,0.25); background:linear-gradient(135deg,rgba(255,0,60,0.18),rgba(20,241,217,0.08),rgba(5,10,18,0.95)); }
-  .fxb-left { display:flex; align-items:center; gap:18px; min-width:0; flex:1; }
+  .fx-sets-grid { display:flex; flex-direction:column; gap:14px; }
+  .fx-bundle-card { border-radius:12px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:16px; border:1.5px solid var(--border); background:rgba(5,10,18,0.94); }
+  .fx-bundle-card.set1-card { border-color:#00f0ff; box-shadow:0 0 20px rgba(255,30,138,0.28); background:linear-gradient(135deg,rgba(255,30,138,0.18),rgba(0,240,255,0.12),rgba(5,10,18,0.96)); }
+  .fx-bundle-card.set2-card { border-color:#fcee09; box-shadow:0 0 20px rgba(252,238,9,0.24); background:linear-gradient(135deg,rgba(252,238,9,0.16),rgba(0,255,157,0.12),rgba(5,10,18,0.96)); }
+  .fx-bundle-card.set3-card { border-color:#ff003c; box-shadow:0 0 20px rgba(255,0,60,0.28); background:linear-gradient(135deg,rgba(255,0,60,0.2),rgba(0,240,255,0.1),rgba(5,10,18,0.96)); }
+  .fxb-left { display:flex; align-items:center; gap:16px; min-width:0; flex:1; }
 
   .keybind-row { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:#040810; border:1px solid var(--border); border-radius:6px; gap:10px; }
   .kb-btn { background:#0d1829; border:1px solid var(--cyan-border); color:var(--brand); font-family:monospace; font-size:12px; font-weight:800; padding:6px 14px; border-radius:5px; cursor:pointer; min-width:140px; text-align:center; }
@@ -760,7 +759,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     .settings-modal-box { grid-template-columns:1fr; grid-template-rows:auto 1fr; height:92dvh; }
     .settings-nav { flex-direction:row; overflow-x:auto; padding:8px; }
     .settings-nav-label { display:none; }
-    .settings-grid-2,.fx-bundle-card { grid-template-columns:1fr; flex-direction:column; align-items:flex-start; }
+    .settings-grid-2,.fx-bundle-card,.fxb-left { grid-template-columns:1fr; flex-direction:column; align-items:flex-start; }
   }
 </style>
 </head>
@@ -907,13 +906,16 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- ВЫЕЗЖАЮЩИЙ СПРАВА ПРОФИЛЬ С КИБЕР-МЕДАЛЬОНОМ, МОЛНИЯМИ И ПЕРСОНАЖЕМ КАК В ВИДЕО -->
+  <!-- ВЫЕЗЖАЮЩИЙ СПРАВА ПРОФИЛЬ С ДВОЙНЫМ 6-УГОЛЬНЫМ МЕДАЛЬОНОМ, МОЛНИЯМИ И ЛЮСИ/ДЭВИДОМ/СИЛЬВЕРХЕНДОМ -->
   <div class="profile-drawer-backdrop" id="view-profile-backdrop" onclick="closeViewProfileModal()"></div>
   <div class="profile-slide-drawer" id="view-profile-drawer">
     <div class="profile-surface psd-inner" id="vp-surface">
-      <div class="dp-banner" id="vp-banner"><button class="dp-close-x" onclick="closeViewProfileModal()">✕</button></div>
+      <div class="dp-banner" id="vp-banner">
+        <div id="vp-banner-art"></div>
+        <button class="dp-close-x" onclick="closeViewProfileModal()">✕</button>
+      </div>
       <div class="dp-body">
-        <div class="hero-hex-stage" id="vp-hero-stage"></div>
+        <div class="cyber-diode-scene" id="vp-hero-stage"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
           <div class="dp-nick-line"><span class="dp-nick" id="vp-nick">Участник</span><span id="vp-badge-slot"></span></div>
           <span class="status-pill on" id="vp-online-pill">В СЕТИ</span>
@@ -976,9 +978,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div class="settings-pane active" id="pane-profile">
           <div class="settings-head"><h3>⬢ Мой профиль</h3><button class="btn-cyan" onclick="saveProfileSettings()">СОХРАНИТЬ</button></div>
           <div class="profile-surface" id="preview-surface">
-            <div class="dp-banner" id="preview-banner" style="height:80px;"></div>
+            <div class="dp-banner" id="preview-banner" style="height:105px;"><div id="preview-banner-art"></div></div>
             <div class="dp-body">
-              <div class="hero-hex-stage" id="preview-hero-stage"></div>
+              <div class="cyber-diode-scene" id="preview-hero-stage"></div>
               <div class="dp-nick-line"><span class="dp-nick" id="preview-nick">Гость</span><span id="preview-badge-slot"></span></div>
               <div class="dp-status" id="preview-status"></div>
               <div class="dp-sec"><div class="dp-sec-title">ОБО МНЕ</div><div class="dp-bio" id="preview-bio"></div></div>
@@ -1011,10 +1013,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
                 <div id="fx-demo-slot-1"></div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span style="font-size:15px;font-weight:900;color:#00f0ff;">Набор 1: Люси Кушинада // Edgerunners (Из вашего примера)</span>
+                    <span style="font-size:15px;font-weight:900;color:#00f0ff;">Набор 1: Люси Кушинада // Edgerunners S1 (Из вашего видео)</span>
                     <span class="cyber-badge b-set1">🌙 LUCY NET</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Двойная 6-угольная неоновая рамка (розовая маджента + циан), вращающиеся дуги, электрические молнии по граням и фигура Люси справа от рамки.</div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Двойная 6-угольная неоновая рамка (розовая маджента + циан), зигзаги электрических молний по граням, летящие искры, геймерский кибер-арт внутри и Люси справа внахлёст на рамку на фоне дождливого Найт-Сити.</div>
                 </div>
               </div>
               <button class="btn-cyan" id="btn-fx-set1" onclick="selectEffectSet('set1')">🎁 ЗАБРАТЬ</button>
@@ -1025,10 +1027,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
                 <div id="fx-demo-slot-2"></div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span style="font-size:15px;font-weight:900;color:#fcee09;">Набор 2: Дэвид Мартинес // Sandevistan Overdrive</span>
+                    <span style="font-size:15px;font-weight:900;color:#fcee09;">Набор 2: Дэвид Мартинес // Sandevistan Overdrive (Сезон 2)</span>
                     <span class="cyber-badge b-set2">⚡ SANDY S2</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Жёлто-изумрудная 6-угольная рамка ускорения времени с зелёными молниями, энергетическими дугами и силуэтом Дэвида с Сандевистаном справа.</div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Двойная жёлто-изумрудная 6-угольная рамка ускорения времени с зелёными молниями, голографический купол Луны и Дэвид в жёлтой куртке с имплантом Сандевистан справа от рамки.</div>
                 </div>
               </div>
               <button class="btn-cyan" id="btn-fx-set2" onclick="selectEffectSet('set2')">🎁 ЗАБРАТЬ</button>
@@ -1039,10 +1041,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
                 <div id="fx-demo-slot-3"></div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span style="font-size:15px;font-weight:900;color:#ff4d79;">Набор 3: Киберпсихоз // Адам Смэшер & Relic</span>
+                    <span style="font-size:15px;font-weight:900;color:#ff4d79;">Набор 3: Джонни Сильверхенд & V // Cyberpunk 2077 Relic</span>
                     <span class="cyber-badge b-set3">🔥 RELIC MAX</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Багрово-красный 6-угольный контур биочипа с алыми электрическими разрядами, тактическим радаром и кибер-силуэтом справа от рамки.</div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Багрово-бирюзовый 6-угольный контур биочипа Relic с алыми молниями, небоскрёбы Arasaka Tower на фоне и Джонни Сильверхенд с серебряной рукой справа от рамки.</div>
                 </div>
               </div>
               <button class="btn-cyan" id="btn-fx-set3" onclick="selectEffectSet('set3')">🎁 ЗАБРАТЬ</button>
@@ -1170,44 +1172,71 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function updateBrowserUrl() { try { window.history.replaceState({}, '', window.location.pathname + '?room=' + encodeURIComponent(currentRoom) + '&channel=' + encodeURIComponent(currentChannel)); } catch (e) {} }
 
-  // --- 3 НАБОРА ЭФФЕКТОВ С ДВОЙНЫМ 6-УГОЛЬНЫМ НЕОНОМ, МОЛНИЯМИ И СИЛУЭТОМ ПЕРСОНАЖА СПРАВА (КАК В ВИДЕО) ---
+  // --- ДЕТАЛИЗИРОВАННЫЕ СЦЕНЫ 3 НАБОРОВ (ПО ВАШЕМУ ВИДЕО С ЛЮСИ + ДЭВИД + СИЛЬВЕРХЕНД) ---
   const FX_SETS_META = {
     set1: {
       code: '⚡FX:SET1', avaClass: 'fx-set1', badgeClass: 'b-set1', badgeText: '🌙 LUCY NET', surfaceClass: 'theme-set1',
-      c1: '#ff1e8a', c2: '#00f0ff', title: 'Набор 1: Люси Кушинада // Edgerunners (Двойной неон + молнии)',
-      charSvg: '<svg class="hero-char-holo" viewBox="0 0 80 110"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fff"/><stop offset="55%" stop-color="#00f0ff"/><stop offset="100%" stop-color="#ff1e8a"/></linearGradient></defs><path d="M22 108 L26 68 Q18 56 24 44 L36 42 L44 28 C28 24 26 8 42 5 C58 5 64 20 58 36 L68 50 L62 108 Z" fill="#091322" stroke="url(#lg1)" stroke-width="2"/><path d="M30 22 C30 8 56 8 58 26 C55 18 36 18 30 22 Z" fill="url(#lg1)"/><circle cx="43" cy="26" r="2.2" fill="#ff1e8a"/><path d="M24 52 L58 46 L64 82 L26 84 Z" fill="none" stroke="#00f0ff" stroke-width="1.5" stroke-dasharray="4 3"/></svg>'
+      cOuter: '#ff1e8a', cInner: '#00f0ff', cBolt: '#5ffbf1',
+      title: 'Набор 1: Люси Кушинада // Edgerunners S1 (Двойной неон + молнии)',
+      // Фон баннера: ночной дождливый Найт-Сити с неоновыми вывесками и летающим спиннером как в видео
+      bannerSvg: '<svg class="dp-banner-svg" viewBox="0 0 360 118" preserveAspectRatio="none"><rect width="360" height="118" fill="#060913"/><rect x="14" y="12" width="38" height="106" fill="#0b1324"/><rect x="20" y="24" width="26" height="42" fill="#ff1e8a" opacity="0.28"/><rect x="62" y="28" width="45" height="90" fill="#091020"/><rect x="118" y="8" width="52" height="110" fill="#0c1528"/><rect x="126" y="18" width="36" height="14" fill="#00f0ff" opacity="0.35"/><rect x="250" y="16" width="48" height="102" fill="#0b1222"/><rect x="260" y="30" width="12" height="55" fill="#ff1e8a" opacity="0.35"/><rect x="308" y="22" width="42" height="96" fill="#09101d"/><ellipse cx="78" cy="42" rx="18" ry="5" fill="#101d33" stroke="#00f0ff" stroke-width="1.2"/><circle cx="68" cy="43" r="2" fill="#ff1e8a"/><circle cx="88" cy="43" r="2" fill="#00f0ff"/><g stroke="#00f0ff" stroke-width="0.8" opacity="0.35"><line x1="40" y1="0" x2="20" y2="118"/><line x1="110" y1="0" x2="90" y2="118"/><line x1="190" y1="0" x2="170" y2="118"/><line x1="270" y1="0" x2="250" y2="118"/><line x1="330" y1="0" x2="310" y2="118"/></g></svg>',
+      // Внутренний арт шестиугольника: кирпичная стена с неоном, геймерский стол и персонаж в кепке из видео
+      innerSvg: '<svg viewBox="0 0 100 100" width="100%" height="100%"><rect width="100" height="100" fill="#0b1324"/><g stroke="#1b2942" stroke-width="1"><line x1="0" y1="25" x2="100" y2="25"/><line x1="0" y1="45" x2="100" y2="45"/><line x1="0" y1="65" x2="100" y2="65"/><line x1="35" y1="25" x2="35" y2="45"/><line x1="70" y1="45" x2="70" y2="65"/></g><circle cx="65" cy="40" r="28" fill="#00f0ff" opacity="0.18"/><circle cx="30" cy="55" r="24" fill="#ff1e8a" opacity="0.2"/><polygon points="8,72 44,58 48,66 12,82" fill="#142238" stroke="#00ff9d" stroke-width="1.2"/><rect x="26" y="48" width="14" height="7" rx="1" fill="#ff1e56"/><circle cx="64" cy="44" r="9" fill="#e2c6b6"/><path d="M54 42 Q64 32 74 42 Z" fill="#1e293b"/><rect x="58" y="42" width="12" height="4" rx="1" fill="#00f0ff"/><path d="M50 75 Q52 54 64 54 Q76 54 78 75 Z" fill="#1e3a5f" stroke="#00f0ff" stroke-width="1"/></svg>',
+      // Детализированная Люси справа внахлёст на шестиугольник (бело-пастельное каре, красные глаза и подводка, белая куртка с открытыми плечами, чёрный бодисьют с красными деталями)
+      charSvg: '<svg class="cds-character-right" viewBox="0 0 110 145"><defs><linearGradient id="lucyHair" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ffffff"/><stop offset="55%" stop-color="#d8f3ff"/><stop offset="85%" stop-color="#ffc2e2"/><stop offset="100%" stop-color="#00f0ff"/></linearGradient><linearGradient id="lucyJacket" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f1f5f9"/><stop offset="100%" stop-color="#94a3b8"/></linearGradient></defs><g filter="drop-shadow(0 0 6px rgba(0,240,255,0.55))"><path d="M38 144 L44 102 L78 104 L84 144 Z" fill="#1e2436" stroke="#00f0ff" stroke-width="1.2"/><path d="M44 102 L48 56 L74 56 L78 104 Z" fill="#0d111a" stroke="#ff1e8a" stroke-width="1.3"/><polygon points="58,64 64,64 62,88 56,88" fill="#ff1e56"/><path d="M30 88 C28 66 36 56 46 56 L48 92 C38 94 32 92 30 88 Z" fill="url(#lucyJacket)" stroke="#cbd5e1" stroke-width="1.2"/><path d="M74 56 C86 58 94 70 92 94 L76 92 Z" fill="url(#lucyJacket)" stroke="#cbd5e1" stroke-width="1.2"/><ellipse cx="60" cy="48" rx="9" ry="6" fill="#fbd5c8"/><path d="M45 26 C45 12 77 12 77 28 C77 40 68 48 60 48 C52 48 45 40 45 26 Z" fill="#fde2d8"/><path d="M38 30 C36 10 52 4 63 6 C78 8 86 20 82 42 C80 32 75 22 68 20 C64 28 56 28 48 22 C44 28 42 38 43 45 C39 40 38 35 38 30 Z" fill="url(#lucyHair)"/><path d="M49 30 L56 31" stroke="#ff1e56" stroke-width="2" stroke-linecap="round"/><path d="M64 31 L71 30" stroke="#ff1e56" stroke-width="2" stroke-linecap="round"/><circle cx="53" cy="32" r="2.2" fill="#ff0055"/><circle cx="67" cy="32" r="2.2" fill="#ff0055"/><path d="M57 41 Q60 43 63 41" fill="none" stroke="#e11d48" stroke-width="1.4"/></g></svg>'
     },
     set2: {
       code: '⚡FX:SET2', avaClass: 'fx-set2', badgeClass: 'b-set2', badgeText: '⚡ SANDY S2', surfaceClass: 'theme-set2',
-      c1: '#fcee09', c2: '#00ff9d', title: 'Набор 2: Дэвид Мартинес // Sandevistan Overdrive',
-      charSvg: '<svg class="hero-char-holo" viewBox="0 0 80 110"><defs><linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fcee09"/><stop offset="100%" stop-color="#00ff9d"/></linearGradient></defs><path d="M16 108 L22 50 L14 40 L32 34 L38 10 L48 6 L54 14 L52 34 L68 42 L62 108 Z" fill="#0b1a14" stroke="url(#lg2)" stroke-width="2.2"/><path d="M38 36 L38 88 M32 48 L44 48 M30 60 L46 60 M32 72 L44 72" stroke="#00ff9d" stroke-width="2.4"/><circle cx="44" cy="22" r="2.2" fill="#fcee09"/></svg>'
+      cOuter: '#fcee09', cInner: '#00ff9d', cBolt: '#fcee09',
+      title: 'Набор 2: Дэвид Мартинес // Sandevistan Overdrive (Сезон 2)',
+      bannerSvg: '<svg class="dp-banner-svg" viewBox="0 0 360 118" preserveAspectRatio="none"><rect width="360" height="118" fill="#04120e"/><circle cx="285" cy="48" r="36" fill="#fcee09" opacity="0.22"/><circle cx="285" cy="48" r="26" fill="#fffbe6" opacity="0.35"/><path d="M0 95 L60 65 L120 85 L190 45 L260 80 L360 50 L360 118 L0 118 Z" fill="#07221b" opacity="0.7"/><g stroke="#00ff9d" stroke-width="1.2" opacity="0.4"><line x1="20" y1="20" x2="140" y2="20"/><line x1="40" y1="38" x2="190" y2="38"/><line x1="15" y1="56" x2="110" y2="56"/></g></svg>',
+      innerSvg: '<svg viewBox="0 0 100 100" width="100%" height="100%"><rect width="100" height="100" fill="#061914"/><circle cx="50" cy="50" r="34" fill="none" stroke="#00ff9d" stroke-width="1.5" stroke-dasharray="6 4"/><path d="M50 18 L50 82 M36 30 L64 30 M32 50 L68 50 M36 70 L64 70" stroke="#fcee09" stroke-width="3" stroke-linecap="round"/><circle cx="50" cy="30" r="4" fill="#00ff9d"/><circle cx="50" cy="50" r="4" fill="#00ff9d"/><circle cx="50" cy="70" r="4" fill="#00ff9d"/></svg>',
+      // Дэвид Мартинес в культовой жёлтой куртке с неоновым воротником и зелёным свечением Сандевистана
+      charSvg: '<svg class="cds-character-right" viewBox="0 0 110 145"><g filter="drop-shadow(0 0 6px rgba(252,238,9,0.55))"><path d="M30 144 L36 62 L24 50 L42 42 L78 42 L94 52 L84 64 L88 144 Z" fill="#fcee09" stroke="#04120c" stroke-width="1.5"/><path d="M46 52 L74 52 L70 144 L48 144 Z" fill="#0f172a"/><path d="M38 42 L46 28 L74 28 L82 42 Z" fill="#1e293b" stroke="#00ff9d" stroke-width="1.8"/><circle cx="60" cy="28" r="13" fill="#f1c2a5"/><path d="M44 22 L48 8 L58 14 L64 6 L72 14 L78 10 L76 26 Z" fill="#111827"/><circle cx="55" cy="28" r="2" fill="#fcee09"/><circle cx="66" cy="28" r="2" fill="#fcee09"/><path d="M48 68 L72 68 M50 84 L70 84" stroke="#00ff9d" stroke-width="2.5"/></g></svg>'
     },
     set3: {
       code: '⚡FX:SET3', avaClass: 'fx-set3', badgeClass: 'b-set3', badgeText: '🔥 RELIC MAX', surfaceClass: 'theme-set3',
-      c1: '#ff003c', c2: '#14f1d9', title: 'Набор 3: Киберпсихоз // Адам Смэшер & Relic',
-      charSvg: '<svg class="hero-char-holo" viewBox="0 0 80 110"><path d="M12 108 L16 42 L28 28 L34 12 L50 12 L56 28 L68 42 L72 108 Z" fill="#18050a" stroke="#ff003c" stroke-width="2.2"/><circle cx="38" cy="24" r="2.5" fill="#ff003c"/><circle cx="46" cy="24" r="2.5" fill="#14f1d9"/><path d="M22 48 L62 48 L56 78 L28 78 Z" fill="none" stroke="#14f1d9" stroke-width="1.6"/></svg>'
+      cOuter: '#ff003c', cInner: '#00f0ff', cBolt: '#ff003c',
+      title: 'Набор 3: Джонни Сильверхенд & V // Cyberpunk 2077 Relic',
+      bannerSvg: '<svg class="dp-banner-svg" viewBox="0 0 360 118" preserveAspectRatio="none"><rect width="360" height="118" fill="#120308"/><rect x="145" y="0" width="70" height="118" fill="#1f050d" stroke="#ff003c" stroke-width="1"/><circle cx="180" cy="34" r="14" fill="none" stroke="#ff003c" stroke-width="2.2"/><g stroke="#00f0ff" stroke-width="1" opacity="0.45"><line x1="0" y1="28" x2="130" y2="28"/><line x1="230" y1="64" x2="360" y2="64"/><line x1="30" y1="88" x2="160" y2="88"/></g></svg>',
+      innerSvg: '<svg viewBox="0 0 100 100" width="100%" height="100%"><rect width="100" height="100" fill="#16040a"/><polygon points="50,14 82,34 72,78 50,90 28,78 18,34" fill="#2b0610" stroke="#ff003c" stroke-width="2"/><circle cx="38" cy="48" r="6" fill="#00f0ff"/><circle cx="62" cy="48" r="6" fill="#00f0ff"/><path d="M34 68 L44 74 L56 74 L66 68" fill="none" stroke="#fcee09" stroke-width="2.5"/></svg>',
+      // Джонни Сильверхенд в бронежилете, красных очках-авиаторах и с серебряной бионической рукой
+      charSvg: '<svg class="cds-character-right" viewBox="0 0 110 145"><g filter="drop-shadow(0 0 6px rgba(255,0,60,0.6))"><path d="M36 144 L40 54 L80 54 L84 144 Z" fill="#18181b" stroke="#ff003c" stroke-width="1.5"/><path d="M22 98 C20 72 28 56 40 56 L42 104 Z" fill="#94a3b8" stroke="#00f0ff" stroke-width="1.6"/><line x1="25" y1="72" x2="40" y2="72" stroke="#0f172a" stroke-width="2"/><line x1="24" y1="84" x2="41" y2="84" stroke="#0f172a" stroke-width="2"/><circle cx="60" cy="30" r="13" fill="#e2b89b"/><path d="M44 18 C46 8 74 8 76 18 L78 46 L72 44 L72 24 L48 24 L48 44 L42 46 Z" fill="#09090b"/><rect x="48" y="25" width="11" height="7" rx="2" fill="#ff003c" stroke="#cbd5e1" stroke-width="1"/><rect x="61" y="25" width="11" height="7" rx="2" fill="#ff003c" stroke="#cbd5e1" stroke-width="1"/><path d="M52 38 L68 38 L64 43 L56 43 Z" fill="#18181b"/></g></svg>'
     }
   };
 
+  // Генератор двойной 6-угольной неоновой рамки с молниями, искрами и персонажем справа (точно как на видео)
   function buildHeroHexMedallionHTML(letters, avaColor, setKey, statusCls) {
     const m = FX_SETS_META[setKey];
     if (!m) {
-      return '<div class="hex-wrap" style="width:74px;height:74px;">' +
-        '<div class="hex-border"><div class="hex-core" style="font-size:20px;background:' + escapeHtml(avaColor || '#ff1e56') + ';">' + escapeHtml(letters) + '</div></div>' +
+      return '<div class="hex-wrap" style="width:82px;height:82px;margin-top:26px;">' +
+        '<div class="hex-border"><div class="hex-core" style="font-size:22px;background:' + escapeHtml(avaColor || '#ff1e56') + ';">' + escapeHtml(letters) + '</div></div>' +
         (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') +
       '</div>';
     }
-    return '<div class="hex-wrap ' + m.avaClass + '" style="width:82px;height:82px;">' +
-      '<div class="hex-border"><div class="hex-core" style="font-size:21px;background:' + escapeHtml(avaColor || '#101d30') + ';">' + escapeHtml(letters) + '</div></div>' +
-      (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') +
-    '</div>' +
-    '<svg class="hero-hex-svg" viewBox="0 0 120 120">' +
-      '<polygon points="60,4 110,32 110,88 60,116 10,88 10,32" fill="none" stroke="' + m.c1 + '" stroke-width="2" opacity="0.85"/>' +
-      '<polygon points="60,10 104,35 104,85 60,110 16,85 16,35" fill="none" stroke="' + m.c2 + '" stroke-width="1.8" opacity="0.9"/>' +
-      '<circle class="arc-line" cx="60" cy="60" r="56" stroke="' + m.c2 + '"/>' +
-      '<polyline class="bolt-path" points="8,36 22,20 18,12 38,4" stroke="' + m.c2 + '"/>' +
-      '<polyline class="bolt-path" points="112,82 98,98 104,106 82,116" stroke="' + m.c1 + '"/>' +
-    '</svg>' + m.charSvg;
+    return '<div class="cds-hex-frame">' +
+      '<div class="cds-inner-art">' + m.innerSvg +
+        '<span class="cds-nick-overlay" style="position:absolute;bottom:8px;font-size:13px;">' + escapeHtml(letters) + '</span>' +
+      '</div>' +
+      '<svg class="cds-neon-svg" viewBox="0 0 140 140">' +
+        '<defs>' +
+          '<filter id="glow-' + setKey + '"><feGaussianBlur stdDeviation="2.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
+        '</defs>' +
+        '<!-- Внешний неоновый шестиугольник (Розовый/Жёлтый/Красный) -->' +
+        '<polygon points="70,6 126,38 126,102 70,134 14,102 14,38" fill="none" stroke="' + m.cOuter + '" stroke-width="3.4" filter="url(#glow-' + setKey + ')"/>' +
+        '<!-- Внутренний неоновый шестиугольник (Яркий циан/Изумруд) -->' +
+        '<polygon points="70,13 119,41 119,99 70,127 21,99 21,41" fill="none" stroke="' + m.cInner + '" stroke-width="2.6" filter="url(#glow-' + setKey + ')"/>' +
+        '<!-- Зигзагообразные электрические разряды и молнии вдоль граней как на 00:03 и 00:07 видео -->' +
+        '<polyline class="cds-bolt" points="70,3 42,16 48,22 18,35 10,44 16,66" stroke="' + m.cBolt + '" filter="url(#glow-' + setKey + ')"/>' +
+        '<polyline class="cds-bolt b2" points="12,96 34,114 28,120 62,136 74,132 104,118" stroke="#ffffff" filter="url(#glow-' + setKey + ')"/>' +
+        '<polyline class="cds-bolt b3" points="128,42 134,68 124,76 130,98 96,122" stroke="' + m.cInner + '" filter="url(#glow-' + setKey + ')"/>' +
+        '<!-- Светящиеся искры вокруг шестиугольника -->' +
+        '<circle class="cds-spark" cx="24" cy="22" r="2.2" fill="#fff"/>' +
+        '<circle class="cds-spark s2" cx="10" cy="78" r="2" fill="' + m.cInner + '"/>' +
+        '<circle class="cds-spark s3" cx="55" cy="136" r="2.2" fill="' + m.cOuter + '"/>' +
+        '<circle class="cds-spark" cx="108" cy="18" r="1.8" fill="' + m.cInner + '"/>' +
+      '</svg>' +
+    '</div>' + m.charSvg;
   }
 
   let myProfile = { bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#14f1d9', avatarColor: '#ff1e56', fxSet: '' };
@@ -1251,7 +1280,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const b = document.getElementById('btn-fx-' + k);
       if (b) b.textContent = (cur === k) ? '✓ АКТИВЕН' : '🎁 ЗАБРАТЬ';
       const slot = document.getElementById('fx-demo-slot-' + (idx + 1));
-      if (slot && !slot.innerHTML) slot.innerHTML = '<div class="hero-hex-stage" style="margin:0;transform:scale(0.82);transform-origin:left center;">' + buildHeroHexMedallionHTML(myNick.slice(0, 2).toUpperCase(), myProfile.avatarColor, k, '') + '</div>';
+      if (slot) slot.innerHTML = '<div class="cyber-diode-scene" style="margin:0;transform:scale(0.78);transform-origin:left center;width:165px;height:112px;">' + buildHeroHexMedallionHTML(myNick.slice(0, 2).toUpperCase(), myProfile.avatarColor, k, '') + '</div>';
     });
     const dis = document.getElementById('btn-disable-fx');
     if (dis) dis.style.display = cur ? 'inline-block' : 'none';
@@ -1343,7 +1372,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let screenCalls = {}, camCalls = {}, myPid = null, lastMembers = [], social = { friends: [], incoming: [], outgoing: [], servers: [] };
   let pendingChannelType = 'text', micTestStream = null, micTestTimer = null, stageLayoutMode = 'grid';
   let callStartTime = 0, voiceLockRelease = null, wakeLockSentinel = null, keepAliveAudioEl = null, bgWorker = null;
-  let pipCanvas = null, pipCtx = null, canvasPipVideo = null, popupOverlayWin = null, subsonicWavUrl = null;
+  let pipCanvas = null, pipCtx = null, canvasPipVideo = null, subsonicWavUrl = null;
   const SILENT_WAV_BASE64 = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
 
   function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
@@ -1705,6 +1734,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
     document.getElementById('vp-surface').className = 'profile-surface psd-inner' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
     document.getElementById('vp-banner').style.background = u.bannerColor || '#14f1d9';
+    document.getElementById('vp-banner-art').innerHTML = fxMeta ? fxMeta.bannerSvg : '';
     document.getElementById('vp-hero-stage').innerHTML = buildHeroHexMedallionHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#ff1e56', setKey, u.online ? (u.presence || 'online') : 'off');
     document.getElementById('vp-nick').textContent = u.nick || 'Участник';
     document.getElementById('vp-badge-slot').innerHTML = getBadgeHTML(setKey);
@@ -1782,6 +1812,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
     document.getElementById('preview-surface').className = 'profile-surface' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
     document.getElementById('preview-banner').style.background = myProfile.bannerColor || '#14f1d9';
+    document.getElementById('preview-banner-art').innerHTML = fxMeta ? fxMeta.bannerSvg : '';
     document.getElementById('preview-hero-stage').innerHTML = buildHeroHexMedallionHTML(n.slice(0, 2).toUpperCase(), myProfile.avatarColor || '#ff1e56', curSet, pr);
     document.getElementById('preview-nick').textContent = n;
     document.getElementById('preview-badge-slot').innerHTML = getBadgeHTML(curSet);
