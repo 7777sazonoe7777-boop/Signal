@@ -352,7 +352,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#05080f">
+<meta name="theme-color" content="#04070d">
 <title>СИГНАЛ // P2P СИНХРОНИЗАЦИЯ</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
@@ -363,7 +363,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     --bg-chat: #08101c;
     --bg-members: #070d17;
     --bg-userbar: #040810;
-    --bg-card: rgba(10, 19, 32, 0.86);
+    --bg-card: rgba(10, 19, 32, 0.88);
     --bg-input: #091320;
     --bg-hover: rgba(20, 241, 217, 0.09);
     --bg-active: rgba(20, 241, 217, 0.17);
@@ -372,7 +372,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     --pink: #ff1e56;
     --green: #10b981;
     --red: #ff1e56;
-    --yellow: #f59e0b;
+    --yellow: #fcee09;
+    --purple: #b829ff;
     --text-main: #e6f7ff;
     --text-normal: #b4cde0;
     --text-muted: #5e7a94;
@@ -382,9 +383,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     --cyan-border: rgba(20, 241, 217, 0.38);
     --chat-font-size: 14px;
     --hex: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-    --cyber-cut: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
-    --cyber-cut-sm: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
-    --pcb-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke='%2314f1d9' stroke-width='0.9' stroke-opacity='0.065'%3E%3Cpath d='M0 24h36l16 16v36l16 16h44l20-20h28M24 0v30l20 20h40l16-16h60M0 110h30l22 22v28M90 160v-30l22-22h48M60 160v-34l-16-16H16L0 94M124 0v34l-16 16v28'/%3E%3C/g%3E%3Cg fill='%2314f1d9' fill-opacity='0.09'%3E%3Ccircle cx='36' cy='24' r='2.2'/%3E%3Ccircle cx='52' cy='40' r='2.2'/%3E%3Ccircle cx='68' cy='92' r='2.2'/%3E%3Ccircle cx='100' cy='34' r='2.2'/%3E%3Ccircle cx='52' cy='132' r='2.2'/%3E%3Ccircle cx='112' cy='108' r='2.2'/%3E%3C/g%3E%3Cg fill='%23ff1e56' fill-opacity='0.07'%3E%3Ccircle cx='44' cy='50' r='2'/%3E%3Ccircle cx='108' cy='78' r='2'/%3E%3Ccircle cx='30' cy='110' r='2'/%3E%3C/g%3E%3C/svg%3E");
+    --pcb-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke='%2314f1d9' stroke-width='0.9' stroke-opacity='0.06'%3E%3Cpath d='M0 24h36l16 16v36l16 16h44l20-20h28M24 0v30l20 20h40l16-16h60M0 110h30l22 22v28M90 160v-30l22-22h48M60 160v-34l-16-16H16L0 94M124 0v34l-16 16v28'/%3E%3C/g%3E%3Cg fill='%2314f1d9' fill-opacity='0.08'%3E%3Ccircle cx='36' cy='24' r='2.2'/%3E%3Ccircle cx='52' cy='40' r='2.2'/%3E%3Ccircle cx='68' cy='92' r='2.2'/%3E%3Ccircle cx='100' cy='34' r='2.2'/%3E%3Ccircle cx='52' cy='132' r='2.2'/%3E%3Ccircle cx='112' cy='108' r='2.2'/%3E%3C/g%3E%3Cg fill='%23ff1e56' fill-opacity='0.06'%3E%3Ccircle cx='44' cy='50' r='2'/%3E%3Ccircle cx='108' cy='78' r='2'/%3E%3Ccircle cx='30' cy='110' r='2'/%3E%3C/g%3E%3C/svg%3E");
   }
 
   @keyframes neonSpin {
@@ -392,13 +391,26 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     100% { transform: translate(-50%, -50%) rotate(360deg); }
   }
   @keyframes eqPulse {
-    0%, 100% { transform: scaleY(0.28); opacity: 0.55; }
+    0%, 100% { transform: scaleY(0.25); opacity: 0.5; }
     50% { transform: scaleY(1); opacity: 1; }
+  }
+  @keyframes badgeShimmer {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  @keyframes glitchPulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(255, 30, 86, 0.55), inset 0 0 10px rgba(20, 241, 217, 0.25); }
+    50% { box-shadow: 0 0 22px rgba(20, 241, 217, 0.7), inset 0 0 16px rgba(255, 30, 86, 0.35); }
+  }
+  @keyframes bgScanMove {
+    0% { background-position: 0 0, 0 0; }
+    100% { background-position: 0 120px, -120px 0; }
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body {
-    font-family: 'Segoe UI', 'Rajdhani', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
     background-color: var(--bg-darkest);
     background-image:
       radial-gradient(circle at 20% 20%, rgba(20, 241, 217, 0.05), transparent 45%),
@@ -413,7 +425,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     user-select: none;
   }
 
-  /* ШЕСТИУГОЛЬНЫЙ АВАТАР С БЕГУЩИМ КРАСНЫМ НЕОНОМ */
+  /* ШЕСТИУГОЛЬНЫЙ ЗНАЧОК ПРОФИЛЯ С 3 АНИМАЦИЯМИ НАБОРОВ */
   .hex-wrap {
     position: relative;
     display: inline-flex;
@@ -430,24 +442,44 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2px;
+    padding: 2.2px;
     overflow: hidden;
   }
-  .hex-wrap.fx-red-neon .hex-border {
-    background: rgba(255, 30, 86, 0.22);
-    filter: drop-shadow(0 0 7px rgba(255, 30, 86, 0.85));
-  }
-  .hex-wrap.fx-red-neon .hex-border::before {
+  .hex-wrap[class*="fx-set"] .hex-border::before {
     content: '';
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 210%;
-    height: 210%;
-    background: conic-gradient(from 0deg, transparent 0%, transparent 58%, #ff003c 78%, #ff99b3 93%, #ffffff 100%);
-    animation: neonSpin 2.1s linear infinite;
+    width: 220%;
+    height: 220%;
+    animation: neonSpin 2s linear infinite;
     z-index: 0;
   }
+  /* Набор 1: Edgerunners S1 (Жёлто-изумрудный Сандевистан Дэвида) */
+  .hex-wrap.fx-set1 .hex-border {
+    background: rgba(252, 238, 9, 0.25);
+    filter: drop-shadow(0 0 7px rgba(252, 238, 9, 0.8));
+  }
+  .hex-wrap.fx-set1 .hex-border::before {
+    background: conic-gradient(from 0deg, transparent 0%, transparent 52%, #00ff9d 74%, #fcee09 92%, #ffffff 100%);
+  }
+  /* Набор 2: Edgerunners S2 (Пурпурно-голографический протокол Люси / Новое поколение) */
+  .hex-wrap.fx-set2 .hex-border {
+    background: rgba(184, 41, 255, 0.25);
+    filter: drop-shadow(0 0 8px rgba(184, 41, 255, 0.85));
+  }
+  .hex-wrap.fx-set2 .hex-border::before {
+    background: conic-gradient(from 0deg, transparent 0%, transparent 52%, #00f0ff 74%, #b829ff 90%, #ff00a0 100%);
+  }
+  /* Набор 3: Cyberpunk 2077 (Красно-бирюзовый Relic / Джонни Сильверхенд) */
+  .hex-wrap.fx-set3 .hex-border {
+    background: rgba(255, 30, 86, 0.25);
+    filter: drop-shadow(0 0 8px rgba(255, 30, 86, 0.9));
+  }
+  .hex-wrap.fx-set3 .hex-border::before {
+    background: conic-gradient(from 0deg, transparent 0%, transparent 54%, #ff003c 76%, #14f1d9 92%, #ffffff 100%);
+  }
+
   .hex-core {
     position: relative;
     z-index: 1;
@@ -477,7 +509,90 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .hex-status-dot.dnd { background: var(--red); }
   .hex-status-dot.invisible, .hex-status-dot.offline, .hex-status-dot.off { background: var(--text-dim); }
 
-  /* ВЕРХНЯЯ ТЕЛЕМЕТРИЧЕСКАЯ ШАПКА КАК НА СКРИНШОТЕ */
+  /* АНИМИРОВАННЫЙ БЕЙДЖ СПРАВА ОТ ЗНАЧКА ПРОФИЛЯ */
+  .cyber-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1.5px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+    background-size: 200% 200%;
+    animation: badgeShimmer 2.6s ease infinite;
+  }
+  .cyber-badge.b-set1 {
+    background-image: linear-gradient(90deg, #fcee09, #00ff9d, #fcee09);
+    color: #04120c;
+    box-shadow: 0 0 8px rgba(252, 238, 9, 0.55);
+  }
+  .cyber-badge.b-set2 {
+    background-image: linear-gradient(90deg, #b829ff, #00f0ff, #ff00a0);
+    color: #fff;
+    box-shadow: 0 0 8px rgba(184, 41, 255, 0.6);
+  }
+  .cyber-badge.b-set3 {
+    background-image: linear-gradient(90deg, #ff003c, #14f1d9, #ff003c);
+    color: #fff;
+    box-shadow: 0 0 8px rgba(255, 0, 60, 0.65);
+  }
+
+  /* АНИМИРОВАННЫЕ РАМКИ И ЖИВЫЕ ФОНЫ КАРТОЧЕК ПРОФИЛЯ (3 НАБОРА) */
+  .profile-surface {
+    position: relative;
+    background: #050a14;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: 0.25s;
+  }
+  /* Set 1: Edgerunners S1 (Луна Люси и жёлто-изумрудный контур Сандевистана) */
+  .profile-surface.theme-set1 {
+    border: 2px solid #fcee09;
+    box-shadow: 0 0 22px rgba(252, 238, 9, 0.35), inset 0 0 18px rgba(0, 255, 157, 0.15);
+    background-color: #061116;
+    background-image:
+      radial-gradient(circle at 82% 22%, rgba(252, 238, 9, 0.28) 0%, rgba(252, 238, 9, 0.05) 28%, transparent 55%),
+      linear-gradient(135deg, rgba(252, 238, 9, 0.1) 0%, rgba(0, 255, 157, 0.08) 50%, rgba(5, 10, 20, 0.96) 100%);
+  }
+  .profile-surface.theme-set1 .dp-banner {
+    background:
+      radial-gradient(circle at 78% 50%, #fffbe6 0%, #fcee09 22%, rgba(0, 255, 157, 0.4) 52%, transparent 72%),
+      linear-gradient(90deg, #051923 0%, #092c29 55%, #1f2408 100%) !important;
+  }
+  /* Set 2: Edgerunners S2 (Пурпурный неон и матрица взлома) */
+  .profile-surface.theme-set2 {
+    border: 2px solid #b829ff;
+    box-shadow: 0 0 24px rgba(184, 41, 255, 0.45), inset 0 0 20px rgba(0, 240, 255, 0.18);
+    background-color: #0a0618;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(184, 41, 255, 0.07) 0px, rgba(184, 41, 255, 0.07) 1px, transparent 1px, transparent 16px),
+      repeating-linear-gradient(90deg, rgba(0, 240, 255, 0.06) 0px, rgba(0, 240, 255, 0.06) 1px, transparent 1px, transparent 16px),
+      radial-gradient(circle at 80% 20%, rgba(255, 0, 160, 0.22), transparent 60%);
+    animation: bgScanMove 8s linear infinite;
+  }
+  .profile-surface.theme-set2 .dp-banner {
+    background: linear-gradient(125deg, #240046 0%, #7b2cbf 45%, #ff00a0 80%, #00f0ff 100%) !important;
+  }
+  /* Set 3: Cyberpunk 2077 (Relic Чип, красный глитч Арасака / Самурай) */
+  .profile-surface.theme-set3 {
+    border: 2px solid #ff003c;
+    animation: glitchPulse 2.8s infinite;
+    background-color: #11050c;
+    background-image:
+      repeating-linear-gradient(135deg, rgba(255, 0, 60, 0.07) 0px, rgba(255, 0, 60, 0.07) 2px, transparent 2px, transparent 12px),
+      radial-gradient(circle at 85% 15%, rgba(20, 241, 217, 0.2), transparent 55%);
+  }
+  .profile-surface.theme-set3 .dp-banner {
+    background:
+      linear-gradient(90deg, #ff003c 0%, #8a0020 45%, #071e26 80%, #14f1d9 100%) !important;
+  }
+
+  /* ВЕРХНЯЯ ТЕЛЕМЕТРИЧЕСКАЯ ШАПКА */
   .top-telemetry-bar {
     height: 40px;
     background: rgba(4, 7, 13, 0.94);
@@ -491,65 +606,16 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     z-index: 30;
   }
   .tt-left, .tt-right { display: flex; align-items: center; gap: 10px; }
-  .tt-logo {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    font-weight: 900;
-    font-size: 13px;
-    letter-spacing: 1px;
-    color: #fff;
-  }
+  .tt-logo { display: flex; align-items: center; gap: 7px; font-weight: 900; font-size: 13px; letter-spacing: 1px; color: #fff; }
   .tt-logo-bolt { color: var(--brand); font-size: 15px; text-shadow: 0 0 8px var(--brand); }
-  .tt-cyber-tag {
-    background: rgba(255, 30, 86, 0.2);
-    border: 1px solid var(--pink-border);
-    color: #ff6b8b;
-    font-size: 9.5px;
-    font-weight: 800;
-    padding: 2px 7px;
-    border-radius: 4px;
-    letter-spacing: 0.8px;
-  }
-  .tt-proto-pill {
-    background: rgba(20, 241, 217, 0.06);
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    font-size: 10px;
-    font-weight: 700;
-    padding: 3px 10px;
-    border-radius: 4px;
-    letter-spacing: 0.6px;
-  }
-  .tt-node-pill {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(16, 185, 129, 0.1);
-    border: 1px solid rgba(16, 185, 129, 0.4);
-    color: #6ee7b7;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 4px 11px;
-    border-radius: 6px;
-  }
+  .tt-cyber-tag { background: rgba(255, 30, 86, 0.2); border: 1px solid var(--pink-border); color: #ff6b8b; font-size: 9.5px; font-weight: 800; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.8px; }
+  .tt-proto-pill { background: rgba(20, 241, 217, 0.06); border: 1px solid var(--border); color: var(--text-muted); font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 4px; letter-spacing: 0.6px; }
+  .tt-node-pill { display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.4); color: #6ee7b7; font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 6px; }
   .tt-node-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
-  .tt-invite-btn {
-    background: linear-gradient(135deg, rgba(255, 30, 86, 0.28), rgba(157, 23, 77, 0.4));
-    border: 1px solid var(--pink);
-    color: #fff;
-    font-size: 11px;
-    font-weight: 800;
-    padding: 5px 13px;
-    border-radius: 6px;
-    cursor: pointer;
-    letter-spacing: 0.5px;
-    box-shadow: 0 0 12px rgba(255, 30, 86, 0.25);
-    transition: 0.15s;
-  }
+  .tt-invite-btn { background: linear-gradient(135deg, rgba(255, 30, 86, 0.28), rgba(157, 23, 77, 0.4)); border: 1px solid var(--pink); color: #fff; font-size: 11px; font-weight: 800; padding: 5px 13px; border-radius: 6px; cursor: pointer; letter-spacing: 0.5px; transition: 0.15s; }
   .tt-invite-btn:hover { background: var(--pink); }
 
-  /* ВТОРАЯ СТРОКА P2P СИНХРОНИЗАЦИИ */
+  /* ВТОРАЯ СТРОКА P2P СИНХРОНИЗАЦИИ (БЕЗ ДУБЛИРУЮЩИХ ВКЛАДОК) */
   .sub-sync-bar {
     height: 32px;
     background: rgba(6, 11, 20, 0.88);
@@ -576,14 +642,15 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     display: flex;
     align-items: center;
     gap: 5px;
+    transition: 0.15s;
   }
   .ss-btn:hover { border-color: var(--brand); color: var(--brand); }
-  .ss-btn.gift {
-    background: rgba(255, 30, 86, 0.16);
-    border-color: var(--pink-border);
-    color: #ff80a0;
+  .ss-btn.fx-btn {
+    background: linear-gradient(90deg, rgba(255, 30, 86, 0.22), rgba(184, 41, 255, 0.22));
+    border-color: var(--pink);
+    color: #ff99b8;
   }
-  .ss-btn.gift:hover { background: var(--pink); color: #fff; }
+  .ss-btn.fx-btn:hover { background: var(--pink); color: #fff; }
 
   /* ОСНОВНАЯ СЕТКА ПРИЛОЖЕНИЯ */
   .app-layout {
@@ -611,23 +678,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
   .servers-rail::-webkit-scrollbar { display: none; }
 
-  .srv-pill-wrap {
-    position: relative;
-    width: 68px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  .srv-pill-bar {
-    position: absolute;
-    left: 0;
-    width: 3px;
-    height: 10px;
-    background: var(--brand);
-    box-shadow: 0 0 8px var(--brand);
-    opacity: 0;
-    transition: 0.18s;
-  }
+  .srv-pill-wrap { position: relative; width: 68px; display: flex; justify-content: center; align-items: center; }
+  .srv-pill-bar { position: absolute; left: 0; width: 3px; height: 10px; background: var(--brand); box-shadow: 0 0 8px var(--brand); opacity: 0; transition: 0.18s; }
   .srv-pill-wrap:hover .srv-pill-bar { opacity: 1; height: 20px; }
   .srv-pill-wrap.active .srv-pill-bar { opacity: 1; height: 36px; }
 
@@ -651,11 +703,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     box-shadow: 0 0 16px rgba(20, 241, 217, 0.6);
     transform: scale(1.05);
   }
-  .srv-ico.home-ico {
-    background: #0d1829;
-    color: var(--yellow);
-    font-size: 18px;
-  }
+  .srv-ico.home-ico { background: #0d1829; color: var(--yellow); font-size: 18px; }
   .srv-ico-action {
     width: 44px;
     height: 44px;
@@ -670,27 +718,19 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     cursor: pointer;
     transition: 0.18s;
   }
-  .srv-ico-action:hover {
-    background: var(--pink);
-    color: #fff;
-    transform: scale(1.05);
-  }
+  .srv-ico-action:hover { background: var(--pink); color: #fff; transform: scale(1.05); }
 
-  /* РАБОЧАЯ ОБЛАСТЬ: 250px ЛЕВАЯ КОЛОНКА | 1fr ЦЕНТР | 240px УЧАСТНИКИ */
+  /* РАБОЧАЯ ОБЛАСТЬ */
   .workspace {
     flex: 1;
     display: grid;
-    grid-template-columns: 250px 1fr 240px;
+    grid-template-columns: 250px 1fr 245px;
     min-height: 0;
     overflow: hidden;
     position: relative;
   }
-  body.hide-members-panel .workspace {
-    grid-template-columns: 250px 1fr;
-  }
-  body.hide-members-panel .right-panel {
-    display: none;
-  }
+  body.hide-members-panel .workspace { grid-template-columns: 250px 1fr; }
+  body.hide-members-panel .right-panel { display: none; }
 
   /* 2. ЛЕВАЯ КОЛОНКА КАНАЛОВ (250px) */
   .channels-panel {
@@ -710,35 +750,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     justify-content: space-between;
     gap: 8px;
   }
-  .srv-sub-label {
-    font-size: 9px;
-    font-weight: 800;
-    text-transform: uppercase;
-    color: var(--brand);
-    letter-spacing: 0.8px;
-  }
-  .srv-title {
-    font-size: 17px;
-    font-weight: 900;
-    color: #fff;
-    margin-top: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .srv-badge-open {
-    background: rgba(20, 241, 217, 0.08);
-    border: 1px solid var(--cyan-border);
-    color: var(--brand);
-    font-size: 9.5px;
-    font-weight: 700;
-    padding: 3px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    white-space: nowrap;
-  }
+  .srv-sub-label { font-size: 9px; font-weight: 800; text-transform: uppercase; color: var(--brand); letter-spacing: 0.8px; }
+  .srv-title { font-size: 17px; font-weight: 900; color: #fff; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .srv-badge-open { background: rgba(20, 241, 217, 0.08); border: 1px solid var(--cyan-border); color: var(--brand); font-size: 9.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
 
-  /* Плашка "ОЧЕРЕДЬ ПАКЕТОВ • LIVE" как на скриншоте */
   .packet-card {
     margin: 10px 10px 6px;
     padding: 10px 12px;
@@ -754,11 +769,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .pk-val { font-size: 11px; font-weight: 800; color: #fff; font-family: monospace; }
   .pk-live { font-size: 9.5px; font-weight: 800; color: var(--pink); letter-spacing: 0.5px; }
 
-  .channels-scroll {
-    flex: 1;
-    overflow-y: auto;
-    padding: 6px 10px 12px;
-  }
+  .channels-scroll { flex: 1; overflow-y: auto; padding: 6px 10px 12px; }
   .channels-scroll::-webkit-scrollbar { width: 4px; }
   .channels-scroll::-webkit-scrollbar-thumb { background: rgba(20, 241, 217, 0.25); }
 
@@ -781,32 +792,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
   .btn-create-ch-wide:hover { border-color: var(--brand); color: var(--brand); background: var(--bg-hover); }
 
-  .cat-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 4px 5px;
-    font-size: 10.5px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.7px;
-    color: var(--text-muted);
-  }
-  .cat-add-btn {
-    background: rgba(20, 241, 217, 0.08);
-    border: 1px solid var(--border);
-    color: var(--brand);
-    width: 20px;
-    height: 20px;
-    border-radius: 4px;
-    font-size: 14px;
-    font-weight: 800;
-    line-height: 1;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+  .cat-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 4px 5px; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px; color: var(--text-muted); }
+  .cat-add-btn { background: rgba(20, 241, 217, 0.08); border: 1px solid var(--border); color: var(--brand); width: 20px; height: 20px; border-radius: 4px; font-size: 14px; font-weight: 800; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .cat-add-btn:hover { background: var(--brand); color: #031518; }
 
   .ch-btn, .voice-ch-box {
@@ -823,53 +810,22 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     border: 1px solid transparent;
     transition: 0.15s;
   }
-  .ch-btn:hover, .voice-ch-box:hover {
-    background: var(--bg-hover);
-    color: #fff;
-  }
-  .ch-btn.active {
-    background: var(--bg-active);
-    border-color: var(--cyan-border);
-    color: #fff;
-  }
-  .voice-ch-box.active {
-    background: rgba(16, 185, 129, 0.15);
-    border-color: rgba(16, 185, 129, 0.45);
-    color: #6ee7b7;
-  }
+  .ch-btn:hover, .voice-ch-box:hover { background: var(--bg-hover); color: #fff; }
+  .ch-btn.active { background: var(--bg-active); border-color: var(--cyan-border); color: #fff; }
+  .voice-ch-box.active { background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.45); color: #6ee7b7; }
   .ch-left { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1; }
   .ch-hash { color: var(--brand); font-size: 13px; font-weight: 800; width: 16px; text-align: center; }
   .ch-name-txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ch-unread-badge {
-    background: var(--pink);
-    color: #fff;
-    font-size: 10px;
-    font-weight: 800;
-    padding: 1px 6px;
-    border-radius: 999px;
-  }
+  .ch-unread-badge { background: var(--pink); color: #fff; font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 999px; }
   .off-badge { font-size: 9px; color: var(--text-muted); font-weight: 800; }
   .off-badge.on { color: var(--green); }
 
-  /* Вложенный список участников, сидящих в голосовом канале (как в Discord) */
-  .voice-connected-users {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 2px 0 6px 22px;
-  }
-  .voice-connected-Users:empty { display: none; }
-  .vc-user-row {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 3px 6px;
-    border-radius: 4px;
-    font-size: 12px;
-    color: var(--text-normal);
-  }
+  .voice-connected-users { display: flex; flex-direction: column; gap: 4px; padding: 2px 0 6px 18px; }
+  .voice-connected-users:empty { display: none; }
+  .vc-user-row { display: flex; align-items: center; gap: 7px; padding: 3px 6px; border-radius: 4px; font-size: 12px; color: var(--text-normal); cursor: pointer; }
+  .vc-user-row:hover { background: var(--bg-hover); }
 
-  /* НИЖНИЙ ДОК ГОЛОСОВОЙ СВЯЗИ В ЛЕВОМ СТОЛБЦЕ (КАК В DISCORD) */
+  /* ГОЛОСОВОЙ ДОК СНИЗУ В ЛЕВОМ СТОЛБЦЕ (КАК В DISCORD) */
   .sidebar-voice-dock {
     background: rgba(6, 16, 26, 0.96);
     border-top: 1px solid var(--cyan-border);
@@ -879,84 +835,21 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     gap: 7px;
     flex-shrink: 0;
   }
-  .svd-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-  }
-  .svd-status {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-  .svd-state-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 10.5px;
-    font-weight: 800;
-    color: var(--green);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-  }
+  .svd-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .svd-status { display: flex; flex-direction: column; min-width: 0; }
+  .svd-state-row { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 800; color: var(--green); text-transform: uppercase; letter-spacing: 0.4px; }
   .svd-state-row.idle { color: var(--text-muted); }
-  .svd-channel-name {
-    font-size: 12px;
-    font-weight: 700;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .svd-hangup-btn {
-    background: rgba(255, 30, 86, 0.2);
-    border: 1px solid var(--pink);
-    color: #ff80a0;
-    padding: 4px 8px;
-    border-radius: 5px;
-    font-size: 11px;
-    font-weight: 800;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
+  .svd-channel-name { font-size: 12px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .svd-hangup-btn { background: rgba(255, 30, 86, 0.2); border: 1px solid var(--pink); color: #ff80a0; padding: 4px 8px; border-radius: 5px; font-size: 11px; font-weight: 800; cursor: pointer; flex-shrink: 0; }
   .svd-hangup-btn:hover { background: var(--pink); color: #fff; }
-  .svd-connect-btn {
-    background: var(--brand);
-    border: none;
-    color: #031518;
-    padding: 5px 10px;
-    border-radius: 5px;
-    font-size: 10.5px;
-    font-weight: 800;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-  .svd-actions {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 5px;
-  }
-  .svd-btn {
-    background: #0d1829;
-    border: 1px solid var(--border);
-    color: var(--text-normal);
-    padding: 5px 4px;
-    border-radius: 5px;
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    transition: 0.15s;
-  }
+  .svd-connect-btn { background: var(--brand); border: none; color: #031518; padding: 5px 10px; border-radius: 5px; font-size: 10.5px; font-weight: 800; cursor: pointer; flex-shrink: 0; }
+  .svd-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .svd-btn { background: #0d1829; border: 1px solid var(--border); color: var(--text-normal); padding: 5px 4px; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: 0.15s; }
   .svd-btn:hover { border-color: var(--brand); color: #fff; }
   .svd-btn.active-cam { background: rgba(16, 185, 129, 0.25); border-color: var(--green); color: #6ee7b7; }
   .svd-btn.active-screen { background: rgba(255, 30, 86, 0.25); border-color: var(--pink); color: #ffaec2; }
 
-  /* Нижняя панель пользователя (54px) с шестиугольным значком */
+  /* Нижняя панель пользователя (54px) с 6-угольным значком и бейджем справа */
   .user-bar {
     height: 54px;
     padding: 0 10px;
@@ -968,60 +861,19 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     gap: 6px;
     flex-shrink: 0;
   }
-  .user-info {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 4px;
-    border-radius: 6px;
-    cursor: pointer;
-    flex: 1;
-    min-width: 0;
-  }
+  .user-info { display: flex; align-items: center; gap: 8px; padding: 4px; border-radius: 6px; cursor: pointer; flex: 1; min-width: 0; }
   .user-info:hover { background: var(--bg-hover); }
-  .user-name {
-    font-size: 13px;
-    font-weight: 800;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .user-sub {
-    font-size: 10px;
-    color: var(--brand);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  .user-name-row { display: flex; align-items: center; gap: 5px; min-width: 0; }
+  .user-name { font-size: 13px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-sub { font-size: 10px; color: var(--brand); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .user-bar-controls { display: flex; align-items: center; gap: 4px; }
-  .ub-ctrl-btn {
-    width: 30px;
-    height: 30px;
-    clip-path: var(--hex);
-    background: #0d1829;
-    border: none;
-    color: var(--brand);
-    font-size: 13px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-  }
+  .ub-ctrl-btn { width: 30px; height: 30px; clip-path: var(--hex); background: #0d1829; border: none; color: var(--brand); font-size: 13px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
   .ub-ctrl-btn:hover { background: var(--brand); color: #031518; }
   .ub-ctrl-btn.off { background: rgba(255, 30, 86, 0.25); color: var(--pink); }
 
-  /* 3. ЦЕНТРАЛЬНАЯ ЗОНА (ЭКВАЛАЙЗЕР АУДИО ПОТОКА + СЦЕНА КАМЕР + ЧАТ + КОНСОЛЬ ВВОДА) */
-  .main-chat {
-    background: transparent;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-    height: 100%;
-  }
+  /* 3. ЦЕНТРАЛЬНАЯ ЗОНА */
+  .main-chat { background: transparent; display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; }
 
-  /* Верхняя карточка "АКТИВНЫЙ АУДИО ПОТОК" из примера */
   .audio-stream-header-card {
     margin: 10px 14px 4px;
     padding: 10px 14px;
@@ -1038,32 +890,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .ash-title-col { display: flex; flex-direction: column; }
   .ash-label { font-size: 10px; font-weight: 800; color: var(--brand); letter-spacing: 0.8px; text-transform: uppercase; }
   .ash-channel { font-size: 14px; font-weight: 800; color: #fff; }
-  .ash-wave {
-    flex: 1;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    overflow: hidden;
-    max-width: 420px;
-  }
-  .ash-bar {
-    width: 3px;
-    height: 100%;
-    background: var(--brand);
-    border-radius: 2px;
-    opacity: 0.35;
-    transform: scaleY(0.25);
-    transition: 0.2s;
-  }
-  body.voice-live .ash-bar {
-    animation: eqPulse 0.9s ease-in-out infinite;
-    box-shadow: 0 0 6px var(--brand);
-  }
+  .ash-wave { flex: 1; height: 28px; display: flex; align-items: center; justify-content: center; gap: 3px; overflow: hidden; max-width: 420px; }
+  .ash-bar { width: 3px; height: 100%; background: var(--brand); border-radius: 2px; opacity: 0.35; transform: scaleY(0.25); transition: 0.2s; }
+  body.voice-live .ash-bar { animation: eqPulse 0.9s ease-in-out infinite; box-shadow: 0 0 6px var(--brand); }
   .ash-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
-  /* СЦЕНА ТРАНСЛЯЦИЙ КАМЕР И ЭКРАНОВ (ОБЪЕДИНЕНИЕ ОКОН КАК В DISCORD) */
+  /* СЦЕНА ТРАНСЛЯЦИЙ КАМЕР И ЭКРАНОВ */
   .media-stage-dock {
     margin: 6px 14px;
     background: rgba(5, 10, 18, 0.95);
@@ -1078,79 +910,21 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     flex-shrink: 0;
   }
   .media-stage-dock.show { display: flex; }
-  .msd-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 6px;
-  }
+  .msd-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
   .msd-title { font-size: 11px; font-weight: 800; color: var(--brand); text-transform: uppercase; letter-spacing: 0.6px; }
   .msd-layout-btns { display: flex; gap: 6px; }
-  .msd-layout-btn {
-    background: #0d1829;
-    border: 1px solid var(--border);
-    color: var(--text-normal);
-    padding: 3px 9px;
-    border-radius: 4px;
-    font-size: 10.5px;
-    font-weight: 700;
-    cursor: pointer;
-  }
+  .msd-layout-btn { background: #0d1829; border: 1px solid var(--border); color: var(--text-normal); padding: 3px 9px; border-radius: 4px; font-size: 10.5px; font-weight: 700; cursor: pointer; }
   .msd-layout-btn.active { background: var(--brand); color: #031518; border-color: var(--brand); }
 
-  /* Режим 1: Сетка (несколько окон в одной области) */
-  .screen-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 8px;
-    width: 100%;
-  }
-  /* Режим 2: Фокус/Сцена (одно главное окно крупно + остальные снизу) */
-  .screen-grid. spotlight-mode {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  }
-  .screen-grid.spotlight-mode .screen-card.featured-tile {
-    grid-column: 1 / -1;
-  }
-  .screen-card {
-    background: #04070d;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    cursor: pointer;
-    transition: border-color 0.15s;
-  }
+  .screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; width: 100%; }
+  .screen-grid.spotlight-mode { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .screen-grid.spotlight-mode .screen-card.featured-tile { grid-column: 1 / -1; }
+  .screen-card { background: #04070d; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; cursor: pointer; transition: border-color 0.15s; }
   .screen-card:hover, .screen-card.featured-tile { border-color: var(--brand); }
-  .screen-card-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 5px 9px;
-    background: rgba(4, 7, 13, 0.92);
-    border-bottom: 1px solid var(--border);
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--text-main);
-    gap: 6px;
-    flex-wrap: wrap;
-  }
+  .screen-card-head { display: flex; justify-content: space-between; align-items: center; padding: 5px 9px; background: rgba(4, 7, 13, 0.92); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--text-main); gap: 6px; flex-wrap: wrap; }
   .screen-live-pill { background: var(--pink); color: #fff; font-size: 9px; padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
   .screen-live-pill.cam { background: var(--green); color: #031518; }
-  .screen-video-wrap {
-    position: relative;
-    width: 100%;
-    background: #000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 140px;
-    max-height: 290px;
-    overflow: hidden;
-  }
+  .screen-video-wrap { position: relative; width: 100%; background: #000; display: flex; align-items: center; justify-content: center; min-height: 140px; max-height: 290px; overflow: hidden; }
   .screen-card.featured-tile .screen-video-wrap { max-height: 360px; }
   .screen-video-wrap video { width: 100%; max-height: 360px; object-fit: contain; background: #000; display: block; transition: filter 0.25s; }
   .screen-card.nsfw-masked .screen-video-wrap video { filter: blur(26px) brightness(0.3); }
@@ -1160,31 +934,18 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .btn-fs.active-shield { background: var(--pink); border-color: var(--pink); color: #fff; }
 
   /* Лента сообщений */
-  .chat-scroll-area {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    min-height: 0;
-  }
+  .chat-scroll-area { flex: 1; overflow-y: auto; padding: 8px 14px; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
   .chat-scroll-area::-webkit-scrollbar { width: 6px; }
   .chat-scroll-area::-webkit-scrollbar-thumb { background: rgba(20, 241, 217, 0.25); border-radius: 3px; }
 
   .messages-container { display: flex; flex-direction: column; gap: 6px; }
-  .msg-item {
-    display: flex;
-    gap: 12px;
-    padding: 8px 12px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-  }
+  .msg-item { display: flex; gap: 12px; padding: 8px 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; }
   body.compact-chat .msg-item { padding: 4px 10px; }
-  .msg-author { font-size: 13.5px; font-weight: 800; color: var(--brand); margin-right: 8px; cursor: pointer; }
+  .msg-head-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .msg-author { font-size: 13.5px; font-weight: 800; color: var(--brand); cursor: pointer; }
+  .msg-author:hover { text-decoration: underline; }
   .msg-time { font-size: 10.5px; color: var(--text-muted); font-family: monospace; }
-  .msg-text { font-size: var(--chat-font-size); color: var(--text-main); margin-top: 2px; line-height: 1.4; user-select: text; word-break: break-word; }
+  .msg-text { font-size: var(--chat-font-size); color: var(--text-main); margin-top: 3px; line-height: 1.4; user-select: text; word-break: break-word; }
   .msg-text a { color: var(--brand); text-decoration: none; border-bottom: 1px dashed var(--brand); }
   .chat-inline-media { max-width: min(100%, 420px); max-height: 260px; border-radius: 6px; margin-top: 6px; display: block; border: 1px solid var(--cyan-border); }
 
@@ -1195,51 +956,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .spoiler-badge { font-size: 11px; font-weight: 700; color: var(--pink); margin-bottom: 4px; }
   .spoiler-blur-wrap.revealed .spoiler-badge { display: none; }
 
-  /* НИЖНЯЯ КОНСОЛЬ ВВОДА ("ОКНО ВВОДА // КОНСОЛЬ" КАК В РЕФЕРЕНСЕ) */
-  .chat-bottom {
-    padding: 6px 14px 10px;
-    flex-shrink: 0;
-  }
-  .console-box {
-    background: var(--bg-card);
-    border: 1px solid var(--cyan-border);
-    border-radius: 8px;
-    padding: 6px 12px 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-  }
-  .console-top-label {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 9.5px;
-    font-weight: 800;
-    color: var(--text-muted);
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
-  }
-  .input-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .chat-inp {
-    flex: 1;
-    min-width: 0;
-    background: #050a12;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 8px 12px;
-    color: var(--text-main);
-    font-size: 13.5px;
-    outline: none;
-  }
+  /* НИЖНЯЯ КОНСОЛЬ ВВОДА */
+  .chat-bottom { padding: 6px 14px 10px; flex-shrink: 0; }
+  .console-box { background: var(--bg-card); border: 1px solid var(--cyan-border); border-radius: 8px; padding: 6px 12px 8px; display: flex; flex-direction: column; gap: 5px; }
+  .console-top-label { display: flex; justify-content: space-between; align-items: center; font-size: 9.5px; font-weight: 800; color: var(--text-muted); letter-spacing: 0.8px; text-transform: uppercase; }
+  .input-row { display: flex; align-items: center; gap: 10px; }
+  .chat-inp { flex: 1; min-width: 0; background: #050a12; border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--text-main); font-size: 13.5px; outline: none; }
   .chat-inp:focus { border-color: var(--brand); }
 
-  /* 4. ПРАВАЯ КОЛОНКА УЧАСТНИКОВ И ТЕЛЕМЕТРИИ (240px) */
+  /* 4. ПРАВАЯ КОЛОНКА УЧАСТНИКОВ (245px) */
   .right-panel {
-    width: 240px;
+    width: 245px;
     background: rgba(6, 11, 20, 0.86);
     border-left: 1px solid var(--border);
     padding: 12px 10px;
@@ -1252,44 +979,85 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .right-panel::-webkit-scrollbar { width: 4px; }
   .right-panel::-webkit-scrollbar-thumb { background: rgba(20, 241, 217, 0.25); }
 
-  .telemetry-mini-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 9px 10px;
-    margin-bottom: 6px;
-    font-size: 10.5px;
-  }
+  .telemetry-mini-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; margin-bottom: 6px; font-size: 10.5px; }
   .tm-row { display: flex; justify-content: space-between; color: var(--text-normal); margin-top: 4px; font-family: monospace; }
   .tm-val { color: var(--brand); font-weight: 700; }
 
-  .right-sec-title {
-    font-size: 10.5px;
-    text-transform: uppercase;
-    color: var(--brand);
-    font-weight: 800;
-    padding: 8px 6px 4px;
-    letter-spacing: 0.7px;
-  }
-  .online-user-item {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 5px 7px;
-    border-radius: 6px;
-    cursor: pointer;
-    min-width: 0;
-    transition: 0.15s;
-  }
+  .right-sec-title { font-size: 10.5px; text-transform: uppercase; color: var(--brand); font-weight: 800; padding: 8px 6px 4px; letter-spacing: 0.7px; }
+  .online-user-item { display: flex; align-items: center; gap: 8px; padding: 5px 7px; border-radius: 6px; cursor: pointer; min-width: 0; transition: 0.15s; }
   .online-user-item:hover { background: var(--bg-hover); }
   .member-text-col { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
-  .member-nick-row { font-size: 13px; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .member-nick-row { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .member-status-sub { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mini-btn { background: rgba(20, 241, 217, 0.08); border: 1px solid var(--border); color: var(--brand); padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 800; cursor: pointer; flex-shrink: 0; }
   .mini-btn:hover { background: var(--brand); color: #031518; }
   .friend-tag { font-size: 9.5px; color: var(--green); font-weight: 800; }
 
-  /* НИЖНЯЯ СТРОКА СТАТУСА СЕТИ P2P ONLINE */
+  /* ВЫЕЗЖАЮЩИЙ СПРАВА ПРОФИЛЬ УЧАСТНИКА (DISCORD SLIDE-OUT DRAWER) */
+  .profile-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 5, 10, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 970;
+    display: none;
+  }
+  .profile-drawer-backdrop.open { display: block; }
+  .profile-slide-drawer {
+    position: fixed;
+    top: 40px;
+    right: 0;
+    bottom: 24px;
+    width: 350px;
+    max-width: 92vw;
+    z-index: 975;
+    transform: translateX(106%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    pointer-events: none;
+  }
+  .profile-slide-drawer.open {
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+  .psd-inner {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .dp-banner { height: 105px; background: linear-gradient(90deg, var(--brand), var(--pink)); position: relative; flex-shrink: 0; }
+  .dp-close-x {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: rgba(4, 7, 13, 0.75);
+    border: 1px solid var(--border);
+    color: #fff;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .dp-body { padding: 40px 16px 16px; position: relative; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+  .dp-ava-pos { position: absolute; top: -34px; left: 16px; width: 68px; height: 68px; }
+  .dp-nick-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .dp-nick { font-size: 18px; font-weight: 900; color: #fff; }
+  .dp-status { font-size: 12.5px; color: var(--brand); }
+  .dp-sec { background: rgba(4, 7, 13, 0.65); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 10px 12px; }
+  .dp-sec-title { font-size: 10px; font-weight: 800; color: var(--brand); margin-bottom: 5px; letter-spacing: 0.6px; text-transform: uppercase; }
+  .dp-bio { font-size: 12.5px; color: var(--text-normal); white-space: pre-wrap; line-height: 1.4; }
+  .dp-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+  .dp-tag { background: rgba(20, 241, 217, 0.12); border: 1px solid var(--border); color: var(--brand); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+  .dp-actions-col { display: flex; flex-direction: column; gap: 7px; margin-top: auto; padding-top: 10px; }
+  .status-pill { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 800; }
+  .status-pill.on { background: rgba(16, 185, 129, 0.18); color: var(--green); }
+  .status-pill.off { background: rgba(255, 255, 255, 0.06); color: var(--text-muted); }
+
+  /* НИЖНЯЯ СТРОКА СТАТУСА СЕТИ */
   .bottom-status-footer {
     height: 24px;
     background: #03060b;
@@ -1306,10 +1074,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .bsf-green { color: var(--brand); font-weight: 700; }
 
   /* Кнопки */
-  .btn-cyan { background: var(--brand); color: #031518; border: none; padding: 7px 14px; border-radius: 6px; font-weight: 800; font-size: 11.5px; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+  .btn-cyan { background: var(--brand); color: #031518; border: none; padding: 7px 14px; border-radius: 6px; font-weight: 800; font-size: 11.5px; text-transform: uppercase; cursor: pointer; white-space: nowrap; transition: 0.15s; }
   .btn-cyan:hover { background: var(--brand-hover); box-shadow: 0 0 12px rgba(20, 241, 217, 0.5); }
   .btn-danger { background: var(--pink); color: #fff; border: none; padding: 7px 12px; border-radius: 6px; font-weight: 800; font-size: 11.5px; text-transform: uppercase; cursor: pointer; }
   .btn-login-mini { background: #0d1829; border: 1px solid var(--border); color: var(--brand); padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
+  .btn-login-mini:hover { border-color: var(--brand); background: var(--bg-hover); }
   .btn-tg { background: var(--brand); color: #031518; border: none; width: 100%; padding: 10px 14px; border-radius: 6px; font-weight: 800; font-size: 12.5px; text-transform: uppercase; cursor: pointer; margin-bottom: 10px; }
 
   /* Плавающий виджет звонка */
@@ -1335,7 +1104,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .auth-tab { padding: 7px; font-size: 12px; font-weight: 700; text-align: center; cursor: pointer; color: var(--text-muted); border-radius: 4px; }
   .auth-tab.active { background: var(--brand); color: #031518; }
 
-  .settings-modal-box { background-color: #070d17; background-image: var(--pcb-pattern); border: 1px solid var(--brand); border-radius: 10px; width: 840px; max-width: 100%; height: 600px; max-height: 92vh; display: grid; grid-template-columns: 220px minmax(0, 1fr); overflow: hidden; }
+  .settings-modal-box { background-color: #070d17; background-image: var(--pcb-pattern); border: 1px solid var(--brand); border-radius: 10px; width: 880px; max-width: 100%; height: 630px; max-height: 92vh; display: grid; grid-template-columns: 225px minmax(0, 1fr); overflow: hidden; }
   .settings-nav { background: #050911; border-right: 1px solid var(--border); padding: 16px 10px; display: flex; flex-direction: column; gap: 3px; overflow-y: auto; }
   .settings-nav-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--brand); padding: 8px 10px 4px; letter-spacing: 0.8px; }
   .settings-nav-btn { padding: 8px 10px; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
@@ -1365,34 +1134,67 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .color-swatch { width: 26px; height: 26px; clip-path: var(--hex); cursor: pointer; }
   .mic-meter-wrap { width: 100%; height: 8px; background: #03060c; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
   .mic-meter-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--green), var(--brand), var(--pink)); transition: width 0.06s; }
-  .discord-profile-card { background: #040810; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-  .dp-banner { height: 60px; background: linear-gradient(90deg, var(--brand), var(--pink)); }
-  .dp-body { padding: 34px 14px 14px; position: relative; }
-  .dp-ava-pos { position: absolute; top: -28px; left: 14px; width: 56px; height: 56px; }
-  .dp-nick { font-size: 16px; font-weight: 800; color: #fff; }
-  .dp-status { font-size: 12px; color: var(--brand); margin-top: 2px; }
-  .dp-sec { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
-  .dp-sec-title { font-size: 10px; font-weight: 800; color: var(--brand); margin-bottom: 4px; }
-  .dp-bio { font-size: 12px; color: var(--text-normal); white-space: pre-wrap; }
-  .dp-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
-  .dp-tag { background: rgba(20, 241, 217, 0.12); border: 1px solid var(--border); color: var(--brand); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
-  .status-pill { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 800; }
-  .status-pill.on { background: rgba(16, 185, 129, 0.18); color: var(--green); }
-  .status-pill.off { background: rgba(255, 255, 255, 0.06); color: var(--text-muted); }
 
-  /* КАРТОЧКА ПОДАРКА АНИМАЦИИ В НАСТРОЙКАХ */
-  .gift-fx-card {
-    background: linear-gradient(135deg, rgba(255, 30, 86, 0.14), rgba(10, 19, 32, 0.95));
-    border: 1px solid var(--pink);
+  /* КАРТОЧКИ 3 КИБЕРПАНК-НАБОРОВ ВО ВКЛАДКЕ "ЭФФЕКТЫ" */
+  .fx-sets-grid { display: flex; flex-direction: column; gap: 12px; }
+  .fx-bundle-card {
+    position: relative;
     border-radius: 10px;
     padding: 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    box-shadow: 0 0 24px rgba(255, 30, 86, 0.18);
+    border: 1px solid var(--border);
+    background: rgba(5, 10, 18, 0.92);
+    transition: 0.2s;
   }
-  .gfx-preview { display: flex; align-items: center; gap: 14px; }
+  .fx-bundle-card.set1-card {
+    border-color: rgba(252, 238, 9, 0.6);
+    background: linear-gradient(135deg, rgba(252, 238, 9, 0.12), rgba(0, 255, 157, 0.08), rgba(5, 10, 18, 0.95));
+  }
+  .fx-bundle-card.set2-card {
+    border-color: rgba(184, 41, 255, 0.65);
+    background: linear-gradient(135deg, rgba(184, 41, 255, 0.16), rgba(0, 240, 255, 0.08), rgba(5, 10, 18, 0.95));
+  }
+  .fx-bundle-card.set3-card {
+    border-color: rgba(255, 0, 60, 0.65);
+    background: linear-gradient(135deg, rgba(255, 0, 60, 0.16), rgba(20, 241, 217, 0.08), rgba(5, 10, 18, 0.95));
+  }
+  .fxb-left { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
+  .fxb-items- pills { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .fxb-pill { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--text-normal); }
+
+  /* ГОРЯЧИЕ КЛАВИШИ (KEYBIND RECORDER) */
+  .keybind-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 12px;
+    background: #040810;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    gap: 10px;
+  }
+  .kb-btn {
+    background: #0d1829;
+    border: 1px solid var(--cyan-border);
+    color: var(--brand);
+    font-family: monospace;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 6px 14px;
+    border-radius: 5px;
+    cursor: pointer;
+    min-width: 140px;
+    text-align: center;
+  }
+  .kb-btn.recording {
+    background: rgba(255, 30, 86, 0.25);
+    border-color: var(--pink);
+    color: #fff;
+    animation: glitchPulse 1s infinite;
+  }
 
   .mob-top-btn { display: none; background: transparent; border: none; color: var(--brand); font-size: 20px; cursor: pointer; }
   .mob-drawer-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 940; }
@@ -1416,12 +1218,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     .settings-modal-box { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: 92dvh; }
     .settings-nav { flex-direction: row; overflow-x: auto; padding: 8px; }
     .settings-nav-label { display: none; }
-    .settings-grid-2, .gift-fx-card { grid-template-columns: 1fr; flex-direction: column; align-items: flex-start; }
+    .settings-grid-2, .fx-bundle-card { grid-template-columns: 1fr; flex-direction: column; align-items: flex-start; }
   }
 </style>
 </head>
 <body>
-  <!-- 1. ВЕРХНЯЯ ТЕЛЕМЕТРИЧЕСКАЯ ШАПКА КАК НА СКРИНШОТЕ -->
+  <!-- 1. ВЕРХНЯЯ ТЕЛЕМЕТРИЧЕСКАЯ ШАПКА -->
   <div class="top-telemetry-bar">
     <div class="tt-left">
       <button class="mob-top-btn" onclick="toggleMobileLeft()">☰</button>
@@ -1435,16 +1237,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- 2. ВТОРАЯ СТРОКА P2P СИНХРОНИЗАЦИИ И БЫСТРОГО ДОСТУПА -->
+  <!-- 2. ВТОРАЯ СТРОКА P2P СИНХРОНИЗАЦИИ (БЕЗ ДУБЛИРУЮЩИХ ВКЛАДОК) -->
   <div class="sub-sync-bar">
     <div class="ss-left">
       <span>● АКТИВНАЯ СЕТЬ:</span>
       <span class="white">P2P СИНХРОНИЗАЦИЯ</span>
     </div>
     <div class="ss-right">
-      <button class="ss-btn gift" onclick="openSettingsModal('fx')">🎁 АНИМАЦИЯ ЗНАЧКА</button>
-      <button class="ss-btn" onclick="openSettingsModal('profile')">ПРОФИЛЬ ⌄</button>
-      <button class="ss-btn" onclick="if(window.innerWidth<=900)toggleMobileRight();else document.body.classList.toggle('hide-members-panel');">УЧАСТНИКИ ⌄</button>
+      <button class="ss-btn fx-btn" onclick="openSettingsModal('fx')">✨ ЭФФЕКТЫ</button>
+      <button class="ss-btn" onclick="openSettingsModal('keybinds')">⌨️ БИНДЫ</button>
+      <button class="ss-btn" onclick="openSettingsModal('profile')">👤 ПРОФИЛЬ</button>
+      <button class="ss-btn" onclick="if(window.innerWidth<=900)toggleMobileRight();else document.body.classList.toggle('hide-members-panel');">👥 УЧАСТНИКИ</button>
     </div>
   </div>
 
@@ -1452,9 +1255,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   <div class="app-layout">
     <div class="mob-drawer-backdrop" onclick="closeMobileDrawers()"></div>
 
-    <!-- ЛЕВАЯ РЕЛЬСА СЕРВЕРОВ (68px, ШЕСТИУГОЛЬНИКИ, БЕЗ ЛИШНИХ ИКОНОК) -->
+    <!-- ЛЕВАЯ РЕЛЬСА СЕРВЕРОВ -->
     <div class="servers-rail">
-      <div class="srv-pill-wrap" title="Мой профиль и анимации" onclick="openSettingsModal('profile')">
+      <div class="srv-pill-wrap" title="Мой профиль и эффекты" onclick="openSettingsModal('fx')">
         <span class="srv-pill-bar"></span>
         <div class="srv-ico home-ico">⚡</div>
       </div>
@@ -1463,7 +1266,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
 
     <div class="workspace">
-      <!-- ЛЕВАЯ КОЛОНКА КАНАЛОВ + ГОЛОСОВОЙ ДОК СНИЗУ КАК В DISCORD -->
+      <!-- ЛЕВАЯ КОЛОНКА КАНАЛОВ + ГОЛОСОВОЙ ДОК СНИЗУ -->
       <div class="channels-panel">
         <div class="srv-header">
           <div style="min-width:0;">
@@ -1518,31 +1321,33 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           <div id="audio-box" style="display:none;"></div>
         </div>
 
-        <!-- НИЖНИЙ БАР ОПЕРАТОРА С 6-УГОЛЬНЫМ ЗНАЧКОМ -->
+        <!-- НИЖНИЙ БАР ПОЛЬЗОВАТЕЛЯ С 6-УГОЛЬНЫМ ЗНАЧКОМ И БЕЙДЖЕМ СПРАВА -->
         <div class="user-bar">
-          <div class="user-info" onclick="openSettingsModal('profile')">
+          <div class="user-info" onclick="openUserProfileCard(getMyMemberObject())">
             <div class="hex-wrap" id="user-ava-wrap" style="width:36px;height:36px;">
               <div class="hex-border">
                 <div class="hex-core" id="user-ava" style="font-size:11px;">ГО</div>
               </div>
               <span class="hex-status-dot" id="user-presence-dot"></span>
             </div>
-            <div style="overflow:hidden;min-width:0;">
-              <div class="user-name" id="user-name-label">Гость</div>
+            <div style="overflow:hidden;min-width:0;flex:1;">
+              <div class="user-name-row">
+                <span class="user-name" id="user-name-label">Гость</span>
+                <span id="user-bar-badge-slot"></span>
+              </div>
               <div class="user-sub" id="user-email-label">В сети</div>
             </div>
           </div>
           <div class="user-bar-controls">
             <button class="ub-ctrl-btn" id="mute-btn" title="Микрофон вкл/выкл" onclick="if(inVoice)toggleMute();else toggleVoiceCall();">🎤</button>
             <button class="ub-ctrl-btn" id="deafen-btn" title="Звук вкл/выкл" onclick="if(inVoice)toggleDeafen();else openSettingsModal('voice');">🎧</button>
-            <button class="ub-ctrl-btn" title="Настройки и анимации" onclick="openSettingsModal('profile')">⚙️</button>
+            <button class="ub-ctrl-btn" title="Настройки и эффекты" onclick="openSettingsModal('profile')">⚙️</button>
           </div>
         </div>
       </div>
 
-      <!-- ЦЕНТРАЛЬНАЯ КОЛОНКА (АУДИО ПОТОК + ОБЩАЯ СЦЕНА КАМЕР + ЧАТ + КОНСОЛЬ ВВОДА) -->
+      <!-- ЦЕНТРАЛЬНАЯ КОЛОНКА -->
       <div class="main-chat">
-        <!-- Верхняя плашка "АКТИВНЫЙ АУДИО ПОТОК" из референса -->
         <div class="audio-stream-header-card">
           <div class="ash-left">
             <span style="color:var(--brand);font-size:18px;font-weight:900;">#</span>
@@ -1555,11 +1360,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div class="ash-bar" style="animation-delay:0.0s"></div><div class="ash-bar" style="animation-delay:0.2s"></div><div class="ash-bar" style="animation-delay:0.4s"></div><div class="ash-bar" style="animation-delay:0.1s"></div><div class="ash-bar" style="animation-delay:0.3s"></div><div class="ash-bar" style="animation-delay:0.5s"></div><div class="ash-bar" style="animation-delay:0.15s"></div><div class="ash-bar" style="animation-delay:0.35s"></div><div class="ash-bar" style="animation-delay:0.05s"></div><div class="ash-bar" style="animation-delay:0.25s"></div><div class="ash-bar" style="animation-delay:0.45s"></div><div class="ash-bar" style="animation-delay:0.12s"></div><div class="ash-bar" style="animation-delay:0.32s"></div><div class="ash-bar" style="animation-delay:0.52s"></div><div class="ash-bar" style="animation-delay:0.18s"></div><div class="ash-bar" style="animation-delay:0.38s"></div><div class="ash-bar" style="animation-delay:0.08s"></div><div class="ash-bar" style="animation-delay:0.28s"></div><div class="ash-bar" style="animation-delay:0.48s"></div><div class="ash-bar" style="animation-delay:0.22s"></div>
           </div>
           <div class="ash-right">
+            <button class="btn-login-mini" onclick="openSettingsModal('fx')">✨ Эффекты</button>
             <button class="btn-login-mini" onclick="openSettingsModal('safety')">🛡️ Фильтр 18+</button>
           </div>
         </div>
 
-        <!-- ОБЪЕДИНЁННАЯ ОБЛАСТЬ ТРАНСЛЯЦИЙ КАМЕР И ЭКРАНОВ КАК В DISCORD -->
+        <!-- ОБЪЕДИНЁННАЯ ОБЛАСТЬ ТРАНСЛЯЦИЙ КАМЕР И ЭКРАНОВ -->
         <div class="media-stage-dock" id="media-stage-dock">
           <div class="msd-header">
             <span class="msd-title">📹 АКТИВНЫЕ ТРАНСЛЯЦИИ В КАНАЛЕ (КЛИК ПО ОКНУ — УВЕЛИЧИТЬ)</span>
@@ -1591,7 +1397,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- ПРАВАЯ КОЛОНКА УЧАСТНИКОВ И СТАТИСТИКИ КАНАЛА (240px) -->
+      <!-- ПРАВАЯ КОЛОНКА УЧАСТНИКОВ (245px) -->
       <div class="right-panel">
         <div class="telemetry-mini-card">
           <div style="font-size:9.5px;font-weight:800;color:var(--brand);letter-spacing:0.6px;">СТАТИСТИКА КАНАЛА</div>
@@ -1612,9 +1418,56 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- 4. НИЖНЯЯ СТРОКА ТЕЛЕМЕТРИИ КАК НА СКРИНШОТЕ -->
+  <!-- 4. ВЫЕЗЖАЮЩАЯ СПРАВА КАРТОЧКА ПРОФИЛЯ УЧАСТНИКА (DISCORD-STYLE DRAWER) -->
+  <div class="profile-drawer-backdrop" id="view-profile-backdrop" onclick="closeViewProfileModal()"></div>
+  <div class="profile-slide-drawer" id="view-profile-drawer">
+    <div class="profile-surface psd-inner" id="vp-surface">
+      <div class="dp-banner" id="vp-banner">
+        <button class="dp-close-x" onclick="closeViewProfileModal()">✕</button>
+      </div>
+      <div class="dp-body">
+        <div class="hex-wrap dp-ava-pos" id="vp-ava-wrap">
+          <div class="hex-border"><div class="hex-core" id="vp-ava" style="font-size:20px;">УЧ</div></div>
+          <span class="hex-status-dot" id="vp-status-dot"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div class="dp-nick-line">
+            <span class="dp-nick" id="vp-nick">Участник</span>
+            <span id="vp-badge-slot"></span>
+          </div>
+          <span class="status-pill on" id="vp-online-pill">ОНЛАЙН</span>
+        </div>
+        <div class="dp-status" id="vp-status"></div>
+
+        <div class="dp-sec">
+          <div class="dp-sec-title">ОБО МНЕ // ДОСЬЕ</div>
+          <div class="dp-bio" id="vp-bio"></div>
+        </div>
+
+        <div class="dp-sec">
+          <div class="dp-sec-title">ИНТЕРЕСЫ И ТЕГИ</div>
+          <div class="dp-tags" id="vp-tags"></div>
+        </div>
+
+        <div class="dp-sec">
+          <div class="dp-sec-title">АКТИВНЫЙ НАБОР ЭФФЕКТОВ</div>
+          <div style="font-size:12px;color:var(--text-normal);font-weight:700;" id="vp-fx-label">Стандартный кибер-контур</div>
+        </div>
+
+        <div class="dp-actions-col">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
+            <button class="btn-login-mini" id="vp-mention-btn">💬 Написать (@ник)</button>
+            <button class="btn-login-mini" id="vp-call-btn">🔊 Позвать в эфир</button>
+          </div>
+          <button class="btn-cyan" id="vp-friend-btn" style="width:100%;">+ Добавить в друзья</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. НИЖНЯЯ СТРОКА ТЕЛЕМЕТРИИ -->
   <div class="bottom-status-footer">
-    <span>ОТПРАВИТЬ СООБЩЕНИЕ В ГОЛОС ИЛИ ЧАТ // ENTER</span>
+    <span id="footer-keybind-hint">ГОРЯЧИЕ КЛАВИШИ АКТИВНЫ // НАСТРОЙКА В БИНДАХ</span>
     <span class="bsf-green">P2P ONLINE // Secure // E2EE // Latency 18ms</span>
   </div>
 
@@ -1636,16 +1489,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     <div class="mob-nav-item active" id="mob-tab-chat" onclick="closeMobileDrawers()"><span class="ico">◈</span><span>Чат</span></div>
     <div class="mob-nav-item" id="mob-tab-voice" onclick="toggleMobileLeft()"><span class="ico">🔊</span><span>Голос</span></div>
     <div class="mob-nav-item" id="mob-tab-right" onclick="toggleMobileRight()"><span class="ico">⬢</span><span>Участники</span></div>
-    <div class="mob-nav-item" id="mob-tab-profile" onclick="openSettingsModal('fx')"><span class="ico">🎁</span><span>Профиль</span></div>
+    <div class="mob-nav-item" id="mob-tab-profile" onclick="openSettingsModal('fx')"><span class="ico">✨</span><span>Эффекты</span></div>
   </div>
 
-  <!-- МОДАЛЬНОЕ ОКНО НАСТРОЕК (С ВКЛАДКОЙ АНИМАЦИЙ ЗНАЧКА В ПОДАРОК) -->
+  <!-- МОДАЛЬНОЕ ОКНО НАСТРОЕК (С ВКЛАДКАМИ "ЭФФЕКТЫ" И "ГОРЯЧИЕ КЛАВИШИ") -->
   <div class="modal-backdrop" id="settings-modal" onclick="if(event.target===this)closeSettingsModal()">
     <div class="settings-modal-box">
       <div class="settings-nav">
-        <div class="settings-nav-label">Профиль и подарки</div>
+        <div class="settings-nav-label">Профиль и кастомизация</div>
         <div class="settings-nav-btn active" data-pane="profile" onclick="switchSettingsPane('profile')">⬢ Мой профиль</div>
-        <div class="settings-nav-btn" data-pane="fx" onclick="switchSettingsPane('fx')">🎁 Анимации значка</div>
+        <div class="settings-nav-btn" data-pane="fx" onclick="switchSettingsPane('fx')">✨ Эффекты (3 набора)</div>
+        <div class="settings-nav-btn" data-pane="keybinds" onclick="switchSettingsPane('keybinds')">⌨️ Горячие клавиши</div>
         <div class="settings-nav-btn" data-pane="account" onclick="switchSettingsPane('account')">🔑 Учётная запись</div>
         <div class="settings-nav-label">Безопасность</div>
         <div class="settings-nav-btn" data-pane="safety" onclick="switchSettingsPane('safety')">🛡️ Фильтр 18+</div>
@@ -1659,57 +1513,145 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <!-- Вкладка 1: Профиль -->
         <div class="settings-pane active" id="pane-profile">
           <div class="settings-head"><h3>⬢ Мой профиль</h3><button class="btn-cyan" onclick="saveProfileSettings()">СОХРАНИТЬ</button></div>
-          <div class="discord-profile-card">
-            <div class="dp-banner" id="preview-banner"></div>
-            <div class="dp-body">
-              <div class="hex-wrap dp-ava-pos" id="preview-ava-wrap">
+          <div class="profile-surface" id="preview-surface">
+            <div class="dp-banner" id="preview-banner" style="height:75px;"></div>
+            <div class="dp-body" style="padding-top:36px;">
+              <div class="hex-wrap dp-ava-pos" id="preview-ava-wrap" style="width:60px;height:60px;top:-30px;">
                 <div class="hex-border"><div class="hex-core" id="preview-ava" style="font-size:18px;">ГО</div></div>
               </div>
-              <div class="dp-nick" id="preview-nick">Гость</div>
+              <div class="dp-nick-line">
+                <span class="dp-nick" id="preview-nick">Гость</span>
+                <span id="preview-badge-slot"></span>
+              </div>
               <div class="dp-status" id="preview-status"></div>
-              <div class="dp-sec"><div class="dp-sec-title">О СЕБЕ</div><div class="dp-bio" id="preview-bio"></div></div>
+              <div class="dp-sec"><div class="dp-sec-title">ОБО МНЕ</div><div class="dp-bio" id="preview-bio"></div></div>
               <div class="dp-sec"><div class="dp-sec-title">ИНТЕРЕСЫ</div><div class="dp-tags" id="preview-tags"></div></div>
             </div>
           </div>
           <div class="settings-card">
             <div class="settings-grid-2">
               <div><label class="field-label">Позывной (Никнейм)</label><input type="text" id="prof-nick-inp" maxlength="24" oninput="updateProfilePreview()"></div>
-              <div><label class="field-label">Статус</label><select id="prof-presence-sel" onchange="updateProfilePreview()"><option value="online">⬢ В сети</option><option value="idle">🌙 Не активен</option><option value="dnd">⛔ Не беспокоить</option><option value="invisible">⬡ Невидимка</option></select></div>
+              <div><label class="field-label">Статус присутствия</label><select id="prof-presence-sel" onchange="updateProfilePreview()"><option value="online">⬢ В сети</option><option value="idle">🌙 Не активен</option><option value="dnd">⛔ Не беспокоить</option><option value="invisible">⬡ Невидимка</option></select></div>
             </div>
             <div><label class="field-label">Пользовательский статус</label><input type="text" id="prof-status-inp" maxlength="60" oninput="updateProfilePreview()"></div>
             <div><label class="field-label">О себе</label><textarea id="prof-bio-inp" rows="2" maxlength="220" oninput="updateProfilePreview()"></textarea></div>
-            <div><label class="field-label">Интересы (через запятую)</label><input type="text" id="prof-interests-inp" maxlength="160" oninput="updateProfilePreview()"></div>
+            <div><label class="field-label">Интересы (через запятую)</label><input type="text" id="prof-interests-inp" maxlength="140" oninput="updateProfilePreview()"></div>
             <div class="settings-grid-2">
-              <div><label class="field-label">Цвет баннера</label><div class="color-swatches"><div class="color-swatch" style="background:#14f1d9;" onclick="selectBannerColor('#14f1d9')"></div><div class="color-swatch" style="background:#ff1e56;" onclick="selectBannerColor('#ff1e56')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectBannerColor('#10b981')"></div><div class="color-swatch" style="background:#f59e0b;" onclick="selectBannerColor('#f59e0b')"></div><div class="color-swatch" style="background:#7c3aed;" onclick="selectBannerColor('#7c3aed')"></div></div></div>
-              <div><label class="field-label">Цвет 6-угольника аватара</label><div class="color-swatches"><div class="color-swatch" style="background:#ff1e56;" onclick="selectAvatarColor('#ff1e56')"></div><div class="color-swatch" style="background:#14f1d9;" onclick="selectAvatarColor('#14f1d9')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectAvatarColor('#10b981')"></div><div class="color-swatch" style="background:#f59e0b;" onclick="selectAvatarColor('#f59e0b')"></div><div class="color-swatch" style="background:#7c3aed;" onclick="selectAvatarColor('#7c3aed')"></div></div></div>
+              <div><label class="field-label">Цвет баннера</label><div class="color-swatches"><div class="color-swatch" style="background:#14f1d9;" onclick="selectBannerColor('#14f1d9')"></div><div class="color-swatch" style="background:#ff1e56;" onclick="selectBannerColor('#ff1e56')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectBannerColor('#10b981')"></div><div class="color-swatch" style="background:#fcee09;" onclick="selectBannerColor('#fcee09')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectBannerColor('#b829ff')"></div></div></div>
+              <div><label class="field-label">Цвет 6-угольника аватара</label><div class="color-swatches"><div class="color-swatch" style="background:#ff1e56;" onclick="selectAvatarColor('#ff1e56')"></div><div class="color-swatch" style="background:#14f1d9;" onclick="selectAvatarColor('#14f1d9')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectAvatarColor('#10b981')"></div><div class="color-swatch" style="background:#fcee09;" onclick="selectAvatarColor('#fcee09')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectAvatarColor('#b829ff')"></div></div></div>
             </div>
           </div>
         </div>
 
-        <!-- Вкладка 2: АНИМАЦИИ ЗНАЧКА ПРОФИЛЯ (ПОДАРОК) -->
+        <!-- Вкладка 2: ✨ ЭФФЕКТЫ (3 ТЕМАТИЧЕСКИХ НАБОРА В ПОДАРОК) -->
         <div class="settings-pane" id="pane-fx">
-          <div class="settings-head"><h3>🎁 Анимации шестиугольного значка</h3></div>
-          <div class="gift-fx-card">
-            <div class="gfx-preview">
-              <div class="hex-wrap fx-red-neon" style="width:68px;height:68px;">
-                <div class="hex-border">
-                  <div class="hex-core" id="fx-demo-ava" style="font-size:20px;">ГО</div>
+          <div class="settings-head">
+            <h3>✨ Эффекты профиля, аватара и бейджа</h3>
+            <button class="btn-login-mini" id="btn-disable-fx" onclick="selectEffectSet('')">Отключить эффекты</button>
+          </div>
+          <div style="font-size:12px;color:var(--text-normal);">Выберите любой из 3 коллекционных наборов бесплатно в подарок. Каждый набор активирует анимацию 6-угольного значка, анимированный бейдж справа от ника, неоновую рамку профиля и живой фон карточки:</div>
+
+          <div class="fx-sets-grid">
+            <!-- Набор 1: Edgerunners Сезон 1 -->
+            <div class="fx-bundle-card set1-card">
+              <div class="fxb-left">
+                <div class="hex-wrap fx-set1" style="width:64px;height:64px;">
+                  <div class="hex-border"><div class="hex-core" style="font-size:18px;background:#10b981;color:#04120c;">DL</div></div>
+                </div>
+                <div>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-size:15px;font-weight:900;color:#fcee09;">Набор 1: Edgerunners // Сезон 1 (Дэвид и Люси)</span>
+                    <span class="cyber-badge b-set1">⚡ SANDY</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:3px;">Жёлто-изумрудный импульс импланта Сандевистан вокруг 6-угольника, купол Луны для Люси на фоне профиля и бейдж «⚡ SANDY».</div>
+                  <div class="fxb-items-pills">
+                    <span class="fxb-pill">⬢ Аватар: Сандевистан</span>
+                    <span class="fxb-pill">🏷️ Бейдж: ⚡ SANDY</span>
+                    <span class="fxb-pill">🖼️ Фон и рамка: Луна (Дэвид и Люси)</span>
+                  </div>
                 </div>
               </div>
-              <div>
-                <div style="font-size:10px;font-weight:800;color:var(--pink);letter-spacing:0.8px;">ЭКСКЛЮЗИВНЫЙ ПОДАРОК // КИБЕР-КОЛЛЕКЦИЯ</div>
-                <div style="font-size:16px;font-weight:900;color:#fff;margin:2px 0;">Красный неон (Бегущий контур)</div>
-                <div style="font-size:12px;color:var(--text-normal);">Яркий красный неоновый импульс непрерывно бежит по граням вашего 6-угольного значка во всех чатах и каналах.</div>
-              </div>
+              <button class="btn-cyan" id="btn-fx-set1" onclick="selectEffectSet('set1')">🎁 ЗАБРАТЬ НАБОР</button>
             </div>
-            <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-              <button class="btn-cyan" id="btn-claim-red-neon" onclick="claimRedNeonGift()">🎁 ЗАБРАТЬ В ПОДАРОК</button>
-              <button class="btn-login-mini" id="btn-disable-fx" style="display:none;" onclick="disableAvatarFx()">Отключить эффект</button>
+
+            <!-- Набор 2: Edgerunners Сезон 2 -->
+            <div class="fx-bundle-card set2-card">
+              <div class="fxb-left">
+                <div class="hex-wrap fx-set2" style="width:64px;height:64px;">
+                  <div class="hex-border"><div class="hex-core" style="font-size:18px;background:#b829ff;">NX</div></div>
+                </div>
+                <div>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-size:15px;font-weight:900;color:#e08aff;">Набор 2: Edgerunners // Сезон 2 (Новое поколение)</span>
+                    <span class="cyber-badge b-set2">🔮 NETRUN</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:3px;">Фиолетово-пурпурный плазменный луч нетраннера, движущаяся голографическая матрица взлома протокола в профиле и бейдж «🔮 NETRUN».</div>
+                  <div class="fxb-items-pills">
+                    <span class="fxb-pill">⬢ Аватар: Плазма Нетраннера</span>
+                    <span class="fxb-pill">🏷️ Бейдж: 🔮 NETRUN</span>
+                    <span class="fxb-pill">🖼️ Фон и рамка: Матрица Протокола</span>
+                  </div>
+                </div>
+              </div>
+              <button class="btn-cyan" id="btn-fx-set2" onclick="selectEffectSet('set2')">🎁 ЗАБРАТЬ НАБОР</button>
+            </div>
+
+            <!-- Набор 3: Игра Cyberpunk 2077 -->
+            <div class="fx-bundle-card set3-card">
+              <div class="fxb-left">
+                <div class="hex-wrap fx-set3" style="width:64px;height:64px;">
+                  <div class="hex-border"><div class="hex-core" style="font-size:18px;background:#ff003c;">V</div></div>
+                </div>
+                <div>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-size:15px;font-weight:900;color:#ff4d79;">Набор 3: Cyberpunk 2077 // Night City (V & Сильверхенд)</span>
+                    <span class="cyber-badge b-set3">🔥 RELIC</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:3px;">Бегущий красный неон с бирюзовым отблеском биочипа Relic, пульсирующая рамка Самурая и диагональный радар Найт-Сити.</div>
+                  <div class="fxb-items-pills">
+                    <span class="fxb-pill">⬢ Аватар: Красный неон Relic</span>
+                    <span class="fxb-pill">🏷️ Бейдж: 🔥 RELIC</span>
+                    <span class="fxb-pill">🖼️ Фон и рамка: Night City Samurai</span>
+                  </div>
+                </div>
+              </div>
+              <button class="btn-cyan" id="btn-fx-set3" onclick="selectEffectSet('set3')">🎁 ЗАБРАТЬ НАБОР</button>
             </div>
           </div>
         </div>
 
-        <!-- Вкладка 3: Фильтр 18+ -->
+        <!-- Вкладка 3: ⌨️ ГОРЯЧИЕ КЛАВИШИ (KEYBIND RECORDER) -->
+        <div class="settings-pane" id="pane-keybinds">
+          <div class="settings-head">
+            <h3>⌨️ Настройка горячих клавиш</h3>
+            <button class="btn-login-mini" onclick="resetKeybindsToDefault()">Сбросить по умолчанию</button>
+          </div>
+          <div style="font-size:12px;color:var(--text-normal);">Нажмите на кнопку напротив нужного действия и нажмите любую клавишу или сочетание клавиш (например, <b>Alt+M</b>, <b>F9</b>, <b>Ctrl+Shift+M</b>). Горячие клавиши работают везде на сайте, когда вы не печатаете текст в поле чата.</div>
+          <div class="settings-card">
+            <div class="keybind-row">
+              <div><div class="toggle-title">🎤 Включить / выключить микрофон (Mute)</div></div>
+              <button class="kb-btn" id="kb-btn-mute" onclick="startKeybindRecord('mute')"></button>
+            </div>
+            <div class="keybind-row">
+              <div><div class="toggle-title">🎧 Включить / выключить звук (Deafen)</div></div>
+              <button class="kb-btn" id="kb-btn-deafen" onclick="startKeybindRecord('deafen')"></button>
+            </div>
+            <div class="keybind-row">
+              <div><div class="toggle-title">📷 Включить / выключить веб-камеру</div></div>
+              <button class="kb-btn" id="kb-btn-cam" onclick="startKeybindRecord('cam')"></button>
+            </div>
+            <div class="keybind-row">
+              <div><div class="toggle-title">🖥️ Запустить / остановить демонстрацию экрана</div></div>
+              <button class="kb-btn" id="kb-btn-screen" onclick="startKeybindRecord('screen')"></button>
+            </div>
+            <div class="keybind-row">
+              <div><div class="toggle-title">🪟 Открыть / скрыть оверлей поверх окон</div></div>
+              <button class="kb-btn" id="kb-btn-pip" onclick="startKeybindRecord('pip')"></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Вкладка 4: Фильтр 18+ -->
         <div class="settings-pane" id="pane-safety">
           <div class="settings-head"><h3>🛡️ Фильтр контента 18+</h3></div>
           <div class="settings-card">
@@ -1721,7 +1663,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Вкладка 4: Голос и видео -->
+        <!-- Вкладка 5: Голос и видео -->
         <div class="settings-pane" id="pane-voice">
           <div class="settings-head"><h3>🎙️ Голос, видео и оверлей</h3><button class="btn-login-mini" onclick="refreshMediaDevices()">🔄 ОБНОВИТЬ</button></div>
           <div class="settings-card">
@@ -1736,7 +1678,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Вкладка 5: Внешний вид -->
+        <!-- Вкладка 6: Внешний вид -->
         <div class="settings-pane" id="pane-appearance">
           <div class="settings-head"><h3>🎨 Внешний вид</h3></div>
           <div class="settings-card">
@@ -1745,7 +1687,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Вкладка 6: Уведомления -->
+        <!-- Вкладка 7: Уведомления -->
         <div class="settings-pane" id="pane-notifications">
           <div class="settings-head"><h3>🔔 Звуковые сигналы</h3></div>
           <div class="settings-card">
@@ -1754,7 +1696,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Вкладка 7: Учётная запись -->
+        <!-- Вкладка 8: Учётная запись -->
         <div class="settings-pane" id="pane-account">
           <div class="settings-head"><h3>🔑 Учётная запись</h3></div>
           <div class="settings-card">
@@ -1763,25 +1705,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
               <button class="btn-danger" onclick="logoutAccount()">ВЫЙТИ</button>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Карточка участника -->
-  <div class="modal-backdrop" id="view-profile-modal" onclick="if(event.target===this)closeViewProfileModal()">
-    <div class="modal-box" style="padding:0;width:340px;">
-      <div class="discord-profile-card" style="border:none;">
-        <div class="dp-banner" id="vp-banner"></div>
-        <div class="dp-body">
-          <div class="hex-wrap dp-ava-pos" id="vp-ava-wrap">
-            <div class="hex-border"><div class="hex-core" id="vp-ava" style="font-size:18px;">УЧ</div></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;"><div class="dp-nick" id="vp-nick"></div><span class="status-pill on" id="vp-online-pill">ОНЛАЙН</span></div>
-          <div class="dp-status" id="vp-status"></div>
-          <div class="dp-sec"><div class="dp-sec-title">О СЕБЕ</div><div class="dp-bio" id="vp-bio"></div></div>
-          <div class="dp-sec"><div class="dp-sec-title">ИНТЕРЕСЫ</div><div class="dp-tags" id="vp-tags"></div></div>
-          <div style="margin-top:14px;display:flex;gap:8px;"><button class="btn-cyan" id="vp-friend-btn" style="flex:1;">+ В ДРУЗЬЯ</button><button class="btn-login-mini" onclick="closeViewProfileModal()">ЗАКРЫТЬ</button></div>
         </div>
       </div>
     </div>
@@ -1885,50 +1808,168 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     try { window.history.replaceState({}, '', window.location.pathname + '?room=' + encodeURIComponent(currentRoom) + '&channel=' + encodeURIComponent(currentChannel)); } catch (e) {}
   }
 
-  let myProfile = { bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#14f1d9', avatarColor: '#ff1e56', avatarFx: '' };
-  try { myProfile = Object.assign(myProfile, JSON.parse(localStorage.getItem('cyber_profile') || '{}')); } catch (e) {}
-  if (String(myProfile.interests || '').includes('⚡FX:RED_NEON')) myProfile.avatarFx = 'red-neon';
+  // ---------- СИСТЕМА 3 ТЕМАТИЧЕСКИХ НАБОРОВ ЭФФЕКТОВ (АВАТАР + БЕЙДЖ + РАМКА + ФОН) ----------
+  const FX_SETS_META = {
+    set1: {
+      code: '⚡FX:SET1',
+      avaClass: 'fx-set1',
+      badgeClass: 'b-set1',
+      badgeText: '⚡ SANDY',
+      surfaceClass: 'theme-set1',
+      title: 'Edgerunners // Сезон 1 (Дэвид и Люси — Сандевистан и Луна)'
+    },
+    set2: {
+      code: '⚡FX:SET2',
+      avaClass: 'fx-set2',
+      badgeClass: 'b-set2',
+      badgeText: '🔮 NETRUN',
+      surfaceClass: 'theme-set2',
+      title: 'Edgerunners // Сезон 2 (Новое поколение — Протокол Нетраннера)'
+    },
+    set3: {
+      code: '⚡FX:SET3',
+      avaClass: 'fx-set3',
+      badgeClass: 'b-set3',
+      badgeText: '🔥 RELIC',
+      surfaceClass: 'theme-set3',
+      title: 'Cyberpunk 2077 // Night City (V & Сильверхенд — Биочип Relic)'
+    }
+  };
 
-  function hasRedNeonFx(u) {
-    if (!u) return false;
-    if (u.pid && u.pid === myPid) return myProfile.avatarFx === 'red-neon' || String(myProfile.interests || '').includes('⚡FX:RED_NEON');
-    return u.avatarFx === 'red-neon' || String(u.interests || '').includes('⚡FX:RED_NEON');
+  let myProfile = { bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#14f1d9', avatarColor: '#ff1e56', fxSet: '' };
+  try { myProfile = Object.assign(myProfile, JSON.parse(localStorage.getItem('cyber_profile') || '{}')); } catch (e) {}
+
+  function detectFxSetFromInterests(raw) {
+    const s = String(raw || '');
+    if (s.includes('⚡FX:SET1')) return 'set1';
+    if (s.includes('⚡FX:SET2')) return 'set2';
+    if (s.includes('⚡FX:SET3') || s.includes('⚡FX:RED_NEON')) return 'set3';
+    return '';
+  }
+  if (!myProfile.fxSet) myProfile.fxSet = detectFxSetFromInterests(myProfile.interests);
+
+  function getUserFxSet(u) {
+    if (!u) return '';
+    if (u.pid && u.pid === myPid) return myProfile.fxSet || detectFxSetFromInterests(myProfile.interests);
+    return u.fxSet || detectFxSetFromInterests(u.interests);
+  }
+
+  function getBadgeHTML(setKey) {
+    const m = FX_SETS_META[setKey];
+    if (!m) return '';
+    return '<span class="cyber-badge ' + m.badgeClass + '">' + m.badgeText + '</span>';
   }
 
   function cleanInterestsForDisplay(raw) {
-    return String(raw || '').split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x && x !== '⚡FX:RED_NEON'; });
+    return String(raw || '').split(',').map(function (x) { return x.trim(); }).filter(function (x) {
+      return x && !x.startsWith('⚡FX:');
+    });
   }
 
-  function claimRedNeonGift() {
-    myProfile.avatarFx = 'red-neon';
+  function selectEffectSet(setKey) {
+    myProfile.fxSet = FX_SETS_META[setKey] ? setKey : '';
     const tags = cleanInterestsForDisplay(myProfile.interests);
-    tags.push('⚡FX:RED_NEON');
+    if (myProfile.fxSet && FX_SETS_META[myProfile.fxSet]) {
+      tags.push(FX_SETS_META[myProfile.fxSet].code);
+    }
     myProfile.interests = tags.join(', ');
     try { localStorage.setItem('cyber_profile', JSON.stringify(myProfile)); } catch (e) {}
-    updateFxGiftButtonsUI();
+    updateFxButtonsUI();
     applyNickUI();
+    updateProfilePreview(true);
     syncProfileToServer();
     renderUsers(lastMembers);
     rerenderChatMessages();
   }
 
-  function disableAvatarFx() {
-    myProfile.avatarFx = '';
-    myProfile.interests = cleanInterestsForDisplay(myProfile.interests).join(', ');
-    try { localStorage.setItem('cyber_profile', JSON.stringify(myProfile)); } catch (e) {}
-    updateFxGiftButtonsUI();
-    applyNickUI();
-    syncProfileToServer();
-    renderUsers(lastMembers);
-    rerenderChatMessages();
+  function updateFxButtonsUI() {
+    const cur = myProfile.fxSet || detectFxSetFromInterests(myProfile.interests);
+    ['set1', 'set2', 'set3'].forEach(function (k) {
+      const b = document.getElementById('btn-fx-' + k);
+      if (b) b.textContent = (cur === k) ? '✓ НАБОР АКТИВЕН' : '🎁 ЗАБРАТЬ НАБОР';
+    });
+    const dis = document.getElementById('btn-disable-fx');
+    if (dis) dis.style.display = cur ? 'inline-block' : 'none';
   }
 
-  function updateFxGiftButtonsUI() {
-    const active = myProfile.avatarFx === 'red-neon' || String(myProfile.interests || '').includes('⚡FX:RED_NEON');
-    const claimBtn = document.getElementById('btn-claim-red-neon');
-    const disBtn = document.getElementById('btn-disable-fx');
-    if (claimBtn) claimBtn.textContent = active ? '✓ ПОДАРОК АКТИВИРОВАН' : '🎁 ЗАБРАТЬ В ПОДАРОК';
-    if (disBtn) disBtn.style.display = active ? 'inline-block' : 'none';
+  function getMyMemberObject() {
+    return {
+      pid: myPid,
+      nick: myNick,
+      online: true,
+      presence: myProfile.presence,
+      customStatus: myProfile.customStatus,
+      bio: myProfile.bio,
+      interests: myProfile.interests,
+      bannerColor: myProfile.bannerColor,
+      avatarColor: myProfile.avatarColor,
+      fxSet: myProfile.fxSet
+    };
+  }
+
+  // ---------- СИСТЕМА ГОРЯЧИХ КЛАВИШ (KEYBINDS) ----------
+  const DEFAULT_KEYBINDS = {
+    mute: 'Alt+KeyM',
+    deafen: 'Alt+KeyD',
+    cam: 'Alt+KeyC',
+    screen: 'Alt+KeyS',
+    pip: 'Alt+KeyP'
+  };
+  let userKeybinds = Object.assign({}, DEFAULT_KEYBINDS);
+  try {
+    const savedKb = JSON.parse(localStorage.getItem('cyber_keybinds') || '{}');
+    userKeybinds = Object.assign(userKeybinds, savedKb);
+  } catch (e) {}
+  let recordingAction = null;
+
+  function formatKeybindCode(combo) {
+    if (!combo) return 'Не назначено';
+    return String(combo)
+      .replace('Key', '')
+      .replace('Digit', '')
+      .replace('Control', 'Ctrl');
+  }
+
+  function renderKeybindsUI() {
+    ['mute', 'deafen', 'cam', 'screen', 'pip'].forEach(function (act) {
+      const btn = document.getElementById('kb-btn-' + act);
+      if (!btn) return;
+      if (recordingAction === act) {
+        btn.textContent = 'Нажмите клавишу...';
+        btn.classList.add('recording');
+      } else {
+        btn.textContent = formatKeybindCode(userKeybinds[act]);
+        btn.classList.remove('recording');
+      }
+    });
+    const hint = document.getElementById('footer-keybind-hint');
+    if (hint) {
+      hint.textContent = 'БИНДЫ: МИКР [' + formatKeybindCode(userKeybinds.mute) + '] • ЗВУК [' + formatKeybindCode(userKeybinds.deafen) + '] • ОВЕРЛЕЙ [' + formatKeybindCode(userKeybinds.pip) + ']';
+    }
+  }
+
+  function startKeybindRecord(act) {
+    recordingAction = (recordingAction === act) ? null : act;
+    renderKeybindsUI();
+  }
+
+  function resetKeybindsToDefault() {
+    userKeybinds = Object.assign({}, DEFAULT_KEYBINDS);
+    recordingAction = null;
+    try { localStorage.setItem('cyber_keybinds', JSON.stringify(userKeybinds)); } catch (e) {}
+    renderKeybindsUI();
+  }
+
+  function eventToComboString(e) {
+    const parts = [];
+    if (e.ctrlKey || e.metaKey) parts.push('Ctrl');
+    if (e.altKey) parts.push('Alt');
+    if (e.shiftKey) parts.push('Shift');
+    const ignore = ['ControlLeft', 'ControlRight', 'ShiftLeft', 'ShiftRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight'];
+    if (e.code && !ignore.includes(e.code)) {
+      parts.push(e.code);
+    }
+    return parts.join('+');
   }
 
   let appSettings = { micDeviceId: '', spkDeviceId: '', camDeviceId: '', micVolume: 100, outVolume: 100, camRes: '720', autoOverlay: true, noiseSuppression: true, echoCancellation: true, autoGainControl: true, compactChat: false, fontSize: '14px', soundMsg: true, soundVoice: true, filterSexual: true, filterGore: true, filterOutgoing: true, filterAction: 'block', customBlockedWords: '' };
@@ -2262,15 +2303,18 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     box.innerHTML = '';
     const vMembers = getVoiceChannelMembers();
     vMembers.forEach(function (u) {
+      const setKey = getUserFxSet(u);
       const r = el('div', 'vc-user-row');
-      const hw = el('div', 'hex-wrap' + (hasRedNeonFx(u) ? ' fx-red-neon' : ''));
-      hw.style.cssText = 'width:22px;height:22px;';
+      const hw = el('div', 'hex-wrap' + (setKey && FX_SETS_META[setKey] ? ' ' + FX_SETS_META[setKey].avaClass : ''));
+      hw.style.cssText = 'width:24px;height:24px;';
       const hb = el('div', 'hex-border');
       const hc = el('div', 'hex-core', String(u.nick || '?').slice(0, 2).toUpperCase());
-      hc.style.cssText = 'font-size:8px;background:' + (u.avatarColor || '#14f1d9') + ';';
+      hc.style.cssText = 'font-size:8.5px;background:' + (u.avatarColor || '#14f1d9') + ';';
       hb.appendChild(hc); hw.appendChild(hb);
       r.appendChild(hw);
-      r.appendChild(el('span', '', u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '')));
+      const nameSpan = el('span', '', u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : ''));
+      r.appendChild(nameSpan);
+      r.onclick = function () { openUserProfileCard(u); };
       box.appendChild(r);
     });
   }
@@ -2318,17 +2362,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function applyNickUI() {
     document.getElementById('user-name-label').textContent = myNick;
     const ava = document.getElementById('user-ava'); ava.textContent = myNick.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#ff1e56';
-    const fxDemo = document.getElementById('fx-demo-ava'); if (fxDemo) { fxDemo.textContent = myNick.slice(0, 2).toUpperCase(); fxDemo.style.background = myProfile.avatarColor || '#ff1e56'; }
+    const curSet = myProfile.fxSet || detectFxSetFromInterests(myProfile.interests);
+    const meta = FX_SETS_META[curSet];
     const wrap = document.getElementById('user-ava-wrap');
-    const isRedNeon = myProfile.avatarFx === 'red-neon' || String(myProfile.interests || '').includes('⚡FX:RED_NEON');
-    if (wrap) wrap.classList.toggle('fx-red-neon', isRedNeon);
-    const prevWrap = document.getElementById('preview-ava-wrap');
-    if (prevWrap) prevWrap.classList.toggle('fx-red-neon', isRedNeon);
+    if (wrap) wrap.className = 'hex-wrap' + (meta ? ' ' + meta.avaClass : '');
+    const badgeSlot = document.getElementById('user-bar-badge-slot');
+    if (badgeSlot) badgeSlot.innerHTML = getBadgeHTML(curSet);
     document.getElementById('user-presence-dot').className = 'hex-status-dot ' + (myProfile.presence || 'online');
     const stViol = checkContentViolation(myProfile.customStatus || '');
     const sStat = stViol.length ? '' : myProfile.customStatus;
     document.getElementById('user-email-label').textContent = sStat || 'В сети';
-    updateFxGiftButtonsUI();
+    updateFxButtonsUI();
   }
 
   function renderServersRail() {
@@ -2448,7 +2492,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         if (data.payload.nick) { myNick = data.payload.nick; try { localStorage.setItem('cyber_nick', myNick); } catch (err) {} setPersistCookie('cyber_nick', myNick); }
         if (data.payload.verified) { myVerified = true; authLocked = false; try { localStorage.setItem('cyber_verified', '1'); } catch (err) {} setPersistCookie('cyber_verified', '1'); closeAuthModal(); }
         if (data.payload.bio !== undefined) Object.assign(myProfile, { bio: data.payload.bio || myProfile.bio, interests: data.payload.interests || myProfile.interests, customStatus: data.payload.customStatus || myProfile.customStatus, presence: data.payload.presence || myProfile.presence, bannerColor: data.payload.bannerColor || myProfile.bannerColor, avatarColor: data.payload.avatarColor || myProfile.avatarColor });
-        if (String(myProfile.interests || '').includes('⚡FX:RED_NEON')) myProfile.avatarFx = 'red-neon';
+        const det = detectFxSetFromInterests(myProfile.interests);
+        if (det) myProfile.fxSet = det;
         applyNickUI(); renderSocial(); renderUsers(lastMembers); saveLocalVault();
       } else if (data.type === 'voice-join') {
         if (inVoice && peer && localStream && myPeerId && data.payload.peerId !== myPeerId && data.payload.voiceChannel === currentVoiceChannel) {
@@ -2484,15 +2529,31 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function addMsgToDOM(m) {
     const box = document.getElementById('messages-list'), hint = document.getElementById('empty-hint'); if (hint) hint.remove();
     const author = String(m.author || '?'), viol = checkContentViolation(m.text, m.flags);
-    const memberObj = (lastMembers || []).find(function (u) { return u.nick === author; }) || (author === myNick ? { pid: myPid, interests: myProfile.interests, avatarColor: myProfile.avatarColor } : null);
-    const fxCls = hasRedNeonFx(memberObj) ? ' fx-red-neon' : '';
+    const memberObj = (lastMembers || []).find(function (u) { return u.nick === author; }) || (author === myNick ? getMyMemberObject() : { nick: author });
+    const setKey = getUserFxSet(memberObj);
+    const fxMeta = FX_SETS_META[setKey];
+    const fxCls = fxMeta ? ' ' + fxMeta.avaClass : '';
     const avaCol = (memberObj && memberObj.avatarColor) || '#14f1d9';
+
     const div = el('div', 'msg-item');
     div.innerHTML =
-      '<div class="hex-wrap' + fxCls + '" style="width:38px;height:38px;margin-top:2px;">' +
+      '<div class="hex-wrap' + fxCls + '" style="width:38px;height:38px;margin-top:2px;cursor:pointer;">' +
         '<div class="hex-border"><div class="hex-core" style="font-size:12px;background:' + escapeHtml(avaCol) + ';">' + escapeHtml(author.slice(0, 2).toUpperCase()) + '</div></div>' +
       '</div>' +
-      '<div style="flex:1;min-width:0;"><div><span class="msg-author">' + escapeHtml(author) + '</span><span class="msg-time">' + escapeHtml(m.time) + '</span></div><div class="msg-text">' + buildMessageBodyHTML(m.text, viol) + '</div></div>';
+      '<div style="flex:1;min-width:0;">' +
+        '<div class="msg-head-line">' +
+          '<span class="msg-author">' + escapeHtml(author) + '</span>' +
+          getBadgeHTML(setKey) +
+          '<span class="msg-time">' + escapeHtml(m.time) + '</span>' +
+        '</div>' +
+        '<div class="msg-text">' + buildMessageBodyHTML(m.text, viol) + '</div>' +
+      '</div>';
+
+    const avaClick = div.querySelector('.hex-wrap');
+    const nameClick = div.querySelector('.msg-author');
+    if (avaClick) avaClick.onclick = function () { openUserProfileCard(memberObj); };
+    if (nameClick) nameClick.onclick = function () { openUserProfileCard(memberObj); };
+
     box.appendChild(div);
     const scrollArea = document.getElementById('chat-scroll'); scrollArea.scrollTop = scrollArea.scrollHeight;
   }
@@ -2504,11 +2565,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       .then(function (r) { return r.json(); }).then(function (d) { if (d.error) alert(d.error); }).catch(function () {});
   }
 
-  function renderMemberRow(u, friendPids, isFirstOnline) {
+  function renderMemberRow(u, friendPids) {
     const d = el('div', 'online-user-item' + (u.online ? ' is-online' : ''));
     if (!u.online) d.style.opacity = '0.5';
 
-    const avaWrap = el('div', 'hex-wrap' + (hasRedNeonFx(u) ? ' fx-red-neon' : ''));
+    const setKey = getUserFxSet(u);
+    const fxMeta = FX_SETS_META[setKey];
+    const avaWrap = el('div', 'hex-wrap' + (fxMeta ? ' ' + fxMeta.avaClass : ''));
     avaWrap.style.cssText = 'width:34px;height:34px;';
     const hb = el('div', 'hex-border');
     const ava = el('div', 'hex-core', String(u.nick || '?').slice(0, 2).toUpperCase());
@@ -2520,7 +2583,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
     const col = el('div', 'member-text-col');
     const nr = el('div', 'member-nick-row');
-    nr.appendChild(el('span', '', u.nick + (isFirstOnline ? ' ⚡' : '') + (u.inVoice ? ' 🔊' : '') + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '')));
+    const nickTxt = el('span', '', u.nick + (u.inVoice ? ' 🔊' : '') + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : ''));
+    nickTxt.style.cssText = 'overflow:hidden;text-overflow:ellipsis;';
+    nr.appendChild(nickTxt);
+    if (fxMeta) {
+      const bSpan = document.createElement('span');
+      bSpan.innerHTML = getBadgeHTML(setKey);
+      if (bSpan.firstChild) nr.appendChild(bSpan.firstChild);
+    }
     col.appendChild(nr);
     if (u.customStatus) {
       const sv = checkContentViolation(u.customStatus);
@@ -2552,8 +2622,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const offBox = document.getElementById('offline-users-box'); offBox.innerHTML = '';
     const friendPids = (social.friends || []).map(function (f) { return f.pid; });
 
-    online.forEach(function (u, idx) { onBox.appendChild(renderMemberRow(u, friendPids, idx === 0)); });
-    offline.forEach(function (u) { offBox.appendChild(renderMemberRow(u, friendPids, false)); });
+    online.forEach(function (u) { onBox.appendChild(renderMemberRow(u, friendPids)); });
+    offline.forEach(function (u) { offBox.appendChild(renderMemberRow(u, friendPids)); });
     renderSidebarVoicePeers();
   }
 
@@ -2570,9 +2640,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     });
     const fb = document.getElementById('friends-box'); fb.innerHTML = '';
     friends.forEach(function (f) {
+      const setKey = getUserFxSet(f);
+      const fxMeta = FX_SETS_META[setKey];
       const d = el('div', 'online-user-item');
       if (!f.online) d.style.opacity = '0.5';
-      const avaWrap = el('div', 'hex-wrap' + (hasRedNeonFx(f) ? ' fx-red-neon' : ''));
+      const avaWrap = el('div', 'hex-wrap' + (fxMeta ? ' ' + fxMeta.avaClass : ''));
       avaWrap.style.cssText = 'width:32px;height:32px;';
       const hb = el('div', 'hex-border');
       const ava = el('div', 'hex-core', String(f.nick || '?').slice(0, 2).toUpperCase());
@@ -2586,25 +2658,74 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     });
   }
 
+  // ---------- ВЫЕЗЖАЮЩИЙ СПРАВА ПРОФИЛЬ УЧАСТНИКА С АНИМИРОВАННОЙ РАМКОЙ, ФОНОМ И ДЕЙСТВИЯМИ ----------
   function openUserProfileCard(u) {
     if (!u) return;
+    const setKey = getUserFxSet(u);
+    const fxMeta = FX_SETS_META[setKey];
+
+    const surf = document.getElementById('vp-surface');
+    surf.className = 'profile-surface psd-inner' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
+
     document.getElementById('vp-banner').style.background = u.bannerColor || '#14f1d9';
-    const ava = document.getElementById('vp-ava'); ava.textContent = String(u.nick || '?').slice(0, 2).toUpperCase(); ava.style.background = u.avatarColor || '#ff1e56';
-    const vpWrap = document.getElementById('vp-ava-wrap'); if (vpWrap) vpWrap.classList.toggle('fx-red-neon', hasRedNeonFx(u));
+    const ava = document.getElementById('vp-ava');
+    ava.textContent = String(u.nick || '?').slice(0, 2).toUpperCase();
+    ava.style.background = u.avatarColor || '#ff1e56';
+
+    const vpWrap = document.getElementById('vp-ava-wrap');
+    vpWrap.className = 'hex-wrap dp-ava-pos' + (fxMeta ? ' ' + fxMeta.avaClass : '');
+    document.getElementById('vp-status-dot').className = 'hex-status-dot ' + (u.online ? (u.presence || 'online') : 'off');
+
     document.getElementById('vp-nick').textContent = u.nick || 'Участник';
-    const pill = document.getElementById('vp-online-pill'); pill.className = 'status-pill ' + (u.online ? 'on' : 'off'); pill.textContent = u.online ? 'ОНЛАЙН' : 'ОФФЛАЙН';
-    document.getElementById('vp-status').textContent = checkContentViolation(u.customStatus || '').length ? '🛡️ [Статус скрыт]' : (u.customStatus || '');
-    document.getElementById('vp-bio').textContent = checkContentViolation(u.bio || '').length ? '🛡️ [Скрыто фильтром]' : (u.bio || 'Участник пока не заполнил описание.');
+    document.getElementById('vp-badge-slot').innerHTML = getBadgeHTML(setKey);
+    document.getElementById('vp-fx-label').textContent = fxMeta ? fxMeta.title : 'Стандартный кибер-контур';
+
+    const pill = document.getElementById('vp-online-pill');
+    pill.className = 'status-pill ' + (u.online ? 'on' : 'off');
+    pill.textContent = u.online ? 'В СЕТИ' : 'НЕ В СЕТИ';
+
+    document.getElementById('vp-status').textContent = checkContentViolation(u.customStatus || '').length ? '🛡️ [Статус скрыт]' : (u.customStatus || 'В эфире СИГНАЛ');
+    document.getElementById('vp-bio').textContent = checkContentViolation(u.bio || '').length ? '🛡️ [Скрыто фильтром]' : (u.bio || 'Оператор пока не добавил описание.');
+
     const tb = document.getElementById('vp-tags'); tb.innerHTML = '';
     cleanInterestsForDisplay(u.interests).forEach(function (tg) { if (!checkContentViolation(tg).length) tb.appendChild(el('span', 'dp-tag', tg)); });
-    if (!tb.childNodes.length) tb.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">Нет тегов</span>';
+    if (!tb.childNodes.length) tb.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">Интересы не указаны</span>';
+
+    document.getElementById('vp-mention-btn').onclick = function () {
+      closeViewProfileModal();
+      closeMobileDrawers();
+      const inp = document.getElementById('chat-input');
+      inp.value = '@' + (u.nick || '') + ' ' + inp.value;
+      inp.focus();
+    };
+    document.getElementById('vp-call-btn').onclick = function () {
+      closeViewProfileModal();
+      if (!inVoice) toggleVoiceCall();
+    };
+
     const fBtn = document.getElementById('vp-friend-btn'), friendPids = (social.friends || []).map(function (f) { return f.pid; });
-    if (u.pid === myPid) { fBtn.textContent = '✏️ РЕДАКТИРОВАТЬ'; fBtn.onclick = function () { closeViewProfileModal(); openSettingsModal('profile'); }; }
-    else if (friendPids.includes(u.pid)) { fBtn.textContent = '✓ В ДРУЗЬЯХ'; fBtn.onclick = function () { closeViewProfileModal(); }; }
-    else { fBtn.textContent = '+ В ДРУЗЬЯ'; fBtn.onclick = function () { friendAction('request', u.pid); closeViewProfileModal(); }; }
-    document.getElementById('view-profile-modal').classList.add('open');
+    if (u.pid === myPid || u.nick === myNick) {
+      fBtn.textContent = '✨ Настроить мой профиль и эффекты';
+      fBtn.className = 'btn-cyan';
+      fBtn.onclick = function () { closeViewProfileModal(); openSettingsModal('fx'); };
+    } else if (friendPids.includes(u.pid)) {
+      fBtn.textContent = '✕ Удалить из друзей';
+      fBtn.className = 'btn-danger';
+      fBtn.onclick = function () { friendAction('remove', u.pid); closeViewProfileModal(); };
+    } else {
+      fBtn.textContent = '+ Добавить в друзья';
+      fBtn.className = 'btn-cyan';
+      fBtn.onclick = function () { friendAction('request', u.pid); closeViewProfileModal(); };
+    }
+
+    document.getElementById('view-profile-backdrop').classList.add('open');
+    document.getElementById('view-profile-drawer').classList.add('open');
   }
-  function closeViewProfileModal() { document.getElementById('view-profile-modal').classList.remove('open'); }
+
+  function closeViewProfileModal() {
+    document.getElementById('view-profile-backdrop').classList.remove('open');
+    document.getElementById('view-profile-drawer').classList.remove('open');
+  }
 
   function openSettingsModal(pane) {
     closeMobileDrawers(); setMobActiveTab('mob-tab-profile');
@@ -2614,7 +2735,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('prof-bio-inp').value = myProfile.bio || '';
     document.getElementById('prof-interests-inp').value = cleanInterestsForDisplay(myProfile.interests).join(', ');
     updateProfilePreview(true);
-    updateFxGiftButtonsUI();
+    updateFxButtonsUI();
+    renderKeybindsUI();
     document.getElementById('chk-filter-sexual').checked = appSettings.filterSexual !== false;
     document.getElementById('chk-filter-gore').checked = appSettings.filterGore !== false;
     document.getElementById('chk-filter-outgoing').checked = appSettings.filterOutgoing !== false;
@@ -2635,8 +2757,15 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('settings-modal').classList.add('open');
   }
 
-  function closeSettingsModal() { stopMicTest(); document.getElementById('settings-modal').classList.remove('open'); setMobActiveTab('mob-tab-chat'); }
+  function closeSettingsModal() {
+    recordingAction = null;
+    stopMicTest();
+    document.getElementById('settings-modal').classList.remove('open');
+    setMobActiveTab('mob-tab-chat');
+  }
   function switchSettingsPane(pId) {
+    recordingAction = null;
+    renderKeybindsUI();
     document.querySelectorAll('.settings-nav-btn').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-pane') === pId); });
     document.querySelectorAll('.settings-pane').forEach(function (p) { p.classList.toggle('active', p.id === 'pane-' + pId); });
     if (pId !== 'voice') stopMicTest();
@@ -2660,14 +2789,24 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const pr = document.getElementById('prof-presence-sel').value || 'online';
     const st = document.getElementById('prof-status-inp').value.trim().slice(0, 60);
     const bio = document.getElementById('prof-bio-inp').value.trim().slice(0, 220);
-    const rawIntr = document.getElementById('prof-interests-inp').value.trim().slice(0, 140);
+    const rawIntr = document.getElementById('prof-interests-inp').value.trim().slice(0, 130);
     const cleanTags = cleanInterestsForDisplay(rawIntr);
-    if (myProfile.avatarFx === 'red-neon') cleanTags.push('⚡FX:RED_NEON');
+    const curSet = myProfile.fxSet || detectFxSetFromInterests(myProfile.interests);
+    const fxMeta = FX_SETS_META[curSet];
+    if (fxMeta) cleanTags.push(fxMeta.code);
     const finalIntr = cleanTags.join(', ');
+
+    const prevSurf = document.getElementById('preview-surface');
+    if (prevSurf) prevSurf.className = 'profile-surface' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
 
     document.getElementById('preview-banner').style.background = myProfile.bannerColor || '#14f1d9';
     const ava = document.getElementById('preview-ava'); ava.textContent = n.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#ff1e56';
-    document.getElementById('preview-nick').textContent = n; document.getElementById('preview-status').textContent = st || 'В сети'; document.getElementById('preview-bio').textContent = bio || 'О себе...';
+    const prevWrap = document.getElementById('preview-ava-wrap');
+    if (prevWrap) prevWrap.className = 'hex-wrap dp-ava-pos' + (fxMeta ? ' ' + fxMeta.avaClass : '');
+    document.getElementById('preview-nick').textContent = n;
+    document.getElementById('preview-badge-slot').innerHTML = getBadgeHTML(curSet);
+    document.getElementById('preview-status').textContent = st || 'В сети';
+    document.getElementById('preview-bio').textContent = bio || 'О себе...';
     const tb = document.getElementById('preview-tags'); tb.innerHTML = '';
     const displayTags = cleanInterestsForDisplay(finalIntr);
     if (!displayTags.length) tb.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">Нет тегов</span>';
@@ -3083,11 +3222,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (!localStream) return; isMuted = !isMuted;
     localStream.getAudioTracks().forEach(function (t) { t.enabled = !isMuted; });
     if (rawMicStream) rawMicStream.getAudioTracks().forEach(function (t) { t.enabled = !isMuted; });
+    playUiBeep(isMuted ? 380 : 640, 0.05);
     updateFloatingOverlayUI();
   }
 
   function toggleDeafen() {
     isDeafened = !isDeafened;
+    playUiBeep(isDeafened ? 320 : 680, 0.05);
     applyOutputVolumeToAll(); updateFloatingOverlayUI();
   }
 
@@ -3098,9 +3239,64 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
   function removeAudio(id) { const a = document.getElementById('aud-' + id); if (a) a.remove(); }
 
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeSettingsModal(); closeViewProfileModal(); closeInviteModal(); closeMobileDrawers(); } });
+  // Глобальный обработчик горячих клавиш и записи биндов
+  document.addEventListener('keydown', function (e) {
+    if (recordingAction) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Escape') {
+        recordingAction = null;
+        renderKeybindsUI();
+        return;
+      }
+      const combo = eventToComboString(e);
+      if (combo && !['Ctrl', 'Alt', 'Shift'].includes(combo)) {
+        userKeybinds[recordingAction] = combo;
+        try { localStorage.setItem('cyber_keybinds', JSON.stringify(userKeybinds)); } catch (err) {}
+        recordingAction = null;
+        renderKeybindsUI();
+      }
+      return;
+    }
 
-  applyNickUI(); applyAppearanceFromStorage(); renderServersRail(); renderServerChannels(); connectEventStream();
+    if (e.key === 'Escape') {
+      closeSettingsModal();
+      closeViewProfileModal();
+      closeInviteModal();
+      closeMobileDrawers();
+      return;
+    }
+
+    const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    const pressedCombo = eventToComboString(e);
+    if (!pressedCombo) return;
+
+    if (pressedCombo === userKeybinds.mute) {
+      e.preventDefault();
+      if (inVoice) toggleMute(); else toggleVoiceCall();
+    } else if (pressedCombo === userKeybinds.deafen) {
+      e.preventDefault();
+      if (inVoice) toggleDeafen();
+    } else if (pressedCombo === userKeybinds.cam) {
+      e.preventDefault();
+      toggleWebcam();
+    } else if (pressedCombo === userKeybinds.screen) {
+      e.preventDefault();
+      toggleScreenShare();
+    } else if (pressedCombo === userKeybinds.pip) {
+      e.preventDefault();
+      toggleExternalOverlay();
+    }
+  });
+
+  applyNickUI();
+  renderKeybindsUI();
+  applyAppearanceFromStorage();
+  renderServersRail();
+  renderServerChannels();
+  connectEventStream();
   if (!myVerified) openAuthModal(true);
 </script>
 </body>
