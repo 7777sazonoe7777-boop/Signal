@@ -1,0 +1,12 @@
+{
+  "background_color": "#ffffff",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "signal Cyber.net",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "Signal",
+  "start_url": "/",
+  "theme_color": "#04070d",
+  "id": "Sig"
+}
