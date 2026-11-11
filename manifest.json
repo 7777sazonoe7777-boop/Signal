@@ -1,12 +1,15 @@
 {
-  "background_color": "#ffffff",
-  "dir": "ltr",
-  "display": "standalone",
-  "name": "signal Cyber.net",
-  "orientation": "any",
-  "scope": "/",
-  "short_name": "Signal",
+  "name": "СИГНАЛ — Ночной клуб",
+  "short_name": "СИГНАЛ",
   "start_url": "/",
-  "theme_color": "#04070d",
-  "id": "Sig"
+  "display": "standalone",
+  "background_color": "#040609",
+  "theme_color": "#040609",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;rect fill='%23e11d48' width='100' height='100' rx='22'/&gt;&lt;text y='.88em' font-size='68' x='16' fill='white'&gt;⚡&lt;/text&gt;&lt;/svg&gt;",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
 }
