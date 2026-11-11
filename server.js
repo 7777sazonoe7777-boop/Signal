@@ -2181,8 +2181,26 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/manifest.json') {
       res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8' });
       return res.end(JSON.stringify({
-        name: 'СИГНАЛ — Ночной клуб', short_name: 'СИГНАЛ', start_url: '/', display: 'standalone', background_color: '#040609', theme_color: '#040609',
-        icons: [{ src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23e11d48' width='100' height='100' rx='22'/><text y='.88em' font-size='68' x='16' fill='white'>⚡</text></svg>", sizes: '192x192 512x512', type: 'image/svg+xml' }]
+        name: 'СИГНАЛ — Ночной клуб',
+        short_name: 'СИГНАЛ',
+        start_url: '/',
+        display: 'standalone',
+        background_color: '#040609',
+        theme_color: '#040609',
+        icons: [
+          {
+            src: "/icon-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any maskable"
+          },
+          {
+            src: "/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable"
+          }
+        ]
       }));
     }
 
