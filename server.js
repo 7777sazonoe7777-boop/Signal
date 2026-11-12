@@ -8,13 +8,13 @@ const DEFAULT_ROOM = 'cy-4371';
 const DEFAULT_TEXT_CHANNELS = ['игровая-комната', 'общий', 'знакомства', 'музыка'];
 const DEFAULT_VOICE_CHANNELS = ['Ночной эфир'];
 const MAX_HISTORY = 500, MAX_CHANNELS = 40, MAX_SERVERS = 100, MAX_MEMBERS = 500, MAX_FRIENDS = 200;
-const MAX_BODY = 2 * 1024 * 1024, CODE_TTL_MS = 10 * 60 * 1000;
+const MAX_BODY = 6 * 1024 * 1024, CODE_TTL_MS = 10 * 60 * 1000;
 
 const TELEGRAM_BOT_TOKEN = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
 let telegramBotUsername = '', tgUpdateOffset = 0;
 
 const serversMeta = Object.create(null), rooms = Object.create(null);
-const tgCodes = Object.create(null), pendingTgTokens = Object.create(null);
+const tgCodes = Object.create(null), pendingTgTokens = Object.create(null), deviceLinkCodes = Object.create(null);
 const users = Object.create(null), pidToUid = Object.create(null);
 const tgIdToUid = Object.create(null), nickToUid = Object.create(null), members = Object.create(null);
 let clients = [];
@@ -36,6 +36,12 @@ const cleanNick = v => String(v || '').trim().slice(0, 24) || 'Гость';
 const cleanText = (v, m = 160) => String(v || '').trim().slice(0, m);
 const cleanColor = (v, def) => /^#[0-9a-fA-F]{6}$/.test(String(v || '').trim()) ? String(v).trim() : def;
 const cleanPresence = v => ['online', 'idle', 'dnd', 'invisible'].includes(String(v || '').trim()) ? String(v).trim() : 'online';
+const cleanImgData = (v, maxLen = 450000) => {
+  const s = String(v || '').trim();
+  if (!s) return '';
+  if ((s.startsWith('data:image/') || s.startsWith('https://') || s.startsWith('/')) && s.length <= maxLen) return s;
+  return '';
+};
 
 function hashPassword(pw, salt) {
   const s = salt || crypto.randomBytes(16).toString('hex');
@@ -71,7 +77,7 @@ ensureServer('ma-club', 'Мастерская', 'Музыка, творчест�
 if (!rooms[DEFAULT_ROOM]['игровая-комната'].length) {
   rooms[DEFAULT_ROOM]['игровая-комната'].push({
     author: 'СИСТЕМА СИГНАЛ', time: '00:00',
-    text: 'Добро пожаловать в «Ночной клуб»! Все вкладки, друзья, серверы, оверлей и мобильный фоновый режим активны.'
+    text: 'Добро пожаловать в «Ночной клуб»! Синхронизация аккаунта между ПК и телефоном активна.'
   });
 }
 
@@ -121,7 +127,7 @@ async function startTelegramBotPolling() {
                 if (pend && pend.expires > Date.now()) pend.completed = { tgId, firstName, username, code };
               }
             }
-            await tgApi('sendMessage', { chat_id: m.chat.id, parse_mode: 'Markdown', text: '⚡ *СИГНАЛ // CYBER.NET*\n\n✅ Аккаунт подтверждён!\n🔑 Код: *' + code + '*\n\nВернитесь в браузер.' }).catch(() => {});
+            await tgApi('sendMessage', { chat_id: m.chat.id, parse_mode: 'Markdown', text: '⚡ *СИГНАЛ // CYBER.NET*\n\n✅ Аккаунт подтверждён!\n🔑 Код: *' + code + '*\n\nВернитесь в приложение.' }).catch(() => {});
           }
         }
       } catch (e) { await new Promise(r => setTimeout(r, 3000)); }
@@ -145,9 +151,14 @@ async function redis(cmds) {
   return data.map(x => x.result);
 }
 
+// Сохраняем в базу ТОЛЬКО зарегистрированных (verified) пользователей! Гости не сохраняются
 function usersPart() {
   const o = {};
-  Object.keys(users).forEach(uid => { o[uid] = Object.assign({}, users[uid]); });
+  Object.keys(users).forEach(uid => {
+    if (users[uid] && users[uid].verified) {
+      o[uid] = Object.assign({}, users[uid]);
+    }
+  });
   return o;
 }
 
@@ -187,27 +198,32 @@ function applyData(d) {
   });
   Object.keys(d.users || {}).forEach(uid => {
     if (!validUid(uid)) return;
-    const u = d.users[uid] || {}, ex = users[uid] || {};
+    const u = d.users[uid] || {};
+    // Пропускаем старых незарегистрированных гостей при загрузке базы
+    if (!u.verified && String(u.nick || '').startsWith('Гость_')) return;
+    const ex = users[uid] || {};
     const nick = cleanNick(u.nick || ex.nick);
     users[uid] = {
       pid: validPid(u.pid) ? u.pid : (ex.pid || pidOf(uid)), nick,
       tgId: String(u.tgId || ex.tgId || '').trim(), tgUsername: String(u.tgUsername || ex.tgUsername || '').trim(),
-      passHash: String(u.passHash || ex.passHash || ''), verified: u.verified !== undefined ? !!u.verified : true,
+      passHash: String(u.passHash || ex.passHash || ''), verified: true,
       bio: cleanText(u.bio !== undefined ? u.bio : ex.bio, 220), interests: cleanText(u.interests !== undefined ? u.interests : ex.interests, 160),
       customStatus: cleanText(u.customStatus !== undefined ? u.customStatus : ex.customStatus, 60), presence: cleanPresence(u.presence || ex.presence),
-      bannerColor: cleanColor(u.bannerColor || ex.bannerColor, '#0d9488'), avatarColor: cleanColor(u.avatarColor || ex.avatarColor, '#e11d48'),
+      bannerColor: cleanColor(u.bannerColor || ex.bannerColor, '#00f0ff'), avatarColor: cleanColor(u.avatarColor || ex.avatarColor, '#3b82f6'),
+      avatarImg: cleanImgData(u.avatarImg !== undefined ? u.avatarImg : ex.avatarImg),
+      bannerImg: cleanImgData(u.bannerImg !== undefined ? u.bannerImg : ex.bannerImg),
       friends: pidList([].concat(ex.friends || [], u.friends || [])), incoming: pidList([].concat(ex.incoming || [], u.incoming || [])),
       outgoing: pidList([].concat(ex.outgoing || [], u.outgoing || [])), servers: roomList([].concat(ex.servers || [], u.servers || []))
     };
     pidToUid[users[uid].pid] = uid;
     if (users[uid].tgId) tgIdToUid[users[uid].tgId] = uid;
-    if (users[uid].verified && nick) nickToUid[nick.toLowerCase()] = uid;
+    if (nick) nickToUid[nick.toLowerCase()] = uid;
   });
   Object.keys(d.members || {}).forEach(r => {
     if (safeRoom(r) !== r || !Array.isArray(d.members[r])) return;
     ensureServer(r);
     const cur = members[r] || (members[r] = []);
-    d.members[r].filter(validUid).forEach(u => { if (!cur.includes(u) && cur.length < MAX_MEMBERS) cur.push(u); });
+    d.members[r].filter(u => validUid(u) && users[u] && users[u].verified).forEach(u => { if (!cur.includes(u) && cur.length < MAX_MEMBERS) cur.push(u); });
   });
   Object.keys(d.messages || {}).forEach(r => {
     if (safeRoom(r) !== r || !d.messages[r]) return;
@@ -241,61 +257,56 @@ async function loadData() {
   loaded = true;
 }
 
+// Создаём постоянную запись ТОЛЬКО для верифицированных пользователей
 function ensureUser(uid, nick, ver) {
   let u = users[uid]; const n = cleanNick(nick);
   if (!u) {
-    u = users[uid] = { pid: pidOf(uid), nick: n, tgId: '', tgUsername: '', passHash: '', verified: !!ver, bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#0d9488', avatarColor: '#e11d48', friends: [], incoming: [], outgoing: [], servers: [] };
-    pidToUid[u.pid] = uid; if (u.verified) nickToUid[n.toLowerCase()] = uid; scheduleSave();
+    if (!ver) {
+      return { pid: pidOf(uid), nick: n, verified: false, bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#00f0ff', avatarColor: '#3b82f6', avatarImg: '', bannerImg: '', friends: [], incoming: [], outgoing: [], servers: [] };
+    }
+    u = users[uid] = { pid: pidOf(uid), nick: n, tgId: '', tgUsername: '', passHash: '', verified: true, bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#00f0ff', avatarColor: '#3b82f6', avatarImg: '', bannerImg: '', friends: [], incoming: [], outgoing: [], servers: [] };
+    pidToUid[u.pid] = uid; nickToUid[n.toLowerCase()] = uid; scheduleSave();
   } else {
-    if (ver && !u.verified) { u.verified = true; scheduleSave(); }
-    if (nick && !u.verified && u.nick !== n) { u.nick = n; scheduleSave(); }
+    if (ver && !u.verified) { u.verified = true; nickToUid[u.nick.toLowerCase()] = uid; scheduleSave(); }
   }
   return u;
 }
 
+// В постоянный список участников сервера добавляем только зарегистрированных
 function addMember(room, uid) {
+  if (!users[uid] || !users[uid].verified) return;
   const r = safeRoom(room), arr = members[r] || (members[r] = []);
   if (!arr.includes(uid) && arr.length < MAX_MEMBERS) { arr.push(uid); scheduleSave(); }
-  if (users[uid] && !users[uid].servers.includes(r)) { users[uid].servers.push(r); scheduleSave(); }
+  if (!users[uid].servers.includes(r)) { users[uid].servers.push(r); scheduleSave(); }
 }
 
 function restoreClientVault(v) {
-  if (!v || typeof v !== 'object') return false;
-  (v.knownUsers || []).forEach(ku => {
-    if (!ku || !validPid(ku.pid)) return;
-    const tUid = pidToUid[ku.pid] || (validUid(ku.uid) ? ku.uid : crypto.createHash('sha256').update('ghost:' + ku.pid).digest('hex').slice(0, 32));
-    if (!users[tUid]) {
-      users[tUid] = { pid: ku.pid, nick: cleanNick(ku.nick), tgId: '', tgUsername: '', passHash: '', verified: true, bio: cleanText(ku.bio, 220), interests: cleanText(ku.interests, 160), customStatus: cleanText(ku.customStatus, 60), presence: cleanPresence(ku.presence), bannerColor: cleanColor(ku.bannerColor, '#0d9488'), avatarColor: cleanColor(ku.avatarColor, '#e11d48'), friends: [], incoming: [], outgoing: [], servers: [] };
-      pidToUid[ku.pid] = tUid;
-    }
-  });
-  if (validUid(v.uid)) {
-    const me = ensureUser(v.uid, v.nick || 'Участник', true);
-    if (v.profile) Object.assign(me, { bio: cleanText(v.profile.bio || me.bio, 220), interests: cleanText(v.profile.interests || me.interests, 160), customStatus: cleanText(v.profile.customStatus || me.customStatus, 60), presence: cleanPresence(v.profile.presence || me.presence), bannerColor: cleanColor(v.profile.bannerColor || me.bannerColor, '#0d9488'), avatarColor: cleanColor(v.profile.avatarColor || me.avatarColor, '#e11d48') });
-    (v.friends || []).filter(validPid).forEach(p => {
-      if (!me.friends.includes(p)) me.friends.push(p);
-      const fu = pidToUid[p]; if (fu && users[fu] && !users[fu].friends.includes(me.pid)) users[fu].friends.push(me.pid);
-    });
-    (v.incoming || []).filter(validPid).forEach(p => { if (!me.friends.includes(p) && !me.incoming.includes(p)) me.incoming.push(p); });
-    (v.outgoing || []).filter(validPid).forEach(p => { if (!me.friends.includes(p) && !me.outgoing.includes(p)) me.outgoing.push(p); });
+  if (!v || typeof v !== 'object' || !validUid(v.uid) || !users[v.uid] || !users[v.uid].verified) return false;
+  const me = users[v.uid];
+  if (v.profile) {
+    if (!me.bio && v.profile.bio) me.bio = cleanText(v.profile.bio, 220);
+    if (!me.interests && v.profile.interests) me.interests = cleanText(v.profile.interests, 160);
+    if (!me.customStatus && v.profile.customStatus) me.customStatus = cleanText(v.profile.customStatus, 60);
+    if (!me.avatarImg && v.profile.avatarImg) me.avatarImg = cleanImgData(v.profile.avatarImg);
+    if (!me.bannerImg && v.profile.bannerImg) me.bannerImg = cleanImgData(v.profile.bannerImg);
   }
   if (Array.isArray(v.servers)) { const so = {}; v.servers.forEach(s => { if (s && s.id) so[s.id] = s; }); applyData({ servers: so }); }
-  if (v.room && Array.isArray(v.roomMembersPids)) v.roomMembersPids.forEach(p => { if (pidToUid[p]) addMember(v.room, pidToUid[p]); });
   if (v.messages) applyData({ messages: v.messages });
   scheduleSave();
   return true;
 }
 
 function mergeAccount(prevUid, finalUid, nick, tgId, tgUsername, passHash) {
-  const prev = prevUid && users[prevUid] ? users[prevUid] : {};
+  const prev = (prevUid && users[prevUid]) ? users[prevUid] : {};
   const ex = users[finalUid] || {};
   const u = users[finalUid] = {
-    pid: ex.pid || pidOf(finalUid), nick: cleanNick(nick || ex.nick || prev.nick),
+    pid: ex.pid || pidOf(finalUid), nick: cleanNick(ex.nick || nick || prev.nick),
     tgId: tgId || ex.tgId || prev.tgId || '', tgUsername: tgUsername || ex.tgUsername || prev.tgUsername || '',
     passHash: passHash || ex.passHash || prev.passHash || '', verified: true,
     bio: ex.bio || prev.bio || '', interests: ex.interests || prev.interests || '',
     customStatus: ex.customStatus || prev.customStatus || '', presence: ex.presence || prev.presence || 'online',
-    bannerColor: ex.bannerColor || prev.bannerColor || '#0d9488', avatarColor: ex.avatarColor || prev.avatarColor || '#e11d48',
+    bannerColor: ex.bannerColor || prev.bannerColor || '#00f0ff', avatarColor: ex.avatarColor || prev.avatarColor || '#3b82f6',
+    avatarImg: ex.avatarImg || prev.avatarImg || '', bannerImg: ex.bannerImg || prev.bannerImg || '',
     friends: pidList([].concat(prev.friends || [], ex.friends || [])), incoming: pidList([].concat(prev.incoming || [], ex.incoming || [])),
     outgoing: pidList([].concat(prev.outgoing || [], ex.outgoing || [])), servers: roomList([].concat(prev.servers || [], ex.servers || []))
   };
@@ -310,11 +321,11 @@ function mergeAccount(prevUid, finalUid, nick, tgId, tgUsername, passHash) {
 function publicProfileOf(uid) {
   const u = users[uid]; if (!u) return null;
   const on = clients.some(c => c.uid === uid) && u.presence !== 'invisible';
-  return { pid: u.pid, nick: u.nick, tgUsername: u.tgUsername || '', verified: !!u.verified, online: on, presence: on ? (u.presence || 'online') : 'offline', bio: u.bio || '', interests: u.interests || '', customStatus: u.customStatus || '', bannerColor: u.bannerColor || '#0d9488', avatarColor: u.avatarColor || '#e11d48' };
+  return { pid: u.pid, nick: u.nick, tgUsername: u.tgUsername || '', hasPassword: !!u.passHash, verified: !!u.verified, online: on, presence: on ? (u.presence || 'online') : 'offline', bio: u.bio || '', interests: u.interests || '', customStatus: u.customStatus || '', bannerColor: u.bannerColor || '#00f0ff', avatarColor: u.avatarColor || '#3b82f6', avatarImg: u.avatarImg || '', bannerImg: u.bannerImg || '' };
 }
 
 function sendSocial(uid) {
-  const u = users[uid]; if (!u) return;
+  const u = users[uid]; if (!u || !u.verified) return;
   const info = p => (pidToUid[p] && users[pidToUid[p]]) ? publicProfileOf(pidToUid[p]) : { pid: p, nick: 'Друг (' + p.slice(0, 4) + ')', online: false, presence: 'offline' };
   const payload = Object.assign({}, publicProfileOf(uid), { servers: u.servers || [], friends: u.friends.map(info), incoming: u.incoming.map(info), outgoing: u.outgoing.slice() });
   const msg = 'data: ' + JSON.stringify({ type: 'social', payload }) + '\n\n';
@@ -328,13 +339,14 @@ const broadcastAll = (type, payload) => { const d = 'data: ' + JSON.stringify({ 
 function memberList(room) {
   const on = new Map();
   clients.forEach(c => {
-    if (!c.uid) return;
+    if (!c.uid || !users[c.uid] || !users[c.uid].verified) return;
     const pr = on.get(c.uid), ir = c.room === room;
     on.set(c.uid, { inVoice: !!(pr && pr.inVoice) || (ir && !!c.inVoice), inScreen: !!(pr && pr.inScreen) || (ir && !!c.inScreen), inCam: !!(pr && pr.inCam) || (ir && !!c.inCam), voiceChannel: (ir && c.inVoice) ? c.voiceChannel : (pr ? pr.voiceChannel : null) });
   });
-  return (members[room] || []).map(uid => {
-    const u = users[uid] || { pid: pidOf(uid), nick: '?' }, o = on.get(uid), isOn = !!o && u.presence !== 'invisible';
-    return { pid: u.pid, nick: u.nick, verified: !!u.verified, online: isOn, presence: isOn ? (u.presence || 'online') : 'offline', customStatus: u.customStatus || '', bio: u.bio || '', interests: u.interests || '', bannerColor: u.bannerColor || '#0d9488', avatarColor: u.avatarColor || '#e11d48', inVoice: !!(o && o.inVoice), inScreen: !!(o && o.inScreen), inCam: !!(o && o.inCam), voiceChannel: o ? o.voiceChannel : null };
+  const savedUids = (members[room] || []).filter(uid => users[uid] && users[uid].verified);
+  return savedUids.map(uid => {
+    const u = users[uid], o = on.get(uid), isOn = !!o && u.presence !== 'invisible';
+    return { pid: u.pid, nick: u.nick, verified: true, online: isOn, presence: isOn ? (u.presence || 'online') : 'offline', customStatus: u.customStatus || '', bio: u.bio || '', interests: u.interests || '', bannerColor: u.bannerColor || '#00f0ff', avatarColor: u.avatarColor || '#3b82f6', avatarImg: u.avatarImg || '', bannerImg: u.bannerImg || '', inVoice: !!(o && o.inVoice), inScreen: !!(o && o.inScreen), inCam: !!(o && o.inCam), voiceChannel: o ? o.voiceChannel : null };
   });
 }
 
@@ -366,7 +378,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     --text-main:#e6f7ff; --text-normal:#b4cde0; --text-muted:#63809b; --text-dim:#3b536b;
     --border:rgba(0,240,255,0.16); --pink-border:rgba(255,42,133,0.48); --cyan-border:rgba(0,240,255,0.4);
     --chat-font-size:14px;
-    /* Правильный выровненный 6-угольник (не сплюснутый), совпадающий с гранями ваших рамок */
     --hex-regular:polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%);
     --hex-inner-hole:polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
     --pcb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='none' stroke='%2300f0ff' stroke-width='0.8' stroke-opacity='0.05'%3E%3Cpath d='M0 20h30l15 15v30l15 15h40l20-20h20M20 0v25l20 20h35l15-15h50M0 95h25l20 20v25M80 140v-25l20-20h40'/%3E%3C/g%3E%3C/svg%3E");
@@ -383,7 +394,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     padding-top:env(safe-area-inset-top, 0px);
   }
 
-  /* ИКОНКИ АВАТАРОВ ВО ВСЕХ МЕСТАХ САЙТА С ВИДИМЫМИ ОРИГИНАЛЬНЫМИ РАМКАМИ */
+  /* ШЕСТИУГОЛЬНЫЕ АВАТАРЫ С ПОДДЕРЖКОЙ СВОИХ ФОТО И ОРИГИНАЛЬНЫХ РАМОК */
   .hex-wrap {
     position:relative; display:inline-flex; align-items:center; justify-content:center;
     flex-shrink:0; overflow:visible !important;
@@ -394,7 +405,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     background:rgba(0,240,255,0.35); display:flex; align-items:center; justify-content:center;
     padding:2px; overflow:hidden; z-index:1;
   }
-  /* Когда надета рамка набора — подгоняем ядро под внутреннее шестиугольное окно рамки */
   .hex-wrap.has-custom-frame .hex-border {
     width:54%; height:58%;
     margin-right:5%; margin-top:4%;
@@ -406,8 +416,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     clip-path:inherit;
     background:linear-gradient(145deg,#14253d,#08111e); color:#fff; font-weight:800;
     display:flex; align-items:center; justify-content:center; overflow:hidden;
+    background-size:cover !important; background-position:center !important;
   }
-  /* Наложенная оригинальная картинка рамки на маленьких иконках в чате, в списке участников и внизу */
+  .hex-core img.ava-custom-img, .cds-user-core img.ava-custom-img {
+    width:100%; height:100%; object-fit:cover; display:block; pointer-events:none;
+  }
   .mini-frame-overlay {
     position:absolute; width:146%; height:146%;
     left:-23%; top:-23%;
@@ -422,21 +435,23 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .hex-status-dot.dnd { background:var(--red); }
   .hex-status-dot.invisible,.hex-status-dot.offline,.hex-status-dot.off { background:var(--text-dim); }
 
-  /* КРУПНЫЙ МЕДАЛЬОН АВАТАРА В ПРОФИЛЕ И НАСТРОЙКАХ — ВЫРОВНЕННЫЙ ПОД ОТВЕРСТИЕ РАМКИ */
+  /* КРУПНЫЙ МЕДАЛЬОН АВАТАРА В ПРОФИЛЕ И НАСТРОЙКАХ */
   .cyber-diode-scene {
-    position:relative; width:148px; height:148px; margin:4px auto 2px;
+    position:relative; width:112px; height:112px; margin:0 auto 4px auto;
     display:flex; align-items:center; justify-content:center; flex-shrink:0;
-    overflow:visible;
+    overflow:visible; cursor:pointer;
   }
-  /* Внутренний шестиугольник с точными пропорциями 0.88:1 (ровные грани параллельно рамке) */
   .cds-user-core {
     position:absolute;
     left:22.4%; top:24.8%; width:50.2%; height:56.8%;
     clip-path:var(--hex-inner-hole);
-    background:linear-gradient(145deg,#1d3557,#0b1628);
+    background:#070d19;
+    background-size:cover !important; background-position:center !important;
     display:flex; align-items:center; justify-content:center;
-    font-size:22px; font-weight:900; color:#fff; z-index:1;
+    font-size:18px; font-weight:900; color:#fff; z-index:1;
+    border:1px solid rgba(0,240,255,0.35);
     box-shadow:inset 0 0 16px rgba(0,240,255,0.3);
+    overflow:hidden;
   }
   .cds-frame-img {
     position:absolute; inset:0; width:100%; height:100%;
@@ -453,12 +468,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .cyber-badge.b-set2 { background-image:linear-gradient(90deg,#ff6a00,#fcee09,#00f0ff); color:#04120c; box-shadow:0 0 8px rgba(255,106,0,0.65); }
   .cyber-badge.b-set3 { background-image:linear-gradient(90deg,#ff003c,#ff5500,#ff003c); color:#fff; box-shadow:0 0 8px rgba(255,0,60,0.7); }
 
-  /* КАРТОЧКА ПРОФИЛЯ С ВАШИМИ ОРИГИНАЛЬНЫМИ РАМКАМИ ПРОФИЛЯ ИЗ ТРОЙНОЙ КАРТИНКИ */
+  /* КАРТОЧКА ПРОФИЛЯ С КАЛИБРОВАННЫМИ ОТСТУПАМИ ПОД РАМКИ И СВОИМ ФОНОМ */
   .profile-surface {
     position:relative; background:#060a12; border:1px solid var(--border);
     border-radius:14px; overflow:hidden; transition:0.25s;
+    background-size:cover; background-position:center;
   }
-  /* Наложенная оригинальная рамка профиля поверх карточки */
+  .profile-custom-bg {
+    position:absolute; inset:0; width:100%; height:100%;
+    background-size:cover; background-position:center;
+    opacity:0.45; pointer-events:none; z-index:1;
+  }
   .profile-frame-overlay {
     position:absolute; inset:0; width:100%; height:100%;
     background-image:url('/profile_frames_3sets.jpg');
@@ -466,41 +486,80 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     background-size:300% 100%;
     mix-blend-mode:screen;
     pointer-events:none;
-    z-index:8;
+    z-index:2 !important;
     opacity:0;
     transition:opacity 0.2s;
   }
-  .profile-surface.theme-set1 .profile-frame-overlay {
-    opacity:1; background-position:0% 0%;
-  }
-  .profile-surface.theme-set2 .profile-frame-overlay {
-    opacity:1; background-position:50% 0%;
-  }
-  .profile-surface.theme-set3 .profile-frame-overlay {
-    opacity:1; background-position:100% 0%;
-  }
-  .profile-surface.theme-set1 {
-    border:1px solid rgba(184,41,255,0.55);
-    box-shadow:0 0 26px rgba(184,41,255,0.35);
-    background:radial-gradient(circle at 50% 12%, rgba(184,41,255,0.22), #050811 75%);
-  }
-  .profile-surface.theme-set2 {
-    border:1px solid rgba(255,120,0,0.55);
-    box-shadow:0 0 26px rgba(255,120,0,0.35);
-    background:radial-gradient(circle at 50% 12%, rgba(0,240,255,0.18), #060911 75%);
-  }
-  .profile-surface.theme-set3 {
-    border:1px solid rgba(255,0,60,0.6);
-    box-shadow:0 0 26px rgba(255,0,60,0.4);
-    background:radial-gradient(circle at 50% 12%, rgba(255,40,0,0.22), #090508 75%);
-  }
-  /* Внутренние отступы карточки профиля, чтобы контент лежал аккуратно внутри вашей рамки */
-  .profile-surface[class*="theme-set"] .dp-body {
-    padding:54px 30px 26px;
-    position:relative; z-index:4;
-  }
+  .profile-surface.theme-set1 .profile-frame-overlay { opacity:1; background-position:0% 0%; }
+  .profile-surface.theme-set2 .profile-frame-overlay { opacity:1; background-position:50% 0%; }
+  .profile-surface.theme-set3 .profile-frame-overlay { opacity:1; background-position:100% 0%; }
 
-  /* ВЕРХНЯЯ ПАНЕЛЬ */
+  .profile-surface.theme-set1 { border:1px solid rgba(184,41,255,0.55); box-shadow:0 0 26px rgba(184,41,255,0.35); background-color:#050811; }
+  .profile-surface.theme-set2 { border:1px solid rgba(255,120,0,0.55); box-shadow:0 0 26px rgba(255,120,0,0.35); background-color:#060911; }
+  .profile-surface.theme-set3 { border:1px solid rgba(255,0,60,0.6); box-shadow:0 0 26px rgba(255,0,60,0.4); background-color:#090508; }
+
+  .dp-body {
+    padding:28px 26px 20px 26px;
+    position:relative; z-index:6 !important;
+    flex:1; display:flex; flex-direction:column; gap:7px;
+  }
+  .profile-surface[class*="theme-set"] .dp-body {
+    padding:116px 42px 22px 42px !important;
+  }
+  .profile-surface[class*="theme-set"] .cyber-diode-scene {
+    width:104px !important; height:104px !important;
+    margin:-16px auto 0 auto !important;
+  }
+  .dp-nick-line { display:flex; align-items:center; justify-content:center; gap:7px; flex-wrap:wrap; text-align:center; }
+  .dp-nick { font-size:18px; font-weight:900; color:#fff; text-shadow:0 2px 6px #000; }
+  .dp-status { font-size:12px; color:var(--brand); text-align:center; text-shadow:0 1px 4px #000; }
+  .dp-sec {
+    background:rgba(4,7,14,0.9) !important;
+    border:1px solid rgba(0,240,255,0.24) !important;
+    border-radius:8px; padding:7px 11px !important;
+    backdrop-filter:blur(8px);
+    box-shadow:0 4px 14px rgba(0,0,0,0.75);
+  }
+  .dp-sec-title { font-size:9.5px !important; font-weight:800; color:var(--brand); margin-bottom:2px !important; text-transform:uppercase; text-shadow:0 1px 4px #000; }
+  .dp-bio { font-size:11.5px !important; line-height:1.3 !important; color:#eef8ff !important; white-space:pre-wrap; }
+  .dp-tags { display:flex; gap:5px; flex-wrap:wrap; margin-top:3px; }
+  .dp-tag { background:rgba(0,240,255,0.12); border:1px solid var(--border); color:var(--brand); padding:2px 7px; border-radius:4px; font-size:10.5px; font-weight:700; }
+
+  .profile-surface.theme-set1 .dp-sec:nth-of-type(2),
+  .profile-surface.theme-set1 .dp-sec:nth-of-type(3),
+  .profile-surface.theme-set1 .dp-actions-col {
+    margin-left:104px !important;
+    border-color:rgba(184,41,255,0.45) !important;
+  }
+  .profile-surface.theme-set2 .dp-sec:nth-of-type(1),
+  .profile-surface.theme-set2 .dp-sec:nth-of-type(2),
+  .profile-surface.theme-set2 .dp-sec:nth-of-type(3) {
+    margin-right:86px !important;
+    border-color:rgba(255,123,0,0.45) !important;
+  }
+  .profile-surface.theme-set3 .dp-sec:nth-of-type(2),
+  .profile-surface.theme-set3 .dp-sec:nth-of-type(3) {
+    margin-left:56px !important;
+    margin-right:72px !important;
+    border-color:rgba(255,0,60,0.45) !important;
+  }
+  .dp-actions-col { display:flex; flex-direction:column; gap:7px; margin-top:auto; padding-top:6px; position:relative; z-index:10 !important; }
+  .status-pill { font-size:10px; padding:2px 7px; border-radius:4px; font-weight:800; }
+  .status-pill.on { background:rgba(16,185,129,0.18); color:var(--green); }
+  .status-pill.off { background:rgba(255,255,255,0.06); color:var(--text-muted); }
+
+  #preview-surface { max-width:365px; margin:0 auto; }
+
+  /* БЛОК ЗАГРУЗКИ ФОТО ПРОФИЛЯ И ФОНА ВВЕРХУ НАСТРОЕК */
+  .photo-upload-bar {
+    display:grid; grid-template-columns:1fr 1fr; gap:10px;
+    background:rgba(0,240,255,0.06); border:1.5px dashed var(--cyan-border);
+    border-radius:10px; padding:12px;
+  }
+  .pub-col { display:flex; flex-direction:column; gap:6px; }
+  .pub-title { font-size:11px; font-weight:800; color:var(--brand); text-transform:uppercase; }
+
+  /* ВЕРХНЯЯ ПАНЕЛЬ (БЕЗ ДУБЛИРУЮЩИХ КНОПОК ПРОФИЛЯ/БИНДОВ/ЭФФЕКТОВ) */
   .top-telemetry-bar { height:42px; background:rgba(4,7,13,0.96); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 12px; gap:8px; flex-shrink:0; z-index:30; }
   .tt-left,.tt-right { display:flex; align-items:center; gap:8px; min-width:0; }
   .tt-logo { display:flex; align-items:center; gap:6px; font-weight:900; font-size:13px; letter-spacing:1px; color:#fff; white-space:nowrap; }
@@ -510,12 +569,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .tt-node-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); }
   .tt-invite-btn { background:linear-gradient(135deg,rgba(255,42,133,0.32),rgba(157,23,77,0.5)); border:1px solid var(--pink); color:#fff; font-size:10.5px; font-weight:800; padding:5px 11px; border-radius:6px; cursor:pointer; white-space:nowrap; }
 
-  .sub-sync-bar { height:34px; background:rgba(6,11,20,0.92); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 12px; font-size:11px; flex-shrink:0; gap:8px; overflow-x:auto; }
-  .sub-sync-bar::-webkit-scrollbar { display:none; }
+  .sub-sync-bar { height:32px; background:rgba(6,11,20,0.92); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 12px; font-size:11px; flex-shrink:0; gap:8px; }
   .ss-left { display:flex; align-items:center; gap:6px; font-weight:700; color:var(--brand); white-space:nowrap; }
   .ss-right { display:flex; align-items:center; gap:6px; flex-shrink:0; }
-  .ss-btn { background:rgba(0,240,255,0.07); border:1px solid var(--border); color:var(--text-main); font-size:10.5px; font-weight:700; padding:4px 9px; border-radius:5px; cursor:pointer; display:flex; align-items:center; gap:4px; white-space:nowrap; }
-  .ss-btn.fx-btn { background:linear-gradient(90deg,rgba(255,42,133,0.3),rgba(0,240,255,0.25)); border-color:#ff2a85; color:#fff; }
+  .ss-btn { background:rgba(0,240,255,0.07); border:1px solid var(--border); color:var(--text-main); font-size:10.5px; font-weight:700; padding:4px 10px; border-radius:5px; cursor:pointer; display:flex; align-items:center; gap:4px; white-space:nowrap; }
 
   /* СЕТКА ПРИЛОЖЕНИЯ */
   .app-layout { flex:1; display:flex; width:100%; min-height:0; overflow:hidden; position:relative; }
@@ -561,7 +618,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .voice-connected-users { display:flex; flex-direction:column; gap:6px; padding:4px 0 6px 18px; }
   .vc-user-row { display:flex; align-items:center; gap:10px; padding:4px 6px; border-radius:4px; font-size:12px; color:var(--text-normal); cursor:pointer; }
 
-  /* ГОЛОСОВОЙ ДОК СНИЗУ СЛЕВА */
+  /* ГОЛОСОВОЙ ДОК СНИЗУ СЛЕВА (2 КНОПКИ: КАМЕРА И ЭКРАН, БЕЗ ОВЕРЛЕЯ) */
   .sidebar-voice-dock { background:rgba(6,16,26,0.96); border-top:1px solid var(--cyan-border); padding:9px 10px; display:flex; flex-direction:column; gap:7px; flex-shrink:0; }
   .svd-top { display:flex; align-items:center; justify-content:space-between; gap:6px; }
   .svd-state-row { font-size:10.5px; font-weight:800; color:var(--green); text-transform:uppercase; }
@@ -569,7 +626,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .svd-channel-name { font-size:12px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .svd-hangup-btn { background:rgba(255,42,133,0.22); border:1px solid var(--pink); color:#ff80a0; padding:5px 9px; border-radius:5px; font-size:11px; font-weight:800; cursor:pointer; }
   .svd-connect-btn { background:var(--brand); border:none; color:#031518; padding:5px 10px; border-radius:5px; font-size:10.5px; font-weight:800; cursor:pointer; }
-  .svd-actions { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; }
+  .svd-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
   .svd-btn { background:#0d1829; border:1px solid var(--border); color:var(--text-normal); padding:6px 4px; border-radius:5px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; }
   .svd-btn.active-cam { background:rgba(16,185,129,0.25); border-color:var(--green); color:#6ee7b7; }
   .svd-btn.active-screen { background:rgba(255,42,133,0.25); border-color:var(--pink); color:#ffaec2; }
@@ -659,19 +716,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .profile-slide-drawer.open { transform:translateX(0); pointer-events:auto; }
   .psd-inner { flex:1; display:flex; flex-direction:column; overflow-y:auto; }
   .dp-close-x { position:absolute; top:14px; right:14px; width:32px; height:32px; border-radius:6px; background:rgba(4,7,13,0.88); border:1px solid var(--border); color:#fff; font-weight:800; cursor:pointer; z-index:12; }
-  .dp-body { padding:38px 24px 22px; position:relative; z-index:4; flex:1; display:flex; flex-direction:column; gap:10px; }
-  .dp-nick-line { display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; text-align:center; }
-  .dp-nick { font-size:19px; font-weight:900; color:#fff; }
-  .dp-status { font-size:12.5px; color:var(--brand); text-align:center; }
-  .dp-sec { background:rgba(4,7,13,0.82); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 12px; backdrop-filter:blur(4px); }
-  .dp-sec-title { font-size:10px; font-weight:800; color:var(--brand); margin-bottom:5px; text-transform:uppercase; }
-  .dp-bio { font-size:12.5px; color:var(--text-normal); white-space:pre-wrap; }
-  .dp-tags { display:flex; gap:5px; flex-wrap:wrap; margin-top:4px; }
-  .dp-tag { background:rgba(0,240,255,0.12); border:1px solid var(--border); color:var(--brand); padding:3px 8px; border-radius:4px; font-size:11px; font-weight:700; }
-  .dp-actions-col { display:flex; flex-direction:column; gap:7px; margin-top:auto; padding-top:8px; position:relative; z-index:10; }
-  .status-pill { font-size:10px; padding:2px 7px; border-radius:4px; font-weight:800; }
-  .status-pill.on { background:rgba(16,185,129,0.18); color:var(--green); }
-  .status-pill.off { background:rgba(255,255,255,0.06); color:var(--text-muted); }
 
   .bottom-status-footer { height:24px; background:#03060b; border-top:1px solid var(--border); padding:0 14px; display:flex; align-items:center; justify-content:space-between; font-size:10px; font-family:monospace; color:var(--text-muted); flex-shrink:0; }
   .bsf-green { color:var(--brand); font-weight:700; }
@@ -681,25 +725,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .btn-login-mini { background:#0d1829; border:1px solid var(--border); color:var(--brand); padding:6px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; }
   .btn-tg { background:var(--brand); color:#031518; border:none; width:100%; padding:10px 14px; border-radius:6px; font-weight:800; font-size:12.5px; text-transform:uppercase; cursor:pointer; margin-bottom:10px; }
 
-  .floating-call-overlay { position:fixed; right:16px; bottom:38px; width:280px; background:rgba(5,9,16,0.96); border:1px solid var(--brand); border-radius:8px; padding:9px 11px; z-index:930; display:none; flex-direction:column; gap:7px; box-shadow:0 8px 24px rgba(0,0,0,0.7); }
-  .floating-call-overlay.show { display:flex; }
-  .fco-head { display:flex; justify-content:space-between; align-items:center; cursor:move; border-bottom:1px solid var(--border); padding-bottom:5px; }
-  .fco-live { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:800; color:var(--green); }
-  .fco-pulse { width:8px; height:8px; clip-path:var(--hex-regular); background:var(--green); }
-  .fco-timer { font-size:11px; font-family:monospace; color:var(--brand); }
-  .fco-peers { display:flex; flex-wrap:wrap; gap:5px; max-height:54px; overflow-y:auto; }
-  .fco-peer-chip { display:inline-flex; align-items:center; gap:5px; background:#0d1829; border:1px solid var(--border); padding:2px 7px; border-radius:4px; font-size:10.5px; color:#fff; }
-  .fco-actions { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; }
-  .fco-btn { background:#0d1829; border:1px solid var(--border); color:var(--brand); padding:6px 4px; border-radius:4px; font-size:10.5px; font-weight:700; cursor:pointer; }
-  .fco-btn.danger { background:var(--pink); border-color:var(--pink); color:#fff; }
-
   .modal-backdrop { position:fixed; inset:0; background:rgba(2,5,10,0.86); backdrop-filter:blur(5px); display:none; align-items:center; justify-content:center; z-index:999; padding:10px; }
   .modal-backdrop.open { display:flex; }
-  .modal-box { background:#070d17; border:1px solid var(--brand); border-radius:10px; padding:18px; width:400px; max-width:100%; }
+  .modal-box { background:#070d17; border:1px solid var(--brand); border-radius:10px; padding:18px; width:410px; max-width:100%; }
   .modal-box input[type="text"],.modal-box input[type="password"],.modal-box textarea,.modal-box select { width:100%; padding:10px; background:#040810; border:1px solid var(--border); border-radius:6px; color:#fff; margin-bottom:10px; font-size:14px; outline:none; }
   .link-box { background:#040810; border:1px dashed var(--brand); padding:10px; color:var(--brand); font-size:12px; word-break:break-all; margin-bottom:10px; border-radius:6px; display:block; text-align:center; text-decoration:none; }
-  .auth-tabs { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:12px; background:#040810; padding:4px; border-radius:6px; border:1px solid var(--border); }
-  .auth-tab { padding:7px; font-size:12px; font-weight:700; text-align:center; cursor:pointer; color:var(--text-muted); border-radius:4px; }
+  .auth-tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-bottom:12px; background:#040810; padding:4px; border-radius:6px; border:1px solid var(--border); }
+  .auth-tab { padding:7px 4px; font-size:11px; font-weight:800; text-align:center; cursor:pointer; color:var(--text-muted); border-radius:4px; }
   .auth-tab.active { background:var(--brand); color:#031518; }
 
   .settings-modal-box { background:#070d17; border:1px solid var(--brand); border-radius:10px; width:900px; max-width:100%; height:640px; max-height:92dvh; display:grid; grid-template-columns:220px minmax(0,1fr); overflow:hidden; }
@@ -715,7 +747,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .field-label { font-size:10.5px; font-weight:800; text-transform:uppercase; color:var(--brand); margin-bottom:6px; display:block; }
   .settings-card { background:rgba(4,8,16,0.9); border:1px solid var(--border); border-radius:8px; padding:14px; display:flex; flex-direction:column; gap:10px; }
   .settings-grid-2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
-  .settings-card input[type="text"],.settings-card textarea,.settings-card select { width:100%; padding:8px 10px; background:#03060c; border:1px solid var(--border); border-radius:6px; color:#fff; font-size:14px; outline:none; }
+  .settings-card input[type="text"],.settings-card input[type="password"],.settings-card textarea,.settings-card select { width:100%; padding:8px 10px; background:#03060c; border:1px solid var(--border); border-radius:6px; color:#fff; font-size:14px; outline:none; }
   .toggle-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:7px 0; border-bottom:1px solid var(--border); }
   .toggle-row:last-child { border-bottom:none; }
   .toggle-title { font-size:13px; font-weight:600; color:#fff; }
@@ -763,7 +795,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   @media (max-width:900px) {
     .tt-proto-pill,.tt-cyber-tag,.ash-wave,.bottom-status-footer,.ss-left span:first-child { display:none; }
     .top-telemetry-bar { height:44px; padding:0 10px; }
-    .sub-sync-bar { height:36px; padding:0 10px; }
+    .sub-sync-bar { height:34px; padding:0 10px; }
     .workspace { display:flex; flex-direction:column; flex:1; min-height:0; }
     .main-chat { flex:1; width:100%; height:100%; min-height:0; }
     .mob-top-btn { display:inline-flex; }
@@ -792,12 +824,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     .chat-scroll-area { padding:6px 10px; }
     .chat-bottom { padding:4px 10px 6px; }
     .chat-inp { font-size:16px; padding:8px 10px; }
-    .floating-call-overlay {
-      right:10px; left:10px; width:auto;
-      bottom:calc(60px + env(safe-area-inset-bottom, 0px));
-      padding:7px 10px;
-    }
-    .fco-peers { display:none; }
     .profile-slide-drawer { width:100vw; max-width:100vw; padding:0; }
     .profile-slide-drawer .profile-surface { border-radius:0; height:100%; border:none; }
     .settings-modal-box {
@@ -813,7 +839,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     .settings-nav-btn { border-left:none; border-bottom:2px solid transparent; padding:7px 10px; }
     .settings-nav-btn.active { border-left:none; border-bottom:2px solid var(--brand); }
     .settings-content { padding:14px; }
-    .settings-grid-2,.fx-bundle-card,.fxb-left { grid-template-columns:1fr; flex-direction:column; align-items:flex-start; }
+    .settings-grid-2,.photo-upload-bar,.fx-bundle-card,.fxb-left { grid-template-columns:1fr; flex-direction:column; align-items:flex-start; }
     .fx-bundle-card button { width:100%; }
   }
 </style>
@@ -832,12 +858,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- ВЕРХНЯЯ ПАНЕЛЬ СИНХРОНИЗАЦИИ БЕЗ ДУБЛИРУЮЩИХ КНОПОК ЭФФЕКТОВ/БИНДОВ/ПРОФИЛЯ -->
   <div class="sub-sync-bar">
-    <div class="ss-left"><span>● СЕТЬ:</span><span style="color:#fff;font-weight:800;">P2P ONLINE</span></div>
+    <div class="ss-left"><span>● АКТИВНАЯ СЕТЬ:</span><span style="color:#fff;font-weight:800;">P2P СИНХРОНИЗАЦИЯ</span></div>
     <div class="ss-right">
-      <button class="ss-btn fx-btn" onclick="openSettingsModal('fx')">✨ ЭФФЕКТЫ</button>
-      <button class="ss-btn" onclick="openSettingsModal('keybinds')">⌨️ БИНДЫ</button>
-      <button class="ss-btn" onclick="openSettingsModal('profile')">👤 ПРОФИЛЬ</button>
       <button class="ss-btn" onclick="if(window.innerWidth<=900)toggleMobileRight();else document.body.classList.toggle('hide-members-panel');">👥 УЧАСТНИКИ</button>
     </div>
   </div>
@@ -845,7 +869,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   <div class="app-layout">
     <div class="mob-drawer-backdrop" onclick="closeMobileDrawers()"></div>
     <div class="servers-rail">
-      <div class="srv-pill-wrap" title="Эффекты и профиль" onclick="openSettingsModal('fx')">
+      <div class="srv-pill-wrap" title="Настройки и профиль" onclick="openSettingsModal('profile')">
         <span class="srv-pill-bar"></span><div class="srv-ico home-ico">⚡</div>
       </div>
       <div id="servers-list-box" style="display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;"></div>
@@ -882,7 +906,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           <div class="svd-actions">
             <button class="svd-btn" id="cam-btn" onclick="toggleWebcam()">📷 Камера</button>
             <button class="svd-btn" id="screen-btn" onclick="toggleScreenShare()">🖥️ Экран</button>
-            <button class="svd-btn" id="pip-overlay-btn" onclick="toggleExternalOverlay()">🪟 Оверлей</button>
           </div>
           <div id="audio-box" style="display:none;"></div>
         </div>
@@ -902,7 +925,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           <div class="user-bar-controls">
             <button class="ub-ctrl-btn" id="mute-btn" onclick="if(inVoice)toggleMute();else toggleVoiceCall();">🎤</button>
             <button class="ub-ctrl-btn" id="deafen-btn" onclick="if(inVoice)toggleDeafen();else openSettingsModal('voice');">🎧</button>
-            <button class="ub-ctrl-btn" onclick="openSettingsModal('profile')">⚙️</button>
+            <button class="ub-ctrl-btn" title="Настройки" onclick="openSettingsModal('profile')">⚙️</button>
           </div>
         </div>
       </div>
@@ -917,8 +940,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div class="ash-bar" style="animation-delay:0s"></div><div class="ash-bar" style="animation-delay:.2s"></div><div class="ash-bar" style="animation-delay:.4s"></div><div class="ash-bar" style="animation-delay:.1s"></div><div class="ash-bar" style="animation-delay:.3s"></div><div class="ash-bar" style="animation-delay:.5s"></div><div class="ash-bar" style="animation-delay:.15s"></div><div class="ash-bar" style="animation-delay:.35s"></div><div class="ash-bar" style="animation-delay:.05s"></div><div class="ash-bar" style="animation-delay:.25s"></div><div class="ash-bar" style="animation-delay:.45s"></div><div class="ash-bar" style="animation-delay:.12s"></div>
           </div>
           <div class="ash-right">
-            <button class="btn-login-mini" onclick="openSettingsModal('fx')">✨ Эффекты</button>
-            <button class="btn-login-mini" onclick="openSettingsModal('safety')">🛡️ 18+</button>
+            <button class="btn-login-mini" onclick="openSettingsModal('profile')">⚙️ Настройки</button>
           </div>
         </div>
 
@@ -952,7 +974,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           <div class="tm-row"><span>P2P Stability:</span><span class="tm-val">99.8%</span></div>
           <div class="tm-row"><span>Latency:</span><span class="tm-val">18ms</span></div>
         </div>
-        <div class="right-sec-title">⬢ В сети — <span id="online-count">1</span></div>
+        <div class="right-sec-title">⬢ В сети — <span id="online-count">0</span></div>
         <div id="online-users-box"></div>
         <div class="right-sec-title">⬡ Не в сети — <span id="total-members-count">0</span></div>
         <div id="offline-users-box"></div>
@@ -962,10 +984,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- ВЫЕЗЖАЮЩАЯ СПРАВА КАРТОЧКА ПРОФИЛЯ С ОРИГИНАЛЬНЫМИ РАМКАМИ АВАТАРА И ПРОФИЛЯ -->
+  <!-- ВЫЕЗЖАЮЩАЯ СПРАВА КАРТОЧКА ПРОФИЛЯ -->
   <div class="profile-drawer-backdrop" id="view-profile-backdrop" onclick="closeViewProfileModal()"></div>
   <div class="profile-slide-drawer" id="view-profile-drawer">
     <div class="profile-surface psd-inner" id="vp-surface">
+      <div class="profile-custom-bg" id="vp-custom-bg"></div>
       <div class="profile-frame-overlay"></div>
       <button class="dp-close-x" onclick="closeViewProfileModal()">✕</button>
       <div class="dp-body">
@@ -978,7 +1001,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div class="dp-status" id="vp-status"></div>
         <div class="dp-sec"><div class="dp-sec-title">ОБО МНЕ // ДОСЬЕ</div><div class="dp-bio" id="vp-bio"></div></div>
         <div class="dp-sec"><div class="dp-sec-title">ИНТЕРЕСЫ И ТЕГИ</div><div class="dp-tags" id="vp-tags"></div></div>
-        <div class="dp-sec"><div class="dp-sec-title">АКТИВНАЯ РАМКА И НАБОР</div><div style="font-size:12px;color:var(--text-normal);font-weight:700;" id="vp-fx-label">Стандартный контур</div></div>
+        <div class="dp-sec"><div class="dp-sec-title">АКТИВНАЯ РАМКА И НАБОР</div><div style="font-size:11.5px;color:var(--text-normal);font-weight:700;" id="vp-fx-label">Стандартный контур</div></div>
         <div class="dp-actions-col">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
             <button class="btn-login-mini" id="vp-mention-btn">💬 Написать (@ник)</button>
@@ -995,23 +1018,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     <span class="bsf-green">P2P ONLINE // Secure // E2EE // Latency 18ms</span>
   </div>
 
-  <div class="floating-call-overlay" id="floating-call-overlay">
-    <div class="fco-head" id="fco-drag-handle"><div class="fco-live"><span class="fco-pulse"></span><span id="fco-channel-label">Ночной эфир</span></div><span class="fco-timer" id="fco-timer-label">00:00</span></div>
-    <div class="fco-peers" id="fco-peers-box"></div>
-    <div class="fco-actions">
-      <button class="fco-btn" id="fco-mute-btn" onclick="toggleMute()">🎤 Вкл</button>
-      <button class="fco-btn" id="fco-deaf-btn" onclick="toggleDeafen()">🎧 Вкл</button>
-      <button class="fco-btn" id="fco-pip-btn" onclick="toggleExternalOverlay()">🪟 Поверх</button>
-      <button class="fco-btn danger" onclick="toggleVoiceCall()">🛑 Выход</button>
-    </div>
-  </div>
-
   <div class="mob-bottom-nav" id="mob-bottom-nav">
     <div class="mob-nav-item" id="mob-tab-left" onclick="toggleMobileLeft()"><span>☰</span><span>Каналы</span></div>
     <div class="mob-nav-item active" id="mob-tab-chat" onclick="closeMobileDrawers()"><span>◈</span><span>Чат</span></div>
     <div class="mob-nav-item" id="mob-tab-voice" onclick="toggleMobileLeft()"><span>🔊</span><span>Голос</span></div>
     <div class="mob-nav-item" id="mob-tab-right" onclick="toggleMobileRight()"><span>⬢</span><span>Участники</span></div>
-    <div class="mob-nav-item" id="mob-tab-profile" onclick="openSettingsModal('fx')"><span>✨</span><span>Эффекты</span></div>
+    <div class="mob-nav-item" id="mob-tab-profile" onclick="openSettingsModal('profile')"><span>⚙️</span><span>Настройки</span></div>
   </div>
 
   <div class="modal-backdrop" id="settings-modal" onclick="if(event.target===this)closeSettingsModal()">
@@ -1030,18 +1042,43 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div style="margin-top:auto;padding-top:10px;"><button class="btn-login-mini" style="width:100%;" onclick="closeSettingsModal()">✕ ЗАКРЫТЬ</button></div>
       </div>
       <div class="settings-content">
+        <!-- ВКЛАДКА 1: МОЙ ПРОФИЛЬ С ЗАМЕТНОЙ ЗАГРУЗКОЙ ФОТО СВЕРХУ -->
         <div class="settings-pane active" id="pane-profile">
-          <div class="settings-head"><h3>⬢ Мой профиль</h3><button class="btn-cyan" onclick="saveProfileSettings()">СОХРАНИТЬ</button></div>
-          <div class="profile-surface" id="preview-surface">
-            <div class="profile-frame-overlay"></div>
-            <div class="dp-body">
-              <div class="cyber-diode-scene" id="preview-hero-stage"></div>
-              <div class="dp-nick-line"><span class="dp-nick" id="preview-nick">Гость</span><span id="preview-badge-slot"></span></div>
-              <div class="dp-status" id="preview-status"></div>
-              <div class="dp-sec"><div class="dp-sec-title">ОБО МНЕ</div><div class="dp-bio" id="preview-bio"></div></div>
-              <div class="dp-sec"><div class="dp-sec-title">ИНТЕРЕСЫ</div><div class="dp-tags" id="preview-tags"></div></div>
+          <div class="settings-head"><h3>⬢ Мой профиль и фото</h3><button class="btn-cyan" onclick="saveProfileSettings()">СОХРАНИТЬ</button></div>
+
+          <input type="file" id="inp-ava-file" accept="image/*" style="display:none;" onchange="handleCustomImageUpload(event, 'avatar')">
+          <input type="file" id="inp-bg-file" accept="image/*" style="display:none;" onchange="handleCustomImageUpload(event, 'banner')">
+
+          <div class="photo-upload-bar">
+            <div class="pub-col">
+              <span class="pub-title">📷 Фото аватара (в шестиугольник)</span>
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="btn-cyan" style="flex:1;" onclick="document.getElementById('inp-ava-file').click()">ЗАГРУЗИТЬ СВОЁ ФОТО</button>
+                <button type="button" class="btn-login-mini" onclick="clearCustomImage('avatar')">✕ Сброс</button>
+              </div>
+            </div>
+            <div class="pub-col">
+              <span class="pub-title">🖼️ Картинка фона профиля</span>
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="btn-cyan" style="flex:1;" onclick="document.getElementById('inp-bg-file').click()">ЗАГРУЗИТЬ ФОН</button>
+                <button type="button" class="btn-login-mini" onclick="clearCustomImage('banner')">✕ Сброс</button>
+              </div>
             </div>
           </div>
+
+          <div class="profile-surface" id="preview-surface">
+            <div class="profile-custom-bg" id="preview-custom-bg"></div>
+            <div class="profile-frame-overlay"></div>
+            <div class="dp-body">
+              <div class="cyber-diode-scene" id="preview-hero-stage" title="Нажмите, чтобы выбрать своё фото аватара" onclick="document.getElementById('inp-ava-file').click()"></div>
+              <div class="dp-nick-line"><span class="dp-nick" id="preview-nick">Гость</span><span id="preview-badge-slot"></span></div>
+              <div class="dp-status" id="preview-status"></div>
+              <div class="dp-sec"><div class="dp-sec-title">ОБО МНЕ // ДОСЬЕ</div><div class="dp-bio" id="preview-bio"></div></div>
+              <div class="dp-sec"><div class="dp-sec-title">ИНТЕРЕСЫ И ТЕГИ</div><div class="dp-tags" id="preview-tags"></div></div>
+              <div class="dp-sec"><div class="dp-sec-title">АКТИВНАЯ РАМКА И НАБОР</div><div style="font-size:11.5px;color:var(--text-normal);font-weight:700;" id="preview-fx-label">Набор 1</div></div>
+            </div>
+          </div>
+
           <div class="settings-card">
             <div class="settings-grid-2">
               <div><label class="field-label">Позывной (Никнейм)</label><input type="text" id="prof-nick-inp" maxlength="24" oninput="updateProfilePreview()"></div>
@@ -1052,11 +1089,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div><label class="field-label">Интересы (через запятую)</label><input type="text" id="prof-interests-inp" maxlength="140" oninput="updateProfilePreview()"></div>
             <div class="settings-grid-2">
               <div><label class="field-label">Цвет подсветки</label><div class="color-swatches"><div class="color-swatch" style="background:#00f0ff;" onclick="selectBannerColor('#00f0ff')"></div><div class="color-swatch" style="background:#ff2a85;" onclick="selectBannerColor('#ff2a85')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectBannerColor('#10b981')"></div><div class="color-swatch" style="background:#fcee09;" onclick="selectBannerColor('#fcee09')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectBannerColor('#b829ff')"></div></div></div>
-              <div><label class="field-label">Цвет 6-угольника</label><div class="color-swatches"><div class="color-swatch" style="background:#3b82f6;" onclick="selectAvatarColor('#3b82f6')"></div><div class="color-swatch" style="background:#ff2a85;" onclick="selectAvatarColor('#ff2a85')"></div><div class="color-swatch" style="background:#00f0ff;" onclick="selectAvatarColor('#00f0ff')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectAvatarColor('#10b981')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectAvatarColor('#b829ff')"></div></div></div>
+              <div><label class="field-label">Цвет 6-угольника (если без фото)</label><div class="color-swatches"><div class="color-swatch" style="background:#3b82f6;" onclick="selectAvatarColor('#3b82f6')"></div><div class="color-swatch" style="background:#ff2a85;" onclick="selectAvatarColor('#ff2a85')"></div><div class="color-swatch" style="background:#00f0ff;" onclick="selectAvatarColor('#00f0ff')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectAvatarColor('#10b981')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectAvatarColor('#b829ff')"></div></div></div>
             </div>
           </div>
         </div>
 
+        <!-- ВКЛАДКА 2: ЭФФЕКТЫ -->
         <div class="settings-pane" id="pane-fx">
           <div class="settings-head">
             <h3>✨ Эффекты (Все 3 оригинальные рамки аватара + 3 рамки профиля)</h3>
@@ -1067,14 +1105,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
               <div class="fxb-left">
                 <div class="fxb-preview-pair">
                   <div id="fx-demo-slot-1"></div>
-                  <div class="fxb-prof-thumb" style="background-position:0% 0%;" title="Рамка профиля Набора 1"></div>
+                  <div class="fxb-prof-thumb" style="background-position:0% 0%;"></div>
                 </div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                     <span style="font-size:15px;font-weight:900;color:#00f0ff;">Набор 1: Люси Кушинада // Edgerunners S1</span>
                     <span class="cyber-badge b-set1">🌙 LUCY NET</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Оригинальная неоновая рамка аватара с Люси + фиолетовая неоновая рамка профиля с Луной, проводами и портретом Люси.</div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Оригинальная неоновая рамка аватара с Люси + фиолетовая неоновая рамка профиля с Луной и портретом Люси.</div>
                 </div>
               </div>
               <button class="btn-cyan" id="btn-fx-set1" onclick="selectEffectSet('set1')">🎁 ЗАБРАТЬ</button>
@@ -1084,14 +1122,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
               <div class="fxb-left">
                 <div class="fxb-preview-pair">
                   <div id="fx-demo-slot-2"></div>
-                  <div class="fxb-prof-thumb" style="background-position:50% 0%;" title="Рамка профиля Набора 2"></div>
+                  <div class="fxb-prof-thumb" style="background-position:50% 0%;"></div>
                 </div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                     <span style="font-size:15px;font-weight:900;color:#fcee09;">Набор 2: Edgerunners // Граффити «ОПАСНО» (Сезон 2)</span>
                     <span class="cyber-badge b-set2">⚠️ EDGERUN</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Оригинальная огненно-жёлтая рамка аватара «CYBER» с героиней + граффити-рамка профиля с черепом в короне, баллончиками и колючей проволокой.</div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Оригинальная огненно-жёлтая рамка аватара «CYBER» + граффити-рамка профиля с черепом в короне и колючей проволокой.</div>
                 </div>
               </div>
               <button class="btn-cyan" id="btn-fx-set2" onclick="selectEffectSet('set2')">🎁 ЗАБРАТЬ</button>
@@ -1101,14 +1139,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
               <div class="fxb-left">
                 <div class="fxb-preview-pair">
                   <div id="fx-demo-slot-3"></div>
-                  <div class="fxb-prof-thumb" style="background-position:100% 0%;" title="Рамка профиля Набора 3"></div>
+                  <div class="fxb-prof-thumb" style="background-position:100% 0%;"></div>
                 </div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                     <span style="font-size:15px;font-weight:900;color:#ff4d79;">Набор 3: Джонни Сильверхенд // SAMURAI (Cyberpunk 2077)</span>
                     <span class="cyber-badge b-set3">🔥 SAMURAI</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Оригинальная стальная рамка аватара «SAMURAI» с Джонни Сильверхендом + рамка профиля с цепями, горящей гитарой и маской Самурая.</div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Оригинальная стальная рамка аватара «SAMURAI» с Джонни Сильверхендом + рамка профиля с цепями и горящей гитарой.</div>
                 </div>
               </div>
               <button class="btn-cyan" id="btn-fx-set3" onclick="selectEffectSet('set3')">🎁 ЗАБРАТЬ</button>
@@ -1116,6 +1154,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           </div>
         </div>
 
+        <!-- ВКЛАДКА 3: ГОРЯЧИЕ КЛАВИШИ (БЕЗ ОВЕРЛЕЯ) -->
         <div class="settings-pane" id="pane-keybinds">
           <div class="settings-head"><h3>⌨️ Горячие клавиши</h3><button class="btn-login-mini" onclick="resetKeybindsToDefault()">Сбросить</button></div>
           <div class="settings-card">
@@ -1123,10 +1162,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div class="keybind-row"><div class="toggle-title">🎧 Звук вкл/выкл (Deafen)</div><button class="kb-btn" id="kb-btn-deafen" onclick="startKeybindRecord('deafen')"></button></div>
             <div class="keybind-row"><div class="toggle-title">📷 Веб-камера</div><button class="kb-btn" id="kb-btn-cam" onclick="startKeybindRecord('cam')"></button></div>
             <div class="keybind-row"><div class="toggle-title">🖥️ Демонстрация экрана</div><button class="kb-btn" id="kb-btn-screen" onclick="startKeybindRecord('screen')"></button></div>
-            <div class="keybind-row"><div class="toggle-title">🪟 Оверлей поверх окон</div><button class="kb-btn" id="kb-btn-pip" onclick="startKeybindRecord('pip')"></button></div>
           </div>
         </div>
 
+        <!-- ВКЛАДКА 4: ФИЛЬТР 18+ -->
         <div class="settings-pane" id="pane-safety">
           <div class="settings-head"><h3>🛡️ Фильтр контента 18+</h3></div>
           <div class="settings-card">
@@ -1138,6 +1177,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           </div>
         </div>
 
+        <!-- ВКЛАДКА 5: ГОЛОС И ВИДЕО -->
         <div class="settings-pane" id="pane-voice">
           <div class="settings-head"><h3>🎙️ Голос и видео</h3><button class="btn-login-mini" onclick="refreshMediaDevices()">🔄 ОБНОВИТЬ</button></div>
           <div class="settings-card">
@@ -1145,13 +1185,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div class="settings-grid-2"><div><label class="field-label">Усиление микр.: <span id="lbl-mic-vol">100%</span></label><input type="range" class="cyber-range" id="set-mic-vol" min="0" max="200" value="100" oninput="onAudioSlidersChange()"></div><div><label class="field-label">Громкость: <span id="lbl-out-vol">100%</span></label><input type="range" class="cyber-range" id="set-out-vol" min="0" max="200" value="100" oninput="onAudioSlidersChange()"></div></div>
             <div><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><label class="field-label">Тест микрофона</label><button class="btn-login-mini" id="btn-mic-test" onclick="toggleMicTest()">🎙️ ПРОВЕРИТЬ</button></div><div class="mic-meter-wrap"><div class="mic-meter-bar" id="mic-test-bar"></div></div></div>
             <div class="settings-grid-2"><div><label class="field-label">Камера</label><select id="set-cam-select" onchange="saveAudioVideoSettings()"></select></div><div><label class="field-label">Разрешение</label><select id="set-cam-res" onchange="saveAudioVideoSettings()"><option value="720">HD 720p</option><option value="480">SD 480p</option></select></div></div>
-            <div class="toggle-row"><div class="toggle-title">🪟 Мини-виджет звонка</div><label class="cyber-switch"><input type="checkbox" id="chk-auto-overlay" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
             <div class="toggle-row"><div class="toggle-title">Шумоподавление</div><label class="cyber-switch"><input type="checkbox" id="chk-noise" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
             <div class="toggle-row"><div class="toggle-title">Эхоподавление</div><label class="cyber-switch"><input type="checkbox" id="chk-echo" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
             <div class="toggle-row"><div class="toggle-title">Автоусиление</div><label class="cyber-switch"><input type="checkbox" id="chk-agc" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
           </div>
         </div>
 
+        <!-- ВКЛАДКА 6: ВНЕШНИЙ ВИД -->
         <div class="settings-pane" id="pane-appearance">
           <div class="settings-head"><h3>🎨 Внешний вид</h3></div>
           <div class="settings-card">
@@ -1160,6 +1200,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           </div>
         </div>
 
+        <!-- ВКЛАДКА 7: УВЕДОМЛЕНИЯ -->
         <div class="settings-pane" id="pane-notifications">
           <div class="settings-head"><h3>🔔 Звуковые сигналы</h3></div>
           <div class="settings-card">
@@ -1168,9 +1209,31 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           </div>
         </div>
 
+        <!-- ВКЛАДКА 8: УЧЁТНАЯ ЗАПИСЬ И ВХОД В ТОТ ЖЕ АККАУНТ С ТЕЛЕФОНА -->
         <div class="settings-pane" id="pane-account">
-          <div class="settings-head"><h3>🔑 Учётная запись</h3></div>
-          <div class="settings-card"><div class="settings-grid-2"><button class="btn-cyan" onclick="closeSettingsModal();openAuthModal(false)">✈️ СМЕНИТЬ АККАУНТ</button><button class="btn-danger" onclick="logoutAccount()">ВЫЙТИ</button></div></div>
+          <div class="settings-head"><h3>🔑 Учётная запись (ПК и Телефон)</h3></div>
+          <div class="settings-card">
+            <div class="field-label">Быстрый вход в этот же аккаунт на телефоне</div>
+            <p style="font-size:12px;color:var(--text-normal);">Нажмите кнопку ниже, чтобы получить 4-значный код, затем откройте приложение на телефоне и введите этот код во вкладке «📲 КОД ПК/ТЕЛ»:</p>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <button class="btn-cyan" onclick="generateDeviceLinkCode()">📲 ПОЛУЧИТЬ КОД ДЛЯ ТЕЛЕФОНА</button>
+              <span id="device-link-code-box" style="font-size:20px;font-weight:900;color:var(--yellow);letter-spacing:4px;font-family:monospace;"></span>
+            </div>
+          </div>
+          <div class="settings-card">
+            <div class="field-label">Установить или обновить пароль для входа по позывному</div>
+            <p style="font-size:12px;color:var(--text-normal);">Вы также можете входить на любом устройстве (ПК или Android), просто введя свой позывной <b id="acc-current-nick" style="color:var(--brand);"></b> и этот пароль:</p>
+            <div style="display:flex;gap:8px;">
+              <input type="password" id="acc-new-pass-inp" placeholder="Новый пароль (от 4 символов)" maxlength="64" style="flex:1;">
+              <button class="btn-cyan" onclick="saveAccountPassword()">СОХРАНИТЬ ПАРОЛЬ</button>
+            </div>
+          </div>
+          <div class="settings-card">
+            <div class="settings-grid-2">
+              <button class="btn-login-mini" onclick="closeSettingsModal();openAuthModal(false)">🔄 ВОЙТИ В ДРУГОЙ АККАУНТ</button>
+              <button class="btn-danger" onclick="logoutAccount()">ВЫЙТИ ИЗ АККАУНТА</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1180,21 +1243,36 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     <div class="modal-box"><h3 style="color:var(--brand);font-size:16px;margin-bottom:8px;">⚡ ПРИГЛАСИТЬ ДРУГА</h3><a class="link-box" id="public-invite-url" href="#" target="_blank"></a><button class="btn-cyan" style="width:100%;margin-bottom:6px;" onclick="copyInviteLink()">СКОПИРОВАТЬ ССЫЛКУ</button><button class="btn-login-mini" style="width:100%;" onclick="closeInviteModal()">ЗАКРЫТЬ</button></div>
   </div>
 
+  <!-- МОДАЛЬНОЕ ОКНО АВТОРИЗАЦИИ (ПАРОЛЬ / КОД С ПК / TELEGRAM) -->
   <div class="modal-backdrop" id="auth-modal" onclick="if(!authLocked && event.target===this)closeAuthModal()">
     <div class="modal-box">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h3 style="color:var(--brand);font-size:16px;">⚡ АВТОРИЗАЦИЯ</h3><span style="font-size:10px;background:var(--pink);color:#fff;padding:2px 6px;border-radius:4px;font-weight:800;">P2P ID</span></div>
-      <div class="auth-tabs"><div class="auth-tab active" id="tab-tg-btn" onclick="switchAuthTab('tg')">✈️ TELEGRAM</div><div class="auth-tab" id="tab-pass-btn" onclick="switchAuthTab('pass')">🔑 ПАРОЛЬ</div></div>
-      <input type="text" id="nick-inp" placeholder="Ваш позывной (никнейм)" maxlength="24">
-      <div id="auth-tg-panel">
-        <p style="font-size:12px;color:var(--text-normal);margin-bottom:10px;">Откройте бота и нажмите /start — вход выполнится автоматически:</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h3 style="color:var(--brand);font-size:16px;">⚡ ВХОД В АККАУНТ</h3><span style="font-size:10px;background:var(--pink);color:#fff;padding:2px 6px;border-radius:4px;font-weight:800;">ПК + ANDROID</span></div>
+      <div class="auth-tabs">
+        <div class="auth-tab active" id="tab-pass-btn" onclick="switchAuthTab('pass')">🔑 ПАРОЛЬ</div>
+        <div class="auth-tab" id="tab-link-btn" onclick="switchAuthTab('link')">📲 КОД ПК/ТЕЛ</div>
+        <div class="auth-tab" id="tab-tg-btn" onclick="switchAuthTab('tg')">✈️ TELEGRAM</div>
+      </div>
+
+      <div id="auth-pass-panel">
+        <p style="font-size:12px;color:var(--text-normal);margin-bottom:8px;">Введите ваш позывной и пароль (одинаковый на ПК и на телефоне):</p>
+        <input type="text" id="nick-inp" placeholder="Ваш позывной (например: Sergo)" maxlength="24">
+        <input type="password" id="pass-inp" placeholder="Пароль (минимум 4 символа)" maxlength="64">
+        <button class="btn-cyan" style="width:100%;" onclick="loginWithPassword()">ВОЙТИ В АККАУНТ</button>
+      </div>
+
+      <div id="auth-link-panel" style="display:none;">
+        <p style="font-size:12px;color:var(--text-normal);margin-bottom:8px;">Откройте на ПК «Настройки -> Учётная запись -> Получить код для телефона» и введите 4 цифры здесь:</p>
+        <input type="text" id="device-link-inp" placeholder="4 ЦИФРЫ КОДА" maxlength="6" style="text-align:center;font-size:16px;font-weight:900;letter-spacing:4px;">
+        <button class="btn-cyan" style="width:100%;" onclick="loginWithDeviceCode()">ВОЙТИ В ТОТ ЖЕ АККАУНТ</button>
+      </div>
+
+      <div id="auth-tg-panel" style="display:none;">
+        <p style="font-size:12px;color:var(--text-normal);margin-bottom:10px;">Откройте Telegram-бота и нажмите /start — вы войдёте в свой единый аккаунт:</p>
         <button type="button" class="btn-tg" id="tg-open-bot-btn" onclick="openTelegramBot()">✈️ ОТКРЫТЬ TELEGRAM И ПОЛУЧИТЬ КОД</button>
-        <input type="text" id="tg-code-inp" placeholder="КОД (4 ЦИФРЫ)" maxlength="6" style="text-align:center;font-size:15px;font-weight:800;letter-spacing:4px;">
+        <input type="text" id="tg-code-inp" placeholder="КОД ИЗ БОТА (4 ЦИФРЫ)" maxlength="6" style="text-align:center;font-size:15px;font-weight:800;letter-spacing:4px;">
         <button class="btn-cyan" style="width:100%;" onclick="verifyTelegramCode()">ПОДТВЕРДИТЬ И ВОЙТИ</button>
       </div>
-      <div id="auth-pass-panel" style="display:none;">
-        <input type="password" id="pass-inp" placeholder="Пароль (минимум 4 символа)" maxlength="64">
-        <button class="btn-cyan" style="width:100%;" onclick="loginWithPassword()">ВОЙТИ НАВСЕГДА</button>
-      </div>
+
       <button class="btn-login-mini" id="auth-close-btn" style="width:100%;margin-top:8px;" onclick="closeAuthModal()">ЗАКРЫТЬ</button>
     </div>
   </div>
@@ -1233,25 +1311,25 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function setPersistCookie(n, v) { try { document.cookie = n + '=' + encodeURIComponent(v) + '; path=/; max-age=31536000; SameSite=Lax'; } catch (e) {} }
   function getPersistCookie(n) { try { const m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; } catch (e) { return ''; } }
 
+  // Проверяем, авторизован ли пользователь. Если не авторизован — НЕ сохраняем его как постоянного пользователя
+  let myVerified = (localStorage.getItem('cyber_verified') === '1') || (getPersistCookie('cyber_verified') === '1');
   let myUid = '';
-  try { myUid = localStorage.getItem('cyber_uid') || ''; } catch (e) {}
-  if (!myUid || !/^[a-f0-9]{32}$/.test(myUid)) myUid = getPersistCookie('cyber_uid');
+  if (myVerified) {
+    try { myUid = localStorage.getItem('cyber_uid') || getPersistCookie('cyber_uid') || ''; } catch (e) {}
+  }
   if (!myUid || !/^[a-f0-9]{32}$/.test(myUid)) {
     const a = new Uint8Array(16); (window.crypto || window.msCrypto).getRandomValues(a);
     myUid = Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+    myVerified = false;
   }
-  try { localStorage.setItem('cyber_uid', myUid); } catch (e) {}
-  setPersistCookie('cyber_uid', myUid);
 
   let currentRoom = params.get('room') || params.get('server') || localStorage.getItem('cyber_last_room') || 'cy-4371';
-  try { localStorage.setItem('cyber_last_room', currentRoom); } catch (e) {}
   let currentChannel = params.get('channel') || 'общий', currentVoiceChannel = 'Ночной эфир';
-  let myNick = localStorage.getItem('cyber_nick') || getPersistCookie('cyber_nick') || ('Гость_' + Math.floor(100 + Math.random() * 899));
-  let myVerified = localStorage.getItem('cyber_verified') === '1' || getPersistCookie('cyber_verified') === '1', authLocked = !myVerified;
+  let myNick = myVerified ? (localStorage.getItem('cyber_nick') || getPersistCookie('cyber_nick') || 'Оператор') : 'Гость';
+  let authLocked = !myVerified;
 
   function updateBrowserUrl() { try { window.history.replaceState({}, '', window.location.pathname + '?room=' + encodeURIComponent(currentRoom) + '&channel=' + encodeURIComponent(currentChannel)); } catch (e) {} }
 
-  // --- ВСЕ 3 НАБОРА ПОДКЛЮЧЕНЫ К ВАШИМ ОРИГИНАЛЬНЫМ КАРТИНКАМ БЕЗ ПЕРЕРИСОВКИ ---
   const FX_SETS_META = {
     set1: {
       code: '⚡FX:SET1', avaClass: 'fx-set1', badgeClass: 'b-set1', badgeText: '🌙 LUCY NET', surfaceClass: 'theme-set1',
@@ -1270,40 +1348,105 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     }
   };
 
-  // Генератор иконки с рамкой для ВСЕХ мест (чат, список участников, голосовой канал)
-  function buildMiniHexAvatarHTML(letters, avaColor, setKey, sizePx, statusCls) {
+  let myProfile = { bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#00f0ff', avatarColor: '#3b82f6', fxSet: 'set1', avatarImg: '', bannerImg: '' };
+  if (myVerified) {
+    try { myProfile = Object.assign(myProfile, JSON.parse(localStorage.getItem('cyber_profile') || '{}')); } catch (e) {}
+  }
+
+  // Надёжная обрезка по центру и сжатие своей картинки для аватара или фона профиля
+  function handleCustomImageUpload(ev, kind) {
+    const file = ev.target && ev.target.files && ev.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const img = new Image();
+      img.onload = function () {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (kind === 'avatar') {
+          const size = 240;
+          canvas.width = size;
+          canvas.height = size;
+          const minSide = Math.min(img.width, img.height);
+          const sx = Math.floor((img.width - minSide) / 2);
+          const sy = Math.floor((img.height - minSide) / 2);
+          ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+        } else {
+          const maxW = 520, maxH = 700;
+          const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
+          canvas.width = Math.max(1, Math.round(img.width * ratio));
+          canvas.height = Math.max(1, Math.round(img.height * ratio));
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        }
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.84);
+        if (kind === 'avatar') myProfile.avatarImg = dataUrl;
+        else myProfile.bannerImg = dataUrl;
+        if (myVerified) {
+          try { localStorage.setItem('cyber_profile', JSON.stringify(myProfile)); } catch (err) {}
+        }
+        applyNickUI();
+        updateProfilePreview(true);
+        syncProfileToServer();
+        renderUsers(lastMembers);
+        rerenderChatMessages();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+    ev.target.value = '';
+  }
+
+  function clearCustomImage(kind) {
+    if (kind === 'avatar') myProfile.avatarImg = '';
+    else myProfile.bannerImg = '';
+    if (myVerified) {
+      try { localStorage.setItem('cyber_profile', JSON.stringify(myProfile)); } catch (err) {}
+    }
+    applyNickUI();
+    updateProfilePreview(true);
+    syncProfileToServer();
+    renderUsers(lastMembers);
+    rerenderChatMessages();
+  }
+
+  function buildAvatarInnerContent(letters, avaImg) {
+    if (avaImg) return '<img class="ava-custom-img" src="' + escapeHtml(avaImg) + '" alt="">';
+    return escapeHtml(letters);
+  }
+
+  function buildMiniHexAvatarHTML(letters, avaColor, setKey, sizePx, statusCls, avaImg) {
     const m = FX_SETS_META[setKey];
     const sz = sizePx || 36;
     const fSize = Math.max(9, Math.round(sz * 0.3));
+    const innerHTML = buildAvatarInnerContent(letters, avaImg);
+    const bgStyle = 'font-size:' + (m ? Math.max(8, fSize - 1) : fSize) + 'px;background:' + escapeHtml(avaColor || '#3b82f6') + ';';
     if (!m) {
       return '<div class="hex-wrap" style="width:' + sz + 'px;height:' + sz + 'px;">' +
-        '<div class="hex-border"><div class="hex-core" style="font-size:' + fSize + 'px;background:' + escapeHtml(avaColor || '#3b82f6') + ';">' + escapeHtml(letters) + '</div></div>' +
+        '<div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div>' +
         (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') +
       '</div>';
     }
     return '<div class="hex-wrap has-custom-frame ' + m.avaClass + '" style="width:' + sz + 'px;height:' + sz + 'px;">' +
-      '<div class="hex-border"><div class="hex-core" style="font-size:' + Math.max(8, fSize - 1) + 'px;background:' + escapeHtml(avaColor || '#3b82f6') + ';">' + escapeHtml(letters) + '</div></div>' +
+      '<div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div>' +
       '<img class="mini-frame-overlay" src="' + m.frameImgUrl + '" alt="">' +
       (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') +
     '</div>';
   }
 
-  // Генератор крупного аватара в профиле и настройках с выровненным шестиугольником под рамку
-  function buildHeroHexMedallionHTML(letters, avaColor, setKey, statusCls) {
+  function buildHeroHexMedallionHTML(letters, avaColor, setKey, statusCls, avaImg) {
     const m = FX_SETS_META[setKey];
+    const innerHTML = buildAvatarInnerContent(letters, avaImg);
+    const bgStyle = 'font-size:18px;background:' + escapeHtml(avaColor || '#3b82f6') + ';';
     if (!m) {
-      return '<div class="hex-wrap" style="width:88px;height:88px;">' +
-        '<div class="hex-border"><div class="hex-core" style="font-size:24px;background:' + escapeHtml(avaColor || '#3b82f6') + ';">' + escapeHtml(letters) + '</div></div>' +
+      return '<div class="hex-wrap" style="width:84px;height:84px;">' +
+        '<div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div>' +
         (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') +
       '</div>';
     }
-    return '<div class="cds-user-core" style="background:' + escapeHtml(avaColor || '#3b82f6') + ';">' + escapeHtml(letters) + '</div>' +
+    return '<div class="cds-user-core" style="' + bgStyle + '">' + innerHTML + '</div>' +
       '<img class="cds-frame-img" src="' + m.frameImgUrl + '" alt="Frame">' +
-      (statusCls ? '<span class="hex-status-dot ' + statusCls + '" style="right:24px;bottom:14px;"></span>' : '');
+      (statusCls ? '<span class="hex-status-dot ' + statusCls + '" style="right:18px;bottom:10px;"></span>' : '');
   }
-
-  let myProfile = { bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#00f0ff', avatarColor: '#3b82f6', fxSet: 'set1' };
-  try { myProfile = Object.assign(myProfile, JSON.parse(localStorage.getItem('cyber_profile') || '{}')); } catch (e) {}
 
   function detectFxSetFromInterests(raw) {
     const s = String(raw || '');
@@ -1332,7 +1475,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const tags = cleanInterestsForDisplay(myProfile.interests);
     if (myProfile.fxSet && FX_SETS_META[myProfile.fxSet]) tags.push(FX_SETS_META[myProfile.fxSet].code);
     myProfile.interests = tags.join(', ');
-    try { localStorage.setItem('cyber_profile', JSON.stringify(myProfile)); } catch (e) {}
+    if (myVerified) { try { localStorage.setItem('cyber_profile', JSON.stringify(myProfile)); } catch (e) {} }
     updateFxButtonsUI(); applyNickUI(); updateProfilePreview(true); syncProfileToServer();
     renderUsers(lastMembers); rerenderChatMessages();
   }
@@ -1343,32 +1486,31 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const b = document.getElementById('btn-fx-' + k);
       if (b) b.textContent = (cur === k) ? '✓ АКТИВЕН' : '🎁 ЗАБРАТЬ';
       const slot = document.getElementById('fx-demo-slot-' + (idx + 1));
-      if (slot) slot.innerHTML = '<div class="cyber-diode-scene" style="margin:0;width:110px;height:110px;">' + buildHeroHexMedallionHTML(myNick.slice(0, 2).toUpperCase(), myProfile.avatarColor, k, '') + '</div>';
+      if (slot) slot.innerHTML = '<div class="cyber-diode-scene" style="margin:0;width:104px;height:104px;">' + buildHeroHexMedallionHTML(myNick.slice(0, 2).toUpperCase(), myProfile.avatarColor, k, '', myProfile.avatarImg) + '</div>';
     });
     const dis = document.getElementById('btn-disable-fx');
     if (dis) dis.style.display = cur ? 'inline-block' : 'none';
   }
 
   function getMyMemberObject() {
-    return { pid: myPid, nick: myNick, online: true, presence: myProfile.presence, customStatus: myProfile.customStatus, bio: myProfile.bio, interests: myProfile.interests, bannerColor: myProfile.bannerColor, avatarColor: myProfile.avatarColor, fxSet: myProfile.fxSet };
+    return { pid: myPid, nick: myNick, online: true, presence: myProfile.presence, customStatus: myProfile.customStatus, bio: myProfile.bio, interests: myProfile.interests, bannerColor: myProfile.bannerColor, avatarColor: myProfile.avatarColor, avatarImg: myProfile.avatarImg, bannerImg: myProfile.bannerImg, fxSet: myProfile.fxSet };
   }
 
-  // --- ГОРЯЧИЕ КЛАВИШИ ---
-  const DEFAULT_KEYBINDS = { mute: 'Alt+KeyM', deafen: 'Alt+KeyD', cam: 'Alt+KeyC', screen: 'Alt+KeyS', pip: 'Alt+KeyP' };
+  const DEFAULT_KEYBINDS = { mute: 'Alt+KeyM', deafen: 'Alt+KeyD', cam: 'Alt+KeyC', screen: 'Alt+KeyS' };
   let userKeybinds = Object.assign({}, DEFAULT_KEYBINDS);
   try { userKeybinds = Object.assign(userKeybinds, JSON.parse(localStorage.getItem('cyber_keybinds') || '{}')); } catch (e) {}
   let recordingAction = null;
 
   function formatKeybindCode(c) { return c ? String(c).replace('Key', '').replace('Digit', '').replace('Control', 'Ctrl') : 'Не назначено'; }
   function renderKeybindsUI() {
-    ['mute', 'deafen', 'cam', 'screen', 'pip'].forEach(function (act) {
+    ['mute', 'deafen', 'cam', 'screen'].forEach(function (act) {
       const btn = document.getElementById('kb-btn-' + act);
       if (!btn) return;
       btn.textContent = (recordingAction === act) ? 'Нажмите клавишу...' : formatKeybindCode(userKeybinds[act]);
       btn.classList.toggle('recording', recordingAction === act);
     });
     const hint = document.getElementById('footer-keybind-hint');
-    if (hint) hint.textContent = 'БИНДЫ: МИКР [' + formatKeybindCode(userKeybinds.mute) + '] • ЗВУК [' + formatKeybindCode(userKeybinds.deafen) + '] • ОВЕРЛЕЙ [' + formatKeybindCode(userKeybinds.pip) + ']';
+    if (hint) hint.textContent = 'БИНДЫ: МИКР [' + formatKeybindCode(userKeybinds.mute) + '] • ЗВУК [' + formatKeybindCode(userKeybinds.deafen) + '] • КАМЕРА [' + formatKeybindCode(userKeybinds.cam) + ']';
   }
   function startKeybindRecord(act) { recordingAction = (recordingAction === act) ? null : act; renderKeybindsUI(); }
   function resetKeybindsToDefault() { userKeybinds = Object.assign({}, DEFAULT_KEYBINDS); recordingAction = null; try { localStorage.setItem('cyber_keybinds', JSON.stringify(userKeybinds)); } catch (e) {} renderKeybindsUI(); }
@@ -1379,20 +1521,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     return p.join('+');
   }
 
-  let appSettings = Object.assign({ micDeviceId: '', spkDeviceId: '', camDeviceId: '', micVolume: 100, outVolume: 100, camRes: '720', autoOverlay: true, noiseSuppression: true, echoCancellation: true, autoGainControl: true, compactChat: false, fontSize: '14px', soundMsg: true, soundVoice: true, filterSexual: true, filterGore: true, filterOutgoing: true, filterAction: 'block', customBlockedWords: '' }, JSON.parse(localStorage.getItem('cyber_settings') || '{}'));
+  let appSettings = Object.assign({ micDeviceId: '', spkDeviceId: '', camDeviceId: '', micVolume: 100, outVolume: 100, camRes: '720', noiseSuppression: true, echoCancellation: true, autoGainControl: true, compactChat: false, fontSize: '14px', soundMsg: true, soundVoice: true, filterSexual: true, filterGore: true, filterOutgoing: true, filterAction: 'block', customBlockedWords: '' }, JSON.parse(localStorage.getItem('cyber_settings') || '{}'));
   let localVault = Object.assign({ knownUsers: {}, friends: [], incoming: [], outgoing: [], servers: [], messages: {} }, JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}'));
 
-  function rememberUserInVault(u) {
-    if (!u || !u.pid || u.nick === '?') return;
-    const prev = localVault.knownUsers[u.pid] || {};
-    localVault.knownUsers[u.pid] = { pid: u.pid, nick: u.nick || prev.nick || 'Участник', bio: u.bio !== undefined ? u.bio : (prev.bio || ''), interests: u.interests !== undefined ? u.interests : (prev.interests || ''), customStatus: u.customStatus !== undefined ? u.customStatus : (prev.customStatus || ''), presence: u.presence || prev.presence || 'online', bannerColor: u.bannerColor || prev.bannerColor || '#00f0ff', avatarColor: u.avatarColor || prev.avatarColor || '#3b82f6' };
-  }
   function saveLocalVault() {
+    if (!myVerified) return;
     try {
-      if (social.friends && social.friends.length) localVault.friends = social.friends.map(function (f) { rememberUserInVault(f); return f.pid; });
-      if (social.incoming) localVault.incoming = social.incoming.map(function (i) { rememberUserInVault(i); return i.pid; });
-      if (social.outgoing) localVault.outgoing = social.outgoing.slice();
-      if (lastMembers) lastMembers.forEach(rememberUserInVault);
       if (serversList && serversList.length) localVault.servers = serversList.slice(0, 40);
       if (currentRoom && roomMessagesCache) {
         if (!localVault.messages) localVault.messages = {};
@@ -1403,9 +1537,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     } catch (e) {}
   }
   async function pushLocalVaultToServer() {
+    if (!myVerified) return;
     try {
-      const ka = Object.values(localVault.knownUsers || {});
-      await fetch('/api/vault-restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, nick: myNick, profile: myProfile, friends: localVault.friends || [], incoming: localVault.incoming || [], outgoing: localVault.outgoing || [], knownUsers: ka, servers: localVault.servers || [], room: currentRoom, roomMembersPids: ka.map(function (u) { return u.pid; }), messages: localVault.messages || {} }) });
+      await fetch('/api/vault-restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, nick: myNick, profile: myProfile, servers: localVault.servers || [], room: currentRoom, messages: localVault.messages || {} }) });
     } catch (e) {}
   }
 
@@ -1434,8 +1568,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let inVoice = false, inScreen = false, inWebcam = false, isMuted = false, isDeafened = false;
   let screenCalls = {}, camCalls = {}, myPid = null, lastMembers = [], social = { friends: [], incoming: [], outgoing: [], servers: [] };
   let pendingChannelType = 'text', micTestStream = null, micTestTimer = null, stageLayoutMode = 'grid';
-  let callStartTime = 0, voiceLockRelease = null, wakeLockSentinel = null, keepAliveAudioEl = null, bgWorker = null;
-  let pipCanvas = null, pipCtx = null, canvasPipVideo = null, subsonicWavUrl = null;
+  let callStartTime = 0, voiceLockRelease = null, wakeLockSentinel = null, keepAliveAudioEl = null, bgWorker = null, subsonicWavUrl = null;
   const SILENT_WAV_BASE64 = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
 
   function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
@@ -1456,46 +1589,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     } catch (e) { return SILENT_WAV_BASE64; }
   }
 
-  function ensurePipCanvasAndVideo() {
-    if (!pipCanvas) { pipCanvas = document.createElement('canvas'); pipCanvas.width = 460; pipCanvas.height = 260; pipCtx = pipCanvas.getContext('2d', { alpha: false }); drawSystemPipOverlayFrame(); }
-    if (!canvasPipVideo) {
-      canvasPipVideo = document.createElement('video'); canvasPipVideo.muted = true; canvasPipVideo.autoplay = true; canvasPipVideo.playsInline = true; canvasPipVideo.autoPictureInPicture = true;
-      canvasPipVideo.style.cssText = 'position:fixed;right:0;bottom:0;width:4px;height:4px;opacity:0.01;pointer-events:none;z-index:1;';
-      document.body.appendChild(canvasPipVideo);
-      try { canvasPipVideo.srcObject = pipCanvas.captureStream(25); canvasPipVideo.play().catch(function () {}); } catch (e) {}
-    } else if (canvasPipVideo.paused) canvasPipVideo.play().catch(function () {});
-  }
-  document.addEventListener('pointerdown', function () { ensurePipCanvasAndVideo(); }, { once: true });
-
-  function drawSystemPipOverlayFrame() {
-    if (!pipCanvas || !pipCtx) return;
-    const ctx = pipCtx, w = pipCanvas.width, h = pipCanvas.height;
-    ctx.fillStyle = '#05080f'; ctx.fillRect(0, 0, w, h);
-    const activeVideoEl = document.querySelector('#screen-grid .screen-card:not(.nsfw-masked) video');
-    if (activeVideoEl && activeVideoEl.readyState >= 2) {
-      try { ctx.drawImage(activeVideoEl, 0, 38, w, h - 38); } catch (e) {}
-      ctx.fillStyle = 'rgba(4,7,13,0.88)'; ctx.fillRect(0, 0, w, 38);
-    } else {
-      ctx.fillStyle = '#0c1422'; ctx.fillRect(14, 48, w - 28, 34);
-      ctx.fillStyle = isMuted ? '#ff1e56' : '#10b981'; ctx.font = 'bold 13px sans-serif';
-      ctx.fillText((isMuted ? '🔇 Микр. выкл' : '🎤 Микр. вкл') + (isDeafened ? ' • 🔇 Звук выкл' : ' • 🎧 Звук вкл'), 26, 70);
-      getVoiceChannelMembers().slice(0, 5).forEach(function (u, i) {
-        const y = 115 + i * 25; ctx.fillStyle = '#e6f7ff'; ctx.font = 'bold 13px sans-serif';
-        ctx.fillText('⬢ ' + u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : ''), 24, y);
-      });
-    }
-    ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, w - 2, h - 2);
-    ctx.fillStyle = '#00f0ff'; ctx.font = 'bold 14px sans-serif'; ctx.fillText('🔊 ' + String(currentVoiceChannel || 'Эфир').slice(0, 22), 16, 25);
-    ctx.fillStyle = '#e6f7ff'; ctx.font = 'bold 13px monospace'; ctx.fillText(formatCallTime(callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0), w - 58, 25);
-  }
-
-  function toggleExternalOverlay() {
-    if (document.pictureInPictureElement) { try { document.exitPictureInPicture(); } catch (e) {} return; }
-    ensurePipCanvasAndVideo(); drawSystemPipOverlayFrame();
-    if (canvasPipVideo && canvasPipVideo.requestPictureInPicture) canvasPipVideo.requestPictureInPicture().catch(function () {});
-    if (!inVoice) ensureVoiceConnected();
-  }
-
   function startBackgroundCallPersistence() {
     document.body.classList.add('voice-live');
     if (navigator.locks && navigator.locks.request && !voiceLockRelease) navigator.locks.request('signal_voice', { mode: 'exclusive' }, function () { return new Promise(function (r) { voiceLockRelease = r; }); }).catch(function () {});
@@ -1511,12 +1604,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       bgWorker.onmessage = function () {
         if (!inVoice) return;
         const tStr = formatCallTime(Math.floor((Date.now() - callStartTime) / 1000));
-        const tEl = document.getElementById('fco-timer-label'); if (tEl) tEl.textContent = tStr;
         const stEl = document.getElementById('svd-state-text'); if (stEl) stEl.textContent = '🟢 В ЭФИРЕ • ' + tStr;
-        drawSystemPipOverlayFrame();
       };
     } catch (e) {}
-    updateFloatingOverlayUI();
+    updateVoiceControlsUI();
   }
 
   function stopBackgroundCallPersistence() {
@@ -1526,12 +1617,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (keepAliveAudioEl) { try { keepAliveAudioEl.pause(); } catch (e) {} }
     if (bgWorker) { try { bgWorker.terminate(); } catch (e) {} bgWorker = null; }
     const stEl = document.getElementById('svd-state-text'); if (stEl) { stEl.textContent = '📡 ГОЛОСОВОЙ КАНАЛ'; stEl.classList.add('idle'); }
-    updateFloatingOverlayUI();
+    updateVoiceControlsUI();
   }
 
   function getVoiceChannelMembers() {
     const uList = (lastMembers || []).filter(function (u) { return u.online && u.inVoice && (!u.voiceChannel || u.voiceChannel === currentVoiceChannel); });
-    if (!uList.some(function (u) { return u.pid === myPid; }) && inVoice) uList.unshift({ pid: myPid, nick: myNick, online: true, inVoice: true, inCam: inWebcam, inScreen: inScreen, interests: myProfile.interests, avatarColor: myProfile.avatarColor });
+    if (!uList.some(function (u) { return u.pid === myPid; }) && inVoice) uList.unshift({ pid: myPid, nick: myNick, online: true, inVoice: true, inCam: inWebcam, inScreen: inScreen, interests: myProfile.interests, avatarColor: myProfile.avatarColor, avatarImg: myProfile.avatarImg, bannerImg: myProfile.bannerImg });
     return uList;
   }
 
@@ -1541,7 +1632,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const setKey = getUserFxSet(u);
       const r = el('div', 'vc-user-row');
       const avaHolder = document.createElement('div');
-      avaHolder.innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 28, '');
+      avaHolder.innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 28, '', u.avatarImg);
       r.appendChild(avaHolder.firstChild);
       r.appendChild(el('span', '', u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '')));
       r.onclick = function () { openUserProfileCard(u); };
@@ -1549,31 +1640,30 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     });
   }
 
-  function updateFloatingOverlayUI() {
-    const box = document.getElementById('floating-call-overlay'); if (!box) return;
-    box.classList.toggle('show', inVoice && appSettings.autoOverlay !== false);
-    document.getElementById('fco-channel-label').textContent = '🔊 ' + currentVoiceChannel;
-    document.getElementById('fco-mute-btn').textContent = isMuted ? '🔇 Выкл' : '🎤 Вкл';
-    document.getElementById('fco-deaf-btn').textContent = isDeafened ? '🔇 Глух' : '🎧 Вкл';
+  function updateVoiceControlsUI() {
     const ubMic = document.getElementById('mute-btn'), ubDeaf = document.getElementById('deafen-btn');
     if (ubMic) { ubMic.classList.toggle('off', isMuted); ubMic.textContent = isMuted ? '🔇' : '🎤'; }
     if (ubDeaf) { ubDeaf.classList.toggle('off', isDeafened); ubDeaf.textContent = isDeafened ? '🔇' : '🎧'; }
-    const pb = document.getElementById('fco-peers-box'); pb.innerHTML = '';
-    getVoiceChannelMembers().forEach(function (u) { const c = el('div', 'fco-peer-chip'); c.appendChild(el('span', 'fco-pulse')); c.appendChild(el('span', '', u.nick)); pb.appendChild(c); });
-    renderSidebarVoicePeers(); drawSystemPipOverlayFrame();
+    renderSidebarVoicePeers();
   }
 
   function switchAuthTab(m) {
-    const isTg = m === 'tg';
-    document.getElementById('tab-tg-btn').classList.toggle('active', isTg);
-    document.getElementById('tab-pass-btn').classList.toggle('active', !isTg);
-    document.getElementById('auth-tg-panel').style.display = isTg ? 'block' : 'none';
-    document.getElementById('auth-pass-panel').style.display = isTg ? 'none' : 'block';
+    document.getElementById('tab-pass-btn').classList.toggle('active', m === 'pass');
+    document.getElementById('tab-link-btn').classList.toggle('active', m === 'link');
+    document.getElementById('tab-tg-btn').classList.toggle('active', m === 'tg');
+    document.getElementById('auth-pass-panel').style.display = m === 'pass' ? 'block' : 'none';
+    document.getElementById('auth-link-panel').style.display = m === 'link' ? 'block' : 'none';
+    document.getElementById('auth-tg-panel').style.display = m === 'tg' ? 'block' : 'none';
   }
 
   function applyNickUI() {
     document.getElementById('user-name-label').textContent = myNick;
-    const ava = document.getElementById('user-ava'); ava.textContent = myNick.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#3b82f6';
+    const accNickEl = document.getElementById('acc-current-nick');
+    if (accNickEl) accNickEl.textContent = myNick;
+    const ava = document.getElementById('user-ava');
+    ava.innerHTML = buildAvatarInnerContent(myNick.slice(0, 2).toUpperCase(), myProfile.avatarImg);
+    ava.style.background = myProfile.avatarColor || '#3b82f6';
+
     const curSet = myProfile.fxSet || detectFxSetFromInterests(myProfile.interests), meta = FX_SETS_META[curSet];
     const wrap = document.getElementById('user-ava-wrap');
     if (wrap) wrap.className = 'hex-wrap' + (meta ? ' has-custom-frame ' + meta.avaClass : '');
@@ -1634,7 +1724,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('chat-input').placeholder = 'Написать в #' + ch + '...';
     document.querySelectorAll('.ch-btn').forEach(function (i) { i.classList.toggle('active', i.getAttribute('data-ch') === ch); });
   }
-  function updateVoicePanelUI() { document.getElementById('voice-panel-title').textContent = currentVoiceChannel; updateFloatingOverlayUI(); }
+  function updateVoicePanelUI() { document.getElementById('voice-panel-title').textContent = currentVoiceChannel; updateVoiceControlsUI(); }
 
   async function switchServer(roomId) {
     const clean = String(roomId || '').trim(); if (!clean || clean === currentRoom) { closeMobileDrawers(); return; }
@@ -1667,7 +1757,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         currentServerMeta = data.payload.current; serversList = data.payload.list || [currentServerMeta];
         if (data.payload.messagesByChannel) roomMessagesCache = data.payload.messagesByChannel;
         renderServersRail(); renderServerChannels(); cachedMessages = roomMessagesCache[currentChannel] || []; rerenderChatMessages();
-        pushLocalVaultToServer();
+        if (myVerified) pushLocalVaultToServer();
       } else if (data.type === 'servers') {
         serversList = data.payload.list || []; const f = serversList.find(function (s) { return s.id === currentRoom; }); if (f) currentServerMeta = f;
         renderServersRail(); renderServerChannels(); saveLocalVault();
@@ -1678,13 +1768,23 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         else { unreadByChannel[ch] = (unreadByChannel[ch] || 0) + 1; renderServerChannels(); }
         if (appSettings.soundMsg && msg && msg.author !== myNick) playUiBeep(540, 0.06);
       } else if (data.type === 'users') {
-        renderUsers(data.payload); updateFloatingOverlayUI(); saveLocalVault();
+        renderUsers(data.payload); updateVoiceControlsUI(); saveLocalVault();
       } else if (data.type === 'social') {
         myPid = data.payload.pid; social = data.payload;
         if (data.payload.nick) { myNick = data.payload.nick; try { localStorage.setItem('cyber_nick', myNick); } catch (err) {} setPersistCookie('cyber_nick', myNick); }
         if (data.payload.verified) { myVerified = true; authLocked = false; try { localStorage.setItem('cyber_verified', '1'); } catch (err) {} setPersistCookie('cyber_verified', '1'); closeAuthModal(); }
-        if (data.payload.bio !== undefined) Object.assign(myProfile, { bio: data.payload.bio || myProfile.bio, interests: data.payload.interests || myProfile.interests, customStatus: data.payload.customStatus || myProfile.customStatus, presence: data.payload.presence || myProfile.presence, bannerColor: data.payload.bannerColor || myProfile.bannerColor, avatarColor: data.payload.avatarColor || myProfile.avatarColor });
+        Object.assign(myProfile, {
+          bio: data.payload.bio !== undefined ? data.payload.bio : myProfile.bio,
+          interests: data.payload.interests !== undefined ? data.payload.interests : myProfile.interests,
+          customStatus: data.payload.customStatus !== undefined ? data.payload.customStatus : myProfile.customStatus,
+          presence: data.payload.presence || myProfile.presence,
+          bannerColor: data.payload.bannerColor || myProfile.bannerColor,
+          avatarColor: data.payload.avatarColor || myProfile.avatarColor,
+          avatarImg: data.payload.avatarImg !== undefined ? data.payload.avatarImg : myProfile.avatarImg,
+          bannerImg: data.payload.bannerImg !== undefined ? data.payload.bannerImg : myProfile.bannerImg
+        });
         const det = detectFxSetFromInterests(myProfile.interests); if (det) myProfile.fxSet = det;
+        try { localStorage.setItem('cyber_profile', JSON.stringify(myProfile)); } catch (err) {}
         applyNickUI(); renderSocial(); renderUsers(lastMembers); saveLocalVault();
       } else if (data.type === 'voice-join') {
         if (inVoice && peer && localStream && myPeerId && data.payload.peerId !== myPeerId && data.payload.voiceChannel === currentVoiceChannel) {
@@ -1720,10 +1820,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const memberObj = (lastMembers || []).find(function (u) { return u.nick === author; }) || (author === myNick ? getMyMemberObject() : { nick: author });
     const setKey = getUserFxSet(memberObj);
     const avaCol = (memberObj && memberObj.avatarColor) || '#3b82f6';
+    const avaImg = (memberObj && memberObj.avatarImg) || '';
     const div = el('div', 'msg-item');
     div.innerHTML =
       '<div style="cursor:pointer;margin-top:2px;">' +
-        buildMiniHexAvatarHTML(author.slice(0, 2).toUpperCase(), avaCol, setKey, 40, '') +
+        buildMiniHexAvatarHTML(author.slice(0, 2).toUpperCase(), avaCol, setKey, 40, '', avaImg) +
       '</div>' +
       '<div style="flex:1;min-width:0;">' +
         '<div class="msg-head-line"><span class="msg-author">' + escapeHtml(author) + '</span>' + getBadgeHTML(setKey) + '<span class="msg-time">' + escapeHtml(m.time) + '</span></div>' +
@@ -1737,7 +1838,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function friendAction(action, pid) {
     if (!myVerified) { openAuthModal(true); return Promise.resolve(); }
-    if (action === 'remove') { localVault.friends = (localVault.friends || []).filter(function (x) { return x !== pid; }); saveLocalVault(); }
     return fetch('/api/friend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, action: action, target: pid }) }).then(function (r) { return r.json(); }).catch(function () {});
   }
 
@@ -1745,7 +1845,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const d = el('div', 'online-user-item' + (u.online ? ' is-online' : '')); if (!u.online) d.style.opacity = '0.55';
     const setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
     const avaHolder = document.createElement('div');
-    avaHolder.innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 36, u.online ? (u.presence || 'online') : 'off');
+    const aImg = (u.pid === myPid ? myProfile.avatarImg : u.avatarImg) || '';
+    avaHolder.innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 36, u.online ? (u.presence || 'online') : 'off', aImg);
     d.appendChild(avaHolder.firstChild);
 
     const col = el('div', 'member-text-col'), nr = el('div', 'member-nick-row');
@@ -1800,7 +1901,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     closeMobileDrawers();
     const setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
     document.getElementById('vp-surface').className = 'profile-surface psd-inner' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
-    document.getElementById('vp-hero-stage').innerHTML = buildHeroHexMedallionHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, u.online ? (u.presence || 'online') : 'off');
+    const customBgEl = document.getElementById('vp-custom-bg');
+    if (customBgEl) {
+      const bImg = (u.pid === myPid ? myProfile.bannerImg : u.bannerImg) || '';
+      customBgEl.style.backgroundImage = bImg ? 'url(\'' + bImg + '\')' : 'none';
+    }
+    const aImg = (u.pid === myPid ? myProfile.avatarImg : u.avatarImg) || '';
+    document.getElementById('vp-hero-stage').innerHTML = buildHeroHexMedallionHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, u.online ? (u.presence || 'online') : 'off', aImg);
     document.getElementById('vp-nick').textContent = u.nick || 'Участник';
     document.getElementById('vp-badge-slot').innerHTML = getBadgeHTML(setKey);
     document.getElementById('vp-fx-label').textContent = fxMeta ? fxMeta.title : 'Стандартный кибер-контур';
@@ -1816,8 +1923,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
     const fBtn = document.getElementById('vp-friend-btn'), friendPids = (social.friends || []).map(function (f) { return f.pid; });
     if (u.pid === myPid || u.nick === myNick) {
-      fBtn.textContent = '✨ Настроить мой профиль и эффекты'; fBtn.className = 'btn-cyan';
-      fBtn.onclick = function () { closeViewProfileModal(); openSettingsModal('fx'); };
+      fBtn.textContent = '📷 Настроить мой профиль и фото'; fBtn.className = 'btn-cyan';
+      fBtn.onclick = function () { closeViewProfileModal(); openSettingsModal('profile'); };
     } else if (friendPids.includes(u.pid)) {
       fBtn.textContent = '✕ Удалить из друзей'; fBtn.className = 'btn-danger';
       fBtn.onclick = function () { friendAction('remove', u.pid); closeViewProfileModal(); };
@@ -1834,6 +1941,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function openSettingsModal(pane) {
+    if (!myVerified) return openAuthModal(true);
     closeMobileDrawers(); closeViewProfileModal(); setMobActiveTab('mob-tab-profile');
     document.getElementById('prof-nick-inp').value = myNick;
     document.getElementById('prof-presence-sel').value = myProfile.presence || 'online';
@@ -1876,15 +1984,21 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const finalIntr = cleanTags.join(', ');
 
     document.getElementById('preview-surface').className = 'profile-surface' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
-    document.getElementById('preview-hero-stage').innerHTML = buildHeroHexMedallionHTML(n.slice(0, 2).toUpperCase(), myProfile.avatarColor || '#3b82f6', curSet, pr);
+    const prevBg = document.getElementById('preview-custom-bg');
+    if (prevBg) prevBg.style.backgroundImage = myProfile.bannerImg ? 'url(\'' + myProfile.bannerImg + '\')' : 'none';
+    document.getElementById('preview-hero-stage').innerHTML = buildHeroHexMedallionHTML(n.slice(0, 2).toUpperCase(), myProfile.avatarColor || '#3b82f6', curSet, pr, myProfile.avatarImg);
     document.getElementById('preview-nick').textContent = n;
     document.getElementById('preview-badge-slot').innerHTML = getBadgeHTML(curSet);
     document.getElementById('preview-status').textContent = st || 'В сети';
     document.getElementById('preview-bio').textContent = bio || 'О себе...';
+    const fxLbl = document.getElementById('preview-fx-label');
+    if (fxLbl) fxLbl.textContent = fxMeta ? fxMeta.title : 'Стандартный контур';
     const tb = document.getElementById('preview-tags'); tb.innerHTML = '';
-    cleanInterestsForDisplay(finalIntr).forEach(function (tg) { tb.appendChild(el('span', 'dp-tag', tg)); });
+    const dTags = cleanInterestsForDisplay(finalIntr);
+    if (!dTags.length) tb.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">Интересы не указаны</span>';
+    else dTags.forEach(function (tg) { tb.appendChild(el('span', 'dp-tag', tg)); });
 
-    if (!skipSync) {
+    if (!skipSync && myVerified) {
       myNick = n; myProfile.presence = pr; myProfile.customStatus = st; myProfile.bio = bio; myProfile.interests = finalIntr;
       try { localStorage.setItem('cyber_nick', myNick); localStorage.setItem('cyber_profile', JSON.stringify(myProfile)); } catch (e) {}
       setPersistCookie('cyber_nick', myNick); saveLocalVault(); applyNickUI();
@@ -1894,9 +2008,48 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function syncProfileToServer() {
-    return fetch('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, nick: myNick, presence: myProfile.presence, customStatus: myProfile.customStatus, bio: myProfile.bio, interests: myProfile.interests, bannerColor: myProfile.bannerColor, avatarColor: myProfile.avatarColor }) }).catch(function () {});
+    if (!myVerified) return Promise.resolve();
+    return fetch('/api/profile', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid: myUid, nick: myNick, presence: myProfile.presence,
+        customStatus: myProfile.customStatus, bio: myProfile.bio,
+        interests: myProfile.interests, bannerColor: myProfile.bannerColor,
+        avatarColor: myProfile.avatarColor, avatarImg: myProfile.avatarImg || '',
+        bannerImg: myProfile.bannerImg || ''
+      })
+    }).catch(function () {});
   }
   async function saveProfileSettings() { updateProfilePreview(false); await syncProfileToServer(); closeSettingsModal(); }
+
+  // Генерация 4-значного кода для входа в этот же аккаунт на телефоне
+  async function generateDeviceLinkCode() {
+    try {
+      const res = await fetch('/api/device-link-init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid }) });
+      const d = await res.json();
+      if (d.error) return alert(d.error);
+      document.getElementById('device-link-code-box').textContent = d.code;
+    } catch (e) {}
+  }
+
+  async function loginWithDeviceCode() {
+    const code = document.getElementById('device-link-inp').value.trim();
+    if (!code) return alert('Введите 4-значный код!');
+    const res = await fetch('/api/device-link-verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, room: currentRoom, code: code }) });
+    const d = await res.json();
+    if (d.error) return alert(d.error);
+    completeClientAuth(d);
+  }
+
+  async function saveAccountPassword() {
+    const pw = document.getElementById('acc-new-pass-inp').value;
+    if (!pw || pw.length < 4) return alert('Пароль должен быть не менее 4 символов!');
+    const res = await fetch('/api/set-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, password: pw }) });
+    const d = await res.json();
+    if (d.error) return alert(d.error);
+    document.getElementById('acc-new-pass-inp').value = '';
+    alert('Пароль сохранён! Теперь вы можете входить по своему позывному "' + myNick + '" и этому паролю с телефона и ПК.');
+  }
 
   async function refreshMediaDevices() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
@@ -1924,9 +2077,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.querySelectorAll('#audio-box audio').forEach(function (a) { a.volume = vol; a.muted = isDeafened; });
   }
   function saveAudioVideoSettings() {
-    appSettings.autoOverlay = document.getElementById('chk-auto-overlay').checked;
     try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
-    applyOutputVolumeToAll(); updateFloatingOverlayUI();
+    applyOutputVolumeToAll(); updateVoiceControlsUI();
   }
 
   async function toggleMicTest() {
@@ -1959,9 +2111,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
   }
   function logoutAccount() {
-    if (!confirm('Выйти из аккаунта?')) return;
-    try { localStorage.removeItem('cyber_verified'); localStorage.removeItem('cyber_uid'); } catch (e) {}
-    setPersistCookie('cyber_verified', ''); setPersistCookie('cyber_uid', ''); myVerified = false; openAuthModal(true);
+    if (!confirm('Выйти из аккаунта на этом устройстве?')) return;
+    try { localStorage.removeItem('cyber_verified'); localStorage.removeItem('cyber_uid'); localStorage.removeItem('cyber_nick'); } catch (e) {}
+    setPersistCookie('cyber_verified', ''); setPersistCookie('cyber_uid', ''); setPersistCookie('cyber_nick', '');
+    myVerified = false; closeSettingsModal(); openAuthModal(true);
   }
 
   function sendChatMessage(e) {
@@ -2032,22 +2185,38 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const res = await fetch('/api/tg-verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, code: code, nick: document.getElementById('nick-inp').value.trim() }) });
     const d = await res.json(); if (d.error) return alert(d.error); completeClientAuth(d);
   }
+
   function completeClientAuth(d) {
-    if (d.uid && d.uid !== myUid) myUid = d.uid; if (d.nick) myNick = d.nick; myVerified = true; authLocked = false;
-    try { localStorage.setItem('cyber_uid', myUid); localStorage.setItem('cyber_nick', myNick); localStorage.setItem('cyber_verified', '1'); } catch (e) {}
+    if (d.uid) myUid = d.uid;
+    if (d.nick) myNick = d.nick;
+    if (d.profile) {
+      Object.assign(myProfile, d.profile);
+      const det = detectFxSetFromInterests(myProfile.interests);
+      if (det) myProfile.fxSet = det;
+    }
+    myVerified = true; authLocked = false;
+    try {
+      localStorage.setItem('cyber_uid', myUid);
+      localStorage.setItem('cyber_nick', myNick);
+      localStorage.setItem('cyber_verified', '1');
+      localStorage.setItem('cyber_profile', JSON.stringify(myProfile));
+    } catch (e) {}
     setPersistCookie('cyber_uid', myUid); setPersistCookie('cyber_nick', myNick); setPersistCookie('cyber_verified', '1');
     applyNickUI(); closeAuthModal(); connectEventStream();
   }
+
   function openAuthModal(lock) {
     authLocked = !!lock || !myVerified; document.getElementById('auth-close-btn').style.display = authLocked ? 'none' : 'block';
-    if (myNick && !myNick.startsWith('Гость_')) document.getElementById('nick-inp').value = myNick;
+    if (myVerified && myNick && myNick !== 'Гость') document.getElementById('nick-inp').value = myNick;
     document.getElementById('auth-modal').classList.add('open'); initTelegramSession().then(function () { startTgPolling(); });
   }
   function closeAuthModal() { if (authLocked && !myVerified) return; if (tgPollTimer) { clearInterval(tgPollTimer); tgPollTimer = null; } document.getElementById('auth-modal').classList.remove('open'); }
+
   async function loginWithPassword() {
     const nick = document.getElementById('nick-inp').value.trim(), pass = document.getElementById('pass-inp').value;
-    if (!nick) return alert('Введите позывной!'); if (!pass && !myVerified) return alert('Введите пароль!');
-    const res = await fetch('/api/auth-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, nick: nick, password: pass }) });
+    if (!nick) return alert('Введите ваш позывной!');
+    if (!pass || pass.length < 4) return alert('Введите пароль (минимум 4 символа)!');
+    const res = await fetch('/api/auth-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myVerified ? myUid : '', room: currentRoom, nick: nick, password: pass }) });
     const d = await res.json(); if (d.error) return alert(d.error); completeClientAuth(d);
   }
 
@@ -2103,13 +2272,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     renderMediaTile('cam-local', webcamStream, myNick + ' (Камера)', true, 'cam');
     const d = await postVoiceState({ inVoice: true, inScreen: inScreen, inCam: true, peerId: myPeerId, voiceChannel: currentVoiceChannel });
     if (d && d.peers) d.peers.forEach(callPeerWithWebcam);
-    updateFloatingOverlayUI();
+    updateVoiceControlsUI();
   }
   function stopWebcam(silent) {
     if (webcamStream) { webcamStream.getTracks().forEach(function (t) { t.stop(); }); webcamStream = null; }
     inWebcam = false; document.getElementById('cam-btn').textContent = '📷 Камера'; document.getElementById('cam-btn').classList.remove('active-cam');
     removeMediaTile('cam-local'); if (!silent && inVoice) postVoiceState({ inVoice: true, inScreen: inScreen, inCam: false, peerId: myPeerId, voiceChannel: currentVoiceChannel });
-    updateFloatingOverlayUI();
+    updateVoiceControlsUI();
   }
 
   function callPeerWithScreen(pid) { if (peer && screenStream && pid && pid !== myPeerId) screenCalls[pid] = peer.call(pid, screenStream, { metadata: { kind: 'screen', nick: myNick } }); }
@@ -2123,13 +2292,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     renderMediaTile('screen-local', screenStream, myNick + ' (Экран)', true, 'screen');
     const d = await postVoiceState({ inVoice: true, inScreen: true, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel });
     if (d && d.peers) d.peers.forEach(callPeerWithScreen);
-    updateFloatingOverlayUI();
+    updateVoiceControlsUI();
   }
   function stopScreenShare(silent) {
     if (screenStream) { screenStream.getTracks().forEach(function (t) { t.stop(); }); screenStream = null; }
     inScreen = false; document.getElementById('screen-btn').textContent = '🖥️ Экран'; document.getElementById('screen-btn').classList.remove('active-screen');
     removeMediaTile('screen-local'); if (!silent && inVoice) postVoiceState({ inVoice: true, inScreen: false, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel });
-    updateFloatingOverlayUI();
+    updateVoiceControlsUI();
   }
 
   function setStageLayout(mode) {
@@ -2178,9 +2347,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function toggleMute() {
     if (!localStream) return; isMuted = !isMuted;
     localStream.getAudioTracks().forEach(function (t) { t.enabled = !isMuted; });
-    playUiBeep(isMuted ? 380 : 640, 0.05); updateFloatingOverlayUI();
+    playUiBeep(isMuted ? 380 : 640, 0.05); updateVoiceControlsUI();
   }
-  function toggleDeafen() { isDeafened = !isDeafened; playUiBeep(isDeafened ? 320 : 680, 0.05); applyOutputVolumeToAll(); updateFloatingOverlayUI(); }
+  function toggleDeafen() { isDeafened = !isDeafened; playUiBeep(isDeafened ? 320 : 680, 0.05); applyOutputVolumeToAll(); updateVoiceControlsUI(); }
   function playStream(id, stream) {
     if (document.getElementById('aud-' + id)) return;
     const a = document.createElement('audio'); a.id = 'aud-' + id; a.srcObject = stream; a.autoplay = true; a.playsInline = true;
@@ -2209,7 +2378,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     else if (pressed === userKeybinds.deafen) { e.preventDefault(); if (inVoice) toggleDeafen(); }
     else if (pressed === userKeybinds.cam) { e.preventDefault(); toggleWebcam(); }
     else if (pressed === userKeybinds.screen) { e.preventDefault(); toggleScreenShare(); }
-    else if (pressed === userKeybinds.pip) { e.preventDefault(); toggleExternalOverlay(); }
   });
 
   applyNickUI(); renderKeybindsUI(); applyAppearanceFromStorage(); renderServersRail(); renderServerChannels(); connectEventStream();
@@ -2236,13 +2404,11 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost:' + PORT);
 
-    // 1. Главная страница
     if (req.method === 'GET' && url.pathname === '/') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end(HTML_PAGE);
     }
 
-    // 2. РАЗДАЧА ВАШИХ КАРТИНОК РАМОК АВАТАРОВ И ПРОФИЛЕЙ
     const STATIC_IMAGES = {
       '/variant1_lucy_avatar_frame.jpg': ['variant1_lucy_avatar_frame.jpg'],
       '/variant2_edgerunner_avatar_frame.jpg': ['variant2_edgerunner_avatar_frame.jpg', 'set2_frame.jpg'],
@@ -2259,7 +2425,6 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // 3. РАЗДАЧА ЛОГОТИПА ДЛЯ APK (PWABuilder) БЕЗ ОШИБКИ 404
     if (req.method === 'GET' && (url.pathname === '/icon-192.png' || url.pathname === '/icon-512.png' || url.pathname === '/logo.png')) {
       const logo1 = path.join(__dirname, 'logo.png');
       const logo2 = path.join(__dirname, 'logo (1).png');
@@ -2270,7 +2435,6 @@ const server = http.createServer(async (req, res) => {
       return res.end(fallbackPng);
     }
 
-    // 4. МАНИФЕСТ ДЛЯ СБОРКИ ANDROID APK
     if (req.method === 'GET' && url.pathname === '/manifest.json') {
       res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8' });
       return res.end(JSON.stringify({
@@ -2296,7 +2460,6 @@ const server = http.createServer(async (req, res) => {
       }));
     }
 
-    // 5. SERVICE WORKER ДЛЯ ФОНОВОЙ РАБОТЫ
     if (req.method === 'GET' && url.pathname === '/sw.js') {
       res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
       return res.end("self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',()=>{});");
@@ -2314,6 +2477,40 @@ const server = http.createServer(async (req, res) => {
         broadcastServers();
         if (validUid(body.uid)) { notifyAllRoomsOfUser(body.uid); notifyFriendsOf(body.uid); sendSocial(body.uid); }
       }
+      return sendJson(res, 200, { ok: true });
+    }
+
+    // Генерация 4-значного кода для входа в тот же аккаунт с телефона
+    if (req.method === 'POST' && url.pathname === '/api/device-link-init') {
+      const body = await readBody(req), uid = body.uid;
+      if (!validUid(uid) || !users[uid] || !users[uid].verified) return sendJson(res, 400, { error: 'Сначала авторизуйтесь!' });
+      Object.keys(deviceLinkCodes).forEach(k => { if (deviceLinkCodes[k].uid === uid || deviceLinkCodes[k].expires < Date.now()) delete deviceLinkCodes[k]; });
+      const code = Math.floor(1000 + Math.random() * 9000).toString();
+      deviceLinkCodes[code] = { uid, expires: Date.now() + CODE_TTL_MS };
+      return sendJson(res, 200, { ok: true, code });
+    }
+
+    // Вход на телефоне по 4-значному коду с ПК
+    if (req.method === 'POST' && url.pathname === '/api/device-link-verify') {
+      const body = await readBody(req), code = String(body.code || '').trim();
+      const entry = deviceLinkCodes[code];
+      if (!entry || entry.expires < Date.now() || !users[entry.uid]) return sendJson(res, 400, { error: 'Код недействителен или истёк!' });
+      delete deviceLinkCodes[code];
+      const finalUid = entry.uid, u = users[finalUid], room = safeRoom(body.room);
+      addMember(room, finalUid);
+      clients.forEach(x => { if (x.id === body.id) { x.uid = finalUid; x.nick = u.nick; } });
+      scheduleSave(room); notifyAllRoomsOfUser(finalUid); notifyFriendsOf(finalUid); sendSocial(finalUid);
+      return sendJson(res, 200, { ok: true, verified: true, uid: finalUid, pid: u.pid, nick: u.nick, profile: publicProfileOf(finalUid) });
+    }
+
+    // Установка/обновление пароля в настройках аккаунта
+    if (req.method === 'POST' && url.pathname === '/api/set-password') {
+      const body = await readBody(req), uid = body.uid, pass = String(body.password || '');
+      if (!validUid(uid) || !users[uid] || !users[uid].verified) return sendJson(res, 400, { error: 'Не авторизован' });
+      if (pass.length < 4) return sendJson(res, 400, { error: 'Пароль от 4 символов' });
+      users[uid].passHash = hashPassword(pass);
+      nickToUid[users[uid].nick.toLowerCase()] = uid;
+      scheduleSave();
       return sendJson(res, 200, { ok: true });
     }
 
@@ -2336,7 +2533,7 @@ const server = http.createServer(async (req, res) => {
 
       clients.forEach(x => { if (x.id === body.id || x.uid === prevUid || x.uid === finalUid) { x.uid = finalUid; x.nick = u.nick; } });
       scheduleSave(room); notifyAllRoomsOfUser(finalUid); notifyFriendsOf(finalUid); sendSocial(finalUid);
-      return sendJson(res, 200, { ok: true, verified: true, uid: finalUid, pid: u.pid, nick: u.nick });
+      return sendJson(res, 200, { ok: true, verified: true, uid: finalUid, pid: u.pid, nick: u.nick, profile: publicProfileOf(finalUid) });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/tg-verify-code') {
@@ -2351,30 +2548,44 @@ const server = http.createServer(async (req, res) => {
 
       clients.forEach(x => { if (x.id === body.id || x.uid === prevUid || x.uid === finalUid) { x.uid = finalUid; x.nick = u.nick; } });
       scheduleSave(room); notifyAllRoomsOfUser(finalUid); notifyFriendsOf(finalUid); sendSocial(finalUid);
-      return sendJson(res, 200, { ok: true, verified: true, uid: finalUid, pid: u.pid, nick: u.nick });
+      return sendJson(res, 200, { ok: true, verified: true, uid: finalUid, pid: u.pid, nick: u.nick, profile: publicProfileOf(finalUid) });
     }
 
+    // SSE-поток событий: если зашел незарегистрированный гость, НЕ сохраняем его в базу и в список участников
     if (req.method === 'GET' && url.pathname === '/api/events') {
       const id = String(url.searchParams.get('id') || '').slice(0, 32);
       const room = safeRoom(url.searchParams.get('room'));
       const nick = cleanNick(url.searchParams.get('nick') || 'Гость');
       const uid = url.searchParams.get('uid');
+      const isVer = url.searchParams.get('verified') === '1' && validUid(uid);
       if (!validUid(uid)) { res.writeHead(400); return res.end(); }
 
       res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
       res.write(': connected\n\n');
 
-      const meta = ensureServer(room), user = ensureUser(uid, nick, url.searchParams.get('verified') === '1');
-      addMember(room, uid);
-      const client = { id, uid, room, nick: user.nick, inVoice: false, inScreen: false, inCam: false, peerId: null, voiceChannel: null, res };
+      const meta = ensureServer(room);
+      let clientNick = nick;
+      if (isVer) {
+        const user = ensureUser(uid, nick, true);
+        clientNick = user.nick;
+        addMember(room, uid);
+      }
+
+      const client = { id, uid, room, nick: clientNick, inVoice: false, inScreen: false, inCam: false, peerId: null, voiceChannel: null, res };
       clients.push(client);
 
       res.write('data: ' + JSON.stringify({ type: 'server-meta', payload: { current: meta, list: Object.values(serversMeta), messagesByChannel: getRoom(room) } }) + '\n\n');
-      notifyAllRoomsOfUser(uid); sendSocial(uid); notifyFriendsOf(uid);
+      res.write('data: ' + JSON.stringify({ type: 'users', payload: memberList(room) }) + '\n\n');
+
+      if (isVer) {
+        notifyAllRoomsOfUser(uid); sendSocial(uid); notifyFriendsOf(uid);
+      }
 
       req.on('close', () => {
         clients = clients.filter(c => c !== client);
-        notifyAllRoomsOfUser(uid); notifyFriendsOf(uid);
+        if (users[uid] && users[uid].verified) {
+          notifyAllRoomsOfUser(uid); notifyFriendsOf(uid);
+        }
       });
       return;
     }
@@ -2382,7 +2593,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/switch-room') {
       const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Некорректный ID' });
       const newRoom = safeRoom(body.room), meta = ensureServer(newRoom);
-      ensureUser(uid, body.nick || 'Участник', true); addMember(newRoom, uid);
+      if (users[uid] && users[uid].verified) addMember(newRoom, uid);
       let oldRoom = null;
       clients.forEach(c => { if (c.id === body.id || c.uid === uid) { oldRoom = c.room; c.room = newRoom; c.inVoice = false; c.inScreen = false; c.inCam = false; c.peerId = null; c.voiceChannel = null; } });
       if (oldRoom && oldRoom !== newRoom) broadcastUsers(oldRoom); broadcastUsers(newRoom);
@@ -2399,6 +2610,8 @@ const server = http.createServer(async (req, res) => {
       if (body.presence !== undefined) u.presence = cleanPresence(body.presence);
       if (body.bannerColor !== undefined) u.bannerColor = cleanColor(body.bannerColor, '#00f0ff');
       if (body.avatarColor !== undefined) u.avatarColor = cleanColor(body.avatarColor, '#3b82f6');
+      if (body.avatarImg !== undefined) u.avatarImg = cleanImgData(body.avatarImg);
+      if (body.bannerImg !== undefined) u.bannerImg = cleanImgData(body.bannerImg);
       scheduleSave(); notifyAllRoomsOfUser(uid); notifyFriendsOf(uid); sendSocial(uid);
       return sendJson(res, 200, { ok: true });
     }
@@ -2408,27 +2621,40 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, (rooms[room] && rooms[room][ch]) || []);
     }
 
-    if (req.method === 'GET' && url.pathname === '/api/invite-info') return sendJson(res, 200, { publicUrl: null });
-
+    // Вход с любого устройства (ПК или Телефон) в единый аккаунт по позывному и паролю
     if (req.method === 'POST' && url.pathname === '/api/auth-password') {
       const body = await readBody(req), nick = cleanNick(body.nick), pass = String(body.password || ''), room = safeRoom(body.room), prevUid = validUid(body.uid) ? body.uid : null;
       if (!nick || nick.length < 2) return sendJson(res, 400, { error: 'Введите позывной!' });
-      if (prevUid && users[prevUid] && users[prevUid].verified && !pass) {
-        users[prevUid].nick = nick; scheduleSave(); notifyAllRoomsOfUser(prevUid); notifyFriendsOf(prevUid); sendSocial(prevUid);
-        return sendJson(res, 200, { ok: true, uid: prevUid, pid: users[prevUid].pid, nick });
-      }
       if (pass.length < 4) return sendJson(res, 400, { error: 'Пароль от 4 символов!' });
-      const exUid = nickToUid[nick.toLowerCase()];
-      if (exUid && users[exUid] && users[exUid].passHash) {
-        if (!verifyPassword(pass, users[exUid].passHash)) return sendJson(res, 400, { error: 'Неверный пароль!' });
-        const u = mergeAccount(prevUid, exUid, nick, '', '', ''); addMember(room, exUid);
-        scheduleSave(); notifyAllRoomsOfUser(exUid); notifyFriendsOf(exUid); sendSocial(exUid);
-        return sendJson(res, 200, { ok: true, uid: exUid, pid: u.pid, nick: u.nick });
+
+      // Ищем существующий аккаунт по позывному (без учёта регистра)
+      let exUid = nickToUid[nick.toLowerCase()];
+      if (!exUid) {
+        exUid = Object.keys(users).find(k => users[k] && users[k].verified && String(users[k].nick || '').toLowerCase() === nick.toLowerCase());
+        if (exUid) nickToUid[nick.toLowerCase()] = exUid;
       }
-      const finalUid = exUid || (prevUid && (!users[prevUid] || !users[prevUid].verified) ? prevUid : crypto.randomBytes(16).toString('hex'));
-      const u = mergeAccount(prevUid, finalUid, nick, '', '', hashPassword(pass)); addMember(room, finalUid);
-      scheduleSave(); notifyAllRoomsOfUser(finalUid); notifyFriendsOf(finalUid); sendSocial(finalUid);
-      return sendJson(res, 200, { ok: true, uid: finalUid, pid: u.pid, nick: u.nick });
+
+      if (exUid && users[exUid]) {
+        // Если у существующего аккаунта ещё не был задан пароль — сохраняем введённый пароль и пускаем
+        if (!users[exUid].passHash) {
+          users[exUid].passHash = hashPassword(pass);
+        } else if (!verifyPassword(pass, users[exUid].passHash)) {
+          return sendJson(res, 400, { error: 'Неверный пароль от аккаунта ' + users[exUid].nick + '!' });
+        }
+        const u = mergeAccount(prevUid, exUid, users[exUid].nick, '', '', '');
+        addMember(room, exUid);
+        clients.forEach(x => { if (x.id === body.id) { x.uid = exUid; x.nick = u.nick; } });
+        scheduleSave(room); notifyAllRoomsOfUser(exUid); notifyFriendsOf(exUid); sendSocial(exUid);
+        return sendJson(res, 200, { ok: true, uid: exUid, pid: u.pid, nick: u.nick, profile: publicProfileOf(exUid) });
+      }
+
+      // Если такого позывного ещё нет — создаём новый единый аккаунт
+      const finalUid = crypto.createHash('sha256').update('signal-acc:' + nick.toLowerCase()).digest('hex').slice(0, 32);
+      const u = mergeAccount(prevUid, finalUid, nick, '', '', hashPassword(pass));
+      addMember(room, finalUid);
+      clients.forEach(x => { if (x.id === body.id) { x.uid = finalUid; x.nick = u.nick; } });
+      scheduleSave(room); notifyAllRoomsOfUser(finalUid); notifyFriendsOf(finalUid); sendSocial(finalUid);
+      return sendJson(res, 200, { ok: true, uid: finalUid, pid: u.pid, nick: u.nick, profile: publicProfileOf(finalUid) });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/server/create') {
@@ -2462,8 +2688,8 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req), room = safeRoom(body.room), ch = safeChannel(room, body.channel), text = String(body.text || '').trim().slice(0, 1000);
       if (!text) return sendJson(res, 400, { error: 'Пусто' });
       const c = clients.find(x => x.id === body.id), uid = c ? c.uid : body.uid;
-      if (!validUid(uid)) return sendJson(res, 403, { error: 'Войдите в аккаунт' });
-      const u = ensureUser(uid, body.author || (c && c.nick) || 'Участник', true);
+      if (!validUid(uid) || !users[uid] || !users[uid].verified) return sendJson(res, 403, { error: 'Войдите в аккаунт' });
+      const u = users[uid];
       const now = new Date(), time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
       const msg = { author: u.nick, time, text, flags: detectFlags(text) };
       const rm = getRoom(room); if (!rm[ch]) rm[ch] = []; rm[ch].push(msg);
@@ -2473,8 +2699,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/friend') {
-      const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Войдите!' });
-      const me = ensureUser(uid, 'Участник', true), tUid = validPid(body.target) ? pidToUid[body.target] : null, target = tUid ? users[tUid] : null;
+      const body = await readBody(req), uid = body.uid; if (!validUid(uid) || !users[uid] || !users[uid].verified) return sendJson(res, 400, { error: 'Войдите!' });
+      const me = users[uid], tUid = validPid(body.target) ? pidToUid[body.target] : null, target = tUid ? users[tUid] : null;
       if (!target || tUid === uid) return sendJson(res, 400, { error: 'Не найден' });
       const rm = (a, x) => { const i = a.indexOf(x); if (i >= 0) a.splice(i, 1); };
       let act = String(body.action || ''); if (act === 'request' && me.incoming.includes(target.pid)) act = 'accept';
