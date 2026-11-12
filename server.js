@@ -347,68 +347,73 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#04070d">
-<title>СИГНАЛ // P2P СИНХРОНИЗАЦИЯ</title>
+<title>СИГНАЛ // CYBER.NET</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
   :root {
     --bg-darkest:#04070d; --bg-servers:#050911; --bg-channels:#070d17; --bg-chat:#08101c;
-    --bg-members:#070d17; --bg-userbar:#040810; --bg-card:rgba(10,19,32,0.88); --bg-input:#091320;
-    --bg-hover:rgba(20,241,217,0.09); --bg-active:rgba(20,241,217,0.17);
-    --brand:#14f1d9; --brand-hover:#5ffbf1; --pink:#ff1e56; --green:#10b981; --red:#ff1e56; --yellow:#fcee09;
-    --text-main:#e6f7ff; --text-normal:#b4cde0; --text-muted:#5e7a94; --text-dim:#3b536b;
-    --border:rgba(20,241,217,0.16); --pink-border:rgba(255,30,86,0.45); --cyan-border:rgba(20,241,217,0.38);
+    --bg-members:#070d17; --bg-userbar:#040810; --bg-card:rgba(10,19,32,0.9); --bg-input:#091320;
+    --bg-hover:rgba(0,240,255,0.09); --bg-active:rgba(0,240,255,0.17);
+    --brand:#00f0ff; --brand-hover:#66f7ff; --pink:#ff2a85; --green:#10b981; --red:#ff1e56; --yellow:#fcee09;
+    --text-main:#e6f7ff; --text-normal:#b4cde0; --text-muted:#63809b; --text-dim:#3b536b;
+    --border:rgba(0,240,255,0.16); --pink-border:rgba(255,42,133,0.48); --cyan-border:rgba(0,240,255,0.4);
     --chat-font-size:14px; --hex:polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-    --pcb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='none' stroke='%2314f1d9' stroke-width='0.8' stroke-opacity='0.055'%3E%3Cpath d='M0 20h30l15 15v30l15 15h40l20-20h20M20 0v25l20 20h35l15-15h50M0 95h25l20 20v25M80 140v-25l20-20h40'/%3E%3C/g%3E%3C/svg%3E");
+    --pcb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='none' stroke='%2300f0ff' stroke-width='0.8' stroke-opacity='0.05'%3E%3Cpath d='M0 20h30l15 15v30l15 15h40l20-20h20M20 0v25l20 20h35l15-15h50M0 95h25l20 20v25M80 140v-25l20-20h40'/%3E%3C/g%3E%3C/svg%3E");
   }
   @keyframes neonSpin { 0%{transform:translate(-50%,-50%) rotate(0deg);} 100%{transform:translate(-50%,-50%) rotate(360deg);} }
   @keyframes neonSpinRev { 0%{transform:translate(-50%,-50%) rotate(360deg);} 100%{transform:translate(-50%,-50%) rotate(0deg);} }
-  @keyframes boltStrike { 0%,68%,100%{opacity:0;stroke-dashoffset:120;} 72%,84%{opacity:1;stroke-dashoffset:0;} 78%{opacity:0.25;} }
-  @keyframes sparkFloat { 0%{transform:translateY(0) scale(0.7);opacity:0;} 40%{opacity:1;} 100%{transform:translateY(-22px) scale(1.15);opacity:0;} }
   @keyframes eqPulse { 0%,100%{transform:scaleY(0.25);opacity:0.45;} 50%{transform:scaleY(1);opacity:1;} }
   @keyframes badgeFlow { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
-  @keyframes charBreath { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-3px) scale(1.015);} }
-  @keyframes rainFall { 0%{background-position:0 0;} 100%{background-position:-40px 160px;} }
+  @keyframes framePulse { 0%,100%{filter:drop-shadow(0 0 6px rgba(0,240,255,0.55)) drop-shadow(0 0 10px rgba(255,42,133,0.45));} 50%{filter:drop-shadow(0 0 12px rgba(0,240,255,0.9)) drop-shadow(0 0 18px rgba(255,42,133,0.8));} }
 
   * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
-  body {
+  html, body {
     font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,sans-serif;
     background-color:var(--bg-darkest); background-image:var(--pcb); color:var(--text-main);
-    height:100vh; height:100dvh; display:flex; flex-direction:column; overflow:hidden; user-select:none;
+    width:100%; height:100vh; height:100dvh; display:flex; flex-direction:column;
+    overflow:hidden; user-select:none; overscroll-behavior:none;
+    padding-top:env(safe-area-inset-top, 0px);
   }
 
-  /* МИНИ-ШЕСТИУГОЛЬНИКИ В ЧАТЕ И СПИСКЕ УЧАСТНИКОВ С ДВОЙНЫМ НЕОНОМ */
-  .hex-wrap { position:relative; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+  /* 6-УГОЛЬНЫЕ АВАТАРЫ С ПРЯМЫМ НАЛОЖЕНИЕМ ВАШЕЙ КАРТИНКИ РАМКИ ЛЮСИ */
+  .hex-wrap {
+    position:relative; display:inline-flex; align-items:center; justify-content:center;
+    flex-shrink:0; overflow:visible;
+  }
   .hex-border {
     position:relative; width:100%; height:100%; clip-path:var(--hex);
-    background:rgba(20,241,217,0.3); display:flex; align-items:center; justify-content:center;
-    padding:2.5px; overflow:hidden; z-index:2;
+    background:rgba(0,240,255,0.3); display:flex; align-items:center; justify-content:center;
+    padding:2px; overflow:hidden; z-index:2;
   }
-  .hex-wrap[class*="fx-set"] .hex-border::before,
-  .hex-wrap[class*="fx-set"] .hex-border::after {
+  .hex-wrap.fx-set2 .hex-border::before,
+  .hex-wrap.fx-set3 .hex-border::before {
     content:''; position:absolute; top:50%; left:50%; width:220%; height:220%; z-index:0;
+    animation:neonSpin 2.1s linear infinite;
   }
-  .hex-wrap[class*="fx-set"] .hex-border::before { animation:neonSpin 2.1s linear infinite; }
-  .hex-wrap[class*="fx-set"] .hex-border::after { width:190%; height:190%; animation:neonSpinRev 2.9s linear infinite; opacity:0.9; }
+  .hex-wrap.fx-set1 { filter:drop-shadow(0 0 6px rgba(0,240,255,0.75)) drop-shadow(0 0 10px rgba(255,42,133,0.65)); }
+  .hex-wrap.fx-set1 .hex-border { background:linear-gradient(135deg, #00f0ff, #ff2a85); }
 
-  /* Набор 1: Люси из видео (Двойной контур Розовый + Голубой циан + электро-свечение) */
-  .hex-wrap.fx-set1 { filter:drop-shadow(0 0 6px #00f0ff) drop-shadow(0 0 11px #ff1e8a); }
-  .hex-wrap.fx-set1 .hex-border::before { background:conic-gradient(from 0deg, #ff1e8a 0%, #00f0ff 35%, transparent 50%, #ff1e8a 75%, #00f0ff 100%); }
-  .hex-wrap.fx-set1 .hex-border::after { background:conic-gradient(from 180deg, #00f0ff 0%, transparent 40%, #ff1e8a 70%, #ffffff 100%); }
+  /* Наложенная поверх мини-аватара ваша оригинальная рамка с Люси */
+  .hex-wrap.fx-set1::after {
+    content:''; position:absolute;
+    width:162%; height:162%; left:-27%; top:-31%;
+    background:url('/variant1_lucy_avatar_frame.jpg') center/contain no-repeat;
+    mix-blend-mode:screen; pointer-events:none; z-index:5;
+  }
 
-  /* Набор 2: Дэвид Сандевистан (Жёлтый + Изумрудный неон) */
-  .hex-wrap.fx-set2 { filter:drop-shadow(0 0 6px #fcee09) drop-shadow(0 0 11px #00ff9d); }
+  .hex-wrap.fx-set2 { filter:drop-shadow(0 0 6px #fcee09) drop-shadow(0 0 10px #00ff9d); }
   .hex-wrap.fx-set2 .hex-border::before { background:conic-gradient(from 0deg, #fcee09 0%, #00ff9d 40%, transparent 55%, #ff0055 80%, #fcee09 100%); }
-  .hex-wrap.fx-set2 .hex-border::after { background:conic-gradient(from 90deg, #00ff9d 0%, transparent 45%, #fcee09 80%, #ffffff 100%); }
 
-  /* Набор 3: Джонни Сильверхенд & V (Красный Relic + Циан) */
-  .hex-wrap.fx-set3 { filter:drop-shadow(0 0 7px #ff003c) drop-shadow(0 0 12px #00f0ff); }
+  .hex-wrap.fx-set3 { filter:drop-shadow(0 0 7px #ff003c) drop-shadow(0 0 11px #00f0ff); }
   .hex-wrap.fx-set3 .hex-border::before { background:conic-gradient(from 0deg, #ff003c 0%, #00f0ff 35%, transparent 50%, #ff003c 75%, #fcee09 100%); }
-  .hex-wrap.fx-set3 .hex-border::after { background:conic-gradient(from 180deg, #00f0ff 0%, transparent 45%, #ff003c 80%, #ffffff 100%); }
 
   .hex-core {
     position:relative; z-index:2; width:100%; height:100%; clip-path:var(--hex);
@@ -416,46 +421,31 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     display:flex; align-items:center; justify-content:center; overflow:hidden;
   }
   .hex-status-dot {
-    position:absolute; right:-2px; bottom:-2px; width:11px; height:11px;
-    clip-path:var(--hex); background:var(--green); border:1.5px solid #04070d; z-index:4;
+    position:absolute; right:-2px; bottom:-2px; width:10px; height:10px;
+    clip-path:var(--hex); background:var(--green); border:1.5px solid #04070d; z-index:6;
   }
   .hex-status-dot.idle { background:var(--yellow); }
   .hex-status-dot.dnd { background:var(--red); }
   .hex-status-dot.invisible,.hex-status-dot.offline,.hex-status-dot.off { background:var(--text-dim); }
 
-  /* СЦЕНА ПРОФИЛЯ КАК НА ВИДЕО: ДВОЙНОЙ 6-УГОЛЬНИК + ЗИГЗАГИ МОЛНИЙ + ИСКРЫ + ПЕРСОНАЖ СПРАВА ВНАХЛЁСТ */
+  /* КРУПНЫЙ АВАТАР ПРОФИЛЯ С ВАШЕЙ ОРИГИНАЛЬНОЙ КАРТИНКОЙ РАМКИ ЛЮСИ */
   .cyber-diode-scene {
-    position:relative; width:195px; height:136px; margin-top:-58px; margin-left:6px;
-    display:flex; align-items:center; justify-content:flex-start; flex-shrink:0;
+    position:relative; width:154px; height:146px; margin-top:-66px; margin-left:6px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
   }
-  .cds-hex-frame {
-    position:relative; width:128px; height:128px; z-index:2;
+  /* Внутреннее 6-угольное ядро аватара точно по центру отверстия вашей рамки */
+  .cds-user-core {
+    position:absolute; left:17%; top:20%; width:56%; height:60%;
+    clip-path:var(--hex); background:linear-gradient(145deg,#112036,#070d18);
+    display:flex; align-items:center; justify-content:center;
+    font-size:24px; font-weight:900; color:#fff; z-index:1;
+    box-shadow:inset 0 0 18px rgba(0,240,255,0.35);
   }
-  .cds-inner-art {
-    position:absolute; inset:16px; clip-path:var(--hex); z-index:1;
-    display:flex; align-items:center; justify-content:center; overflow:hidden;
-    background:#09111e;
-  }
-  .cds-nick-overlay {
-    position:relative; z-index:3; font-size:22px; font-weight:900; color:#fff;
-    text-shadow:0 0 10px rgba(0,0,0,0.9), 0 0 14px #00f0ff; letter-spacing:1px;
-  }
-  .cds-neon-svg {
-    position:absolute; inset:-14px; width:156px; height:156px; z-index:3;
-    pointer-events:none; overflow:visible;
-  }
-  .cds-bolt {
-    fill:none; stroke-width:2.3; stroke-linecap:round; stroke-linejoin:round;
-    stroke-dasharray:120; animation:boltStrike 2.3s infinite;
-  }
-  .cds-bolt.b2 { animation-delay:0.8s; }
-  .cds-bolt.b3 { animation-delay:1.5s; }
-  .cds-spark { animation:sparkFloat 2.1s ease-in-out infinite; }
-  .cds-spark.s2 { animation-delay:0.7s; }
-  .cds-spark.s3 { animation-delay:1.3s; }
-  .cds-character-right {
-    position:absolute; right:-8px; bottom:-4px; width:108px; height:142px;
-    z-index:4; pointer-events:none; animation:charBreath 3.4s ease-in-out infinite;
+  /* Сама ваша картинка variant1_lucy_avatar_frame.jpg поверх аватара */
+  .cds-frame-img {
+    position:absolute; inset:0; width:100%; height:100%;
+    object-fit:contain; mix-blend-mode:screen; pointer-events:none; z-index:3;
+    animation:framePulse 3s ease-in-out infinite;
   }
 
   /* БЕЙДЖИ СПРАВА ОТ НИКА */
@@ -464,83 +454,84 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     font-size:9px; font-weight:900; letter-spacing:0.5px; text-transform:uppercase;
     white-space:nowrap; flex-shrink:0; background-size:200% 200%; animation:badgeFlow 2.5s ease infinite;
   }
-  .cyber-badge.b-set1 { background-image:linear-gradient(90deg,#ff1e8a,#00f0ff,#ff1e8a); color:#fff; box-shadow:0 0 8px rgba(0,240,255,0.65); }
-  .cyber-badge.b-set2 { background-image:linear-gradient(90deg,#fcee09,#00ff9d,#fcee09); color:#04120c; box-shadow:0 0 8px rgba(252,238,9,0.65); }
+  .cyber-badge.b-set1 { background-image:linear-gradient(90deg,#ff2a85,#00f0ff,#ff2a85); color:#fff; box-shadow:0 0 8px rgba(0,240,255,0.6); }
+  .cyber-badge.b-set2 { background-image:linear-gradient(90deg,#fcee09,#00ff9d,#fcee09); color:#04120c; box-shadow:0 0 8px rgba(252,238,9,0.6); }
   .cyber-badge.b-set3 { background-image:linear-gradient(90deg,#ff003c,#00f0ff,#ff003c); color:#fff; box-shadow:0 0 8px rgba(255,0,60,0.7); }
 
-  /* ТЕМАТИЧЕСКИЕ ФОНЫ И РАМКИ КАРТОЧЕК ПРОФИЛЯ (НАЙТ-СИТИ В ДОЖДЕ, ЛУНА, АРАСАКА) */
+  /* ПРОФИЛЬ В СТИЛЕ НАБОРА 1 (КАК НА ВАШЕЙ КАРТИНКЕ С ЛЮСИ) И НАБОРОВ 2, 3 */
   .profile-surface { position:relative; background:#050a14; border:1px solid var(--border); border-radius:12px; overflow:hidden; transition:0.25s; }
-  /* Набор 1: Дождливый Найт-Сити из видео с Люси */
   .profile-surface.theme-set1 {
     border:2px solid #00f0ff;
-    box-shadow:0 0 26px rgba(0,240,255,0.45), 0 0 14px rgba(255,30,138,0.45), inset 0 0 24px rgba(255,30,138,0.22);
+    box-shadow:0 0 24px rgba(0,240,255,0.45), 0 0 14px rgba(255,42,133,0.45), inset 0 0 26px rgba(255,42,133,0.22);
     background:
-      repeating-linear-gradient(108deg, rgba(0,240,255,0.06) 0px, rgba(0,240,255,0.06) 1px, transparent 1px, transparent 18px),
-      radial-gradient(circle at 80% 18%, rgba(255,30,138,0.28), rgba(0,240,255,0.14) 45%, #050914 92%);
+      radial-gradient(circle at 85% 15%, rgba(255,42,133,0.26), rgba(0,240,255,0.14) 48%, #050811 92%);
   }
-  /* Набор 2: Изумрудно-жёлтый овердрайв Дэвида и купол Луны */
+  .profile-surface.theme-set1 .dp-banner {
+    background:
+      linear-gradient(180deg, rgba(5,8,17,0.2) 0%, #050811 100%),
+      url('/variant1_lucy_avatar_frame.jpg') right 35% / cover no-repeat,
+      linear-gradient(125deg, #1b062e 0%, #ff2a85 52%, #00f0ff 100%) !important;
+  }
   .profile-surface.theme-set2 {
     border:2px solid #fcee09;
-    box-shadow:0 0 26px rgba(252,238,9,0.45), inset 0 0 22px rgba(0,255,157,0.22);
-    background:radial-gradient(circle at 80% 18%, rgba(252,238,9,0.25), rgba(0,255,157,0.12) 48%, #041012 94%);
+    box-shadow:0 0 24px rgba(252,238,9,0.4), inset 0 0 22px rgba(0,255,157,0.2);
+    background:radial-gradient(circle at 80% 18%, rgba(252,238,9,0.24), rgba(0,255,157,0.12) 48%, #041012 94%);
   }
-  /* Набор 3: Багрово-бирюзовый глитч Cyberpunk 2077 */
   .profile-surface.theme-set3 {
     border:2px solid #ff003c;
-    box-shadow:0 0 26px rgba(255,0,60,0.55), inset 0 0 22px rgba(0,240,255,0.2);
-    background:radial-gradient(circle at 80% 18%, rgba(255,0,60,0.28), rgba(0,240,255,0.1) 52%, #110409 95%);
+    box-shadow:0 0 26px rgba(255,0,60,0.5), inset 0 0 22px rgba(0,240,255,0.2);
+    background:radial-gradient(circle at 80% 18%, rgba(255,0,60,0.26), rgba(0,240,255,0.1) 52%, #110409 95%);
   }
 
-  /* ВЕРХНЯЯ ШАПКА */
-  .top-telemetry-bar { height:40px; background:rgba(4,7,13,0.95); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 14px; gap:10px; flex-shrink:0; z-index:30; }
-  .tt-left,.tt-right { display:flex; align-items:center; gap:10px; }
-  .tt-logo { display:flex; align-items:center; gap:7px; font-weight:900; font-size:13px; letter-spacing:1px; color:#fff; }
-  .tt-cyber-tag { background:rgba(255,30,86,0.2); border:1px solid var(--pink-border); color:#ff6b8b; font-size:9.5px; font-weight:800; padding:2px 7px; border-radius:4px; }
-  .tt-proto-pill { background:rgba(20,241,217,0.06); border:1px solid var(--border); color:var(--text-muted); font-size:10px; font-weight:700; padding:3px 10px; border-radius:4px; }
-  .tt-node-pill { display:flex; align-items:center; gap:6px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.4); color:#6ee7b7; font-size:11px; font-weight:700; padding:4px 11px; border-radius:6px; }
+  /* ВЕРХНЯЯ ПАНЕЛЬ */
+  .top-telemetry-bar { height:42px; background:rgba(4,7,13,0.96); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 12px; gap:8px; flex-shrink:0; z-index:30; }
+  .tt-left,.tt-right { display:flex; align-items:center; gap:8px; min-width:0; }
+  .tt-logo { display:flex; align-items:center; gap:6px; font-weight:900; font-size:13px; letter-spacing:1px; color:#fff; white-space:nowrap; }
+  .tt-cyber-tag { background:rgba(255,42,133,0.2); border:1px solid var(--pink-border); color:#ff7aa8; font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; }
+  .tt-proto-pill { background:rgba(0,240,255,0.06); border:1px solid var(--border); color:var(--text-muted); font-size:10px; font-weight:700; padding:3px 10px; border-radius:4px; white-space:nowrap; }
+  .tt-node-pill { display:flex; align-items:center; gap:6px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.4); color:#6ee7b7; font-size:10.5px; font-weight:700; padding:4px 9px; border-radius:6px; white-space:nowrap; }
   .tt-node-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); }
-  .tt-invite-btn { background:linear-gradient(135deg,rgba(255,30,86,0.3),rgba(157,23,77,0.45)); border:1px solid var(--pink); color:#fff; font-size:11px; font-weight:800; padding:5px 13px; border-radius:6px; cursor:pointer; }
+  .tt-invite-btn { background:linear-gradient(135deg,rgba(255,42,133,0.32),rgba(157,23,77,0.5)); border:1px solid var(--pink); color:#fff; font-size:10.5px; font-weight:800; padding:5px 11px; border-radius:6px; cursor:pointer; white-space:nowrap; }
 
-  .sub-sync-bar { height:32px; background:rgba(6,11,20,0.9); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 14px; font-size:11px; flex-shrink:0; }
-  .ss-left { display:flex; align-items:center; gap:8px; font-weight:700; color:var(--brand); }
-  .ss-right { display:flex; align-items:center; gap:8px; }
-  .ss-btn { background:rgba(20,241,217,0.07); border:1px solid var(--border); color:var(--text-main); font-size:10.5px; font-weight:700; padding:3px 10px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:5px; }
-  .ss-btn:hover { border-color:var(--brand); color:var(--brand); }
-  .ss-btn.fx-btn { background:linear-gradient(90deg,rgba(255,30,138,0.28),rgba(0,240,255,0.25)); border-color:#ff1e8a; color:#fff; }
+  .sub-sync-bar { height:34px; background:rgba(6,11,20,0.92); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 12px; font-size:11px; flex-shrink:0; gap:8px; overflow-x:auto; }
+  .sub-sync-bar::-webkit-scrollbar { display:none; }
+  .ss-left { display:flex; align-items:center; gap:6px; font-weight:700; color:var(--brand); white-space:nowrap; }
+  .ss-right { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .ss-btn { background:rgba(0,240,255,0.07); border:1px solid var(--border); color:var(--text-main); font-size:10.5px; font-weight:700; padding:4px 9px; border-radius:5px; cursor:pointer; display:flex; align-items:center; gap:4px; white-space:nowrap; }
+  .ss-btn.fx-btn { background:linear-gradient(90deg,rgba(255,42,133,0.3),rgba(0,240,255,0.25)); border-color:#ff2a85; color:#fff; }
 
   /* СЕТКА ПРИЛОЖЕНИЯ */
   .app-layout { flex:1; display:flex; width:100%; min-height:0; overflow:hidden; position:relative; }
-  .servers-rail { width:68px; background:rgba(4,7,13,0.92); border-right:1px solid var(--border); display:flex; flex-direction:column; align-items:center; padding:12px 0; gap:10px; overflow-y:auto; flex-shrink:0; z-index:20; }
+  .servers-rail { width:68px; background:rgba(4,7,13,0.94); border-right:1px solid var(--border); display:flex; flex-direction:column; align-items:center; padding:12px 0; gap:10px; overflow-y:auto; flex-shrink:0; z-index:20; }
   .servers-rail::-webkit-scrollbar { display:none; }
   .srv-pill-wrap { position:relative; width:68px; display:flex; justify-content:center; align-items:center; }
   .srv-pill-bar { position:absolute; left:0; width:3px; height:10px; background:var(--brand); opacity:0; transition:0.18s; }
-  .srv-pill-wrap:hover .srv-pill-bar { opacity:1; height:20px; }
   .srv-pill-wrap.active .srv-pill-bar { opacity:1; height:36px; }
-  .srv-ico { width:44px; height:44px; clip-path:var(--hex); background:#0c1626; color:var(--text-normal); font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:0.18s; }
-  .srv-ico:hover,.srv-pill-wrap.active .srv-ico { background:var(--brand); color:#031518; box-shadow:0 0 14px rgba(20,241,217,0.6); }
+  .srv-ico { width:44px; height:44px; clip-path:var(--hex); background:#0c1626; color:var(--text-normal); font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .srv-ico:hover,.srv-pill-wrap.active .srv-ico { background:var(--brand); color:#031518; box-shadow:0 0 14px rgba(0,240,255,0.6); }
   .srv-ico.home-ico { background:#0d1829; color:var(--yellow); font-size:18px; }
-  .srv-ico-action { width:44px; height:44px; clip-path:var(--hex); background:rgba(255,30,86,0.16); color:var(--pink); font-size:20px; font-weight:800; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .srv-ico-action { width:44px; height:44px; clip-path:var(--hex); background:rgba(255,42,133,0.18); color:var(--pink); font-size:20px; font-weight:800; display:flex; align-items:center; justify-content:center; cursor:pointer; }
 
   .workspace { flex:1; display:grid; grid-template-columns:250px 1fr 245px; min-height:0; overflow:hidden; position:relative; }
   body.hide-members-panel .workspace { grid-template-columns:250px 1fr; }
   body.hide-members-panel .right-panel { display:none; }
 
   /* ЛЕВАЯ КОЛОНКА КАНАЛОВ */
-  .channels-panel { background:rgba(6,11,20,0.88); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; height:100%; }
+  .channels-panel { background:rgba(6,11,20,0.92); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; height:100%; }
   .srv-header { padding:12px 14px 10px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .srv-sub-label { font-size:9px; font-weight:800; text-transform:uppercase; color:var(--brand); letter-spacing:0.8px; }
-  .srv-title { font-size:17px; font-weight:900; color:#fff; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .srv-badge-open { background:rgba(20,241,217,0.08); border:1px solid var(--cyan-border); color:var(--brand); font-size:9.5px; font-weight:700; padding:3px 8px; border-radius:4px; cursor:pointer; }
-  .packet-card { margin:10px 10px 6px; padding:9px 12px; background:linear-gradient(135deg,rgba(255,30,86,0.14),rgba(10,19,32,0.9)); border:1px solid var(--pink-border); border-radius:8px; display:flex; justify-content:space-between; align-items:center; }
+  .srv-title { font-size:16px; font-weight:900; color:#fff; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .srv-badge-open { background:rgba(0,240,255,0.08); border:1px solid var(--cyan-border); color:var(--brand); font-size:9.5px; font-weight:700; padding:3px 8px; border-radius:4px; cursor:pointer; }
+  .packet-card { margin:8px 10px 4px; padding:8px 12px; background:linear-gradient(135deg,rgba(255,42,133,0.14),rgba(10,19,32,0.9)); border:1px solid var(--pink-border); border-radius:8px; display:flex; justify-content:space-between; align-items:center; }
   .pk-label { font-size:9px; font-weight:800; color:var(--text-normal); }
   .pk-val { font-size:11px; font-weight:800; color:#fff; font-family:monospace; }
   .pk-live { font-size:9.5px; font-weight:800; color:var(--pink); }
   .channels-scroll { flex:1; overflow-y:auto; padding:6px 10px 12px; }
   .channels-scroll::-webkit-scrollbar { width:4px; }
-  .btn-create-ch-wide { width:100%; background:rgba(20,241,217,0.05); border:1px solid var(--border); color:var(--text-main); font-size:11px; font-weight:800; padding:8px 10px; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; margin:6px 0 10px; }
+  .btn-create-ch-wide { width:100%; background:rgba(0,240,255,0.05); border:1px solid var(--border); color:var(--text-main); font-size:11px; font-weight:800; padding:8px 10px; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; margin:6px 0 10px; }
   .cat-header { display:flex; align-items:center; justify-content:space-between; padding:8px 4px 5px; font-size:10.5px; font-weight:800; text-transform:uppercase; color:var(--text-muted); }
-  .cat-add-btn { background:rgba(20,241,217,0.08); border:1px solid var(--border); color:var(--brand); width:20px; height:20px; border-radius:4px; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-  .ch-btn,.voice-ch-box { display:flex; align-items:center; justify-content:space-between; padding:7px 10px; border-radius:6px; font-size:13px; font-weight:600; color:var(--text-normal); cursor:pointer; margin-bottom:3px; border:1px solid transparent; }
+  .cat-add-btn { background:rgba(0,240,255,0.08); border:1px solid var(--border); color:var(--brand); width:22px; height:22px; border-radius:4px; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .ch-btn,.voice-ch-box { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:6px; font-size:13px; font-weight:600; color:var(--text-normal); cursor:pointer; margin-bottom:3px; border:1px solid transparent; }
   .ch-btn:hover,.voice-ch-box:hover { background:var(--bg-hover); color:#fff; }
   .ch-btn.active { background:var(--bg-active); border-color:var(--cyan-border); color:#fff; }
   .voice-ch-box.active { background:rgba(16,185,129,0.15); border-color:rgba(16,185,129,0.45); color:#6ee7b7; }
@@ -550,8 +541,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .ch-unread-badge { background:var(--pink); color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:999px; }
   .off-badge { font-size:9px; color:var(--text-muted); font-weight:800; }
   .off-badge.on { color:var(--green); }
-  .voice-connected-users { display:flex; flex-direction:column; gap:4px; padding:2px 0 6px 18px; }
-  .vc-user-row { display:flex; align-items:center; gap:7px; padding:3px 6px; border-radius:4px; font-size:12px; color:var(--text-normal); cursor:pointer; }
+  .voice-connected-users { display:flex; flex-direction:column; gap:5px; padding:4px 0 6px 18px; }
+  .vc-user-row { display:flex; align-items:center; gap:8px; padding:3px 6px; border-radius:4px; font-size:12px; color:var(--text-normal); cursor:pointer; }
 
   /* ГОЛОСОВОЙ ДОК СНИЗУ СЛЕВА */
   .sidebar-voice-dock { background:rgba(6,16,26,0.96); border-top:1px solid var(--cyan-border); padding:9px 10px; display:flex; flex-direction:column; gap:7px; flex-shrink:0; }
@@ -559,56 +550,56 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .svd-state-row { font-size:10.5px; font-weight:800; color:var(--green); text-transform:uppercase; }
   .svd-state-row.idle { color:var(--text-muted); }
   .svd-channel-name { font-size:12px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .svd-hangup-btn { background:rgba(255,30,86,0.2); border:1px solid var(--pink); color:#ff80a0; padding:4px 8px; border-radius:5px; font-size:11px; font-weight:800; cursor:pointer; }
+  .svd-hangup-btn { background:rgba(255,42,133,0.22); border:1px solid var(--pink); color:#ff80a0; padding:5px 9px; border-radius:5px; font-size:11px; font-weight:800; cursor:pointer; }
   .svd-connect-btn { background:var(--brand); border:none; color:#031518; padding:5px 10px; border-radius:5px; font-size:10.5px; font-weight:800; cursor:pointer; }
   .svd-actions { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; }
-  .svd-btn { background:#0d1829; border:1px solid var(--border); color:var(--text-normal); padding:5px 4px; border-radius:5px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; }
+  .svd-btn { background:#0d1829; border:1px solid var(--border); color:var(--text-normal); padding:6px 4px; border-radius:5px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; }
   .svd-btn.active-cam { background:rgba(16,185,129,0.25); border-color:var(--green); color:#6ee7b7; }
-  .svd-btn.active-screen { background:rgba(255,30,86,0.25); border-color:var(--pink); color:#ffaec2; }
+  .svd-btn.active-screen { background:rgba(255,42,133,0.25); border-color:var(--pink); color:#ffaec2; }
 
-  .user-bar { height:54px; padding:0 10px; background:var(--bg-userbar); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:6px; flex-shrink:0; }
-  .user-info { display:flex; align-items:center; gap:8px; padding:4px; border-radius:6px; cursor:pointer; flex:1; min-width:0; }
+  .user-bar { height:56px; padding:0 10px; background:var(--bg-userbar); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:6px; flex-shrink:0; }
+  .user-info { display:flex; align-items:center; gap:10px; padding:4px; border-radius:6px; cursor:pointer; flex:1; min-width:0; }
   .user-name-row { display:flex; align-items:center; gap:5px; min-width:0; }
   .user-name { font-size:13px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .user-sub { font-size:10px; color:var(--brand); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .user-bar-controls { display:flex; align-items:center; gap:4px; }
-  .ub-ctrl-btn { width:30px; height:30px; clip-path:var(--hex); background:#0d1829; border:none; color:var(--brand); font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
-  .ub-ctrl-btn.off { background:rgba(255,30,86,0.25); color:var(--pink); }
+  .ub-ctrl-btn { width:32px; height:32px; clip-path:var(--hex); background:#0d1829; border:none; color:var(--brand); font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .ub-ctrl-btn.off { background:rgba(255,42,133,0.25); color:var(--pink); }
 
   /* ЦЕНТРАЛЬНАЯ ЗОНА И СЦЕНА КАМЕР */
-  .main-chat { display:flex; flex-direction:column; min-width:0; min-height:0; height:100%; }
-  .audio-stream-header-card { margin:10px 14px 4px; padding:10px 14px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-shrink:0; }
-  .ash-left { display:flex; align-items:center; gap:10px; min-width:0; }
-  .ash-label { font-size:10px; font-weight:800; color:var(--brand); text-transform:uppercase; }
-  .ash-channel { font-size:14px; font-weight:800; color:#fff; }
-  .ash-wave { flex:1; height:26px; display:flex; align-items:center; justify-content:center; gap:3px; overflow:hidden; max-width:380px; }
+  .main-chat { display:flex; flex-direction:column; min-width:0; min-height:0; height:100%; flex:1; }
+  .audio-stream-header-card { margin:8px 12px 4px; padding:9px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-shrink:0; }
+  .ash-left { display:flex; align-items:center; gap:8px; min-width:0; }
+  .ash-label { font-size:9.5px; font-weight:800; color:var(--brand); text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ash-channel { font-size:14px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ash-wave { flex:1; height:24px; display:flex; align-items:center; justify-content:center; gap:3px; overflow:hidden; max-width:340px; }
   .ash-bar { width:3px; height:100%; background:var(--brand); border-radius:2px; opacity:0.35; transform:scaleY(0.25); }
   body.voice-live .ash-bar { animation:eqPulse 0.9s ease-in-out infinite; }
-  .ash-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .ash-right { display:flex; align-items:center; gap:6px; flex-shrink:0; }
 
-  .media-stage-dock { margin:6px 14px; background:rgba(5,10,18,0.95); border:1px solid var(--cyan-border); border-radius:10px; padding:10px; display:none; flex-direction:column; gap:8px; max-height:52vh; overflow-y:auto; flex-shrink:0; }
+  .media-stage-dock { margin:4px 12px; background:rgba(5,10,18,0.95); border:1px solid var(--cyan-border); border-radius:10px; padding:8px; display:none; flex-direction:column; gap:8px; max-height:46vh; overflow-y:auto; flex-shrink:0; }
   .media-stage-dock.show { display:flex; }
-  .msd-header { display:flex; justify-content:space-between; align-items:center; gap:8px; border-bottom:1px solid var(--border); padding-bottom:6px; }
-  .msd-title { font-size:11px; font-weight:800; color:var(--brand); text-transform:uppercase; }
-  .msd-layout-btn { background:#0d1829; border:1px solid var(--border); color:var(--text-normal); padding:3px 9px; border-radius:4px; font-size:10.5px; font-weight:700; cursor:pointer; }
+  .msd-header { display:flex; justify-content:space-between; align-items:center; gap:8px; border-bottom:1px solid var(--border); padding-bottom:6px; flex-wrap:wrap; }
+  .msd-title { font-size:10.5px; font-weight:800; color:var(--brand); text-transform:uppercase; }
+  .msd-layout-btn { background:#0d1829; border:1px solid var(--border); color:var(--text-normal); padding:3px 8px; border-radius:4px; font-size:10px; font-weight:700; cursor:pointer; }
   .msd-layout-btn.active { background:var(--brand); color:#031518; border-color:var(--brand); }
-  .screen-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px; width:100%; }
-  .screen-grid.spotlight-mode { grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
+  .screen-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px; width:100%; }
+  .screen-grid.spotlight-mode { grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); }
   .screen-grid.spotlight-mode .screen-card.featured-tile { grid-column:1 / -1; }
   .screen-card { background:#04070d; border:1px solid var(--border); border-radius:8px; overflow:hidden; display:flex; flex-direction:column; cursor:pointer; }
   .screen-card.featured-tile { border-color:var(--brand); }
-  .screen-card-head { display:flex; justify-content:space-between; align-items:center; padding:5px 9px; background:rgba(4,7,13,0.92); border-bottom:1px solid var(--border); font-size:11px; font-weight:700; color:var(--text-main); gap:6px; flex-wrap:wrap; }
-  .screen-live-pill { background:var(--pink); color:#fff; font-size:9px; padding:1px 6px; border-radius:4px; margin-left:6px; }
+  .screen-card-head { display:flex; justify-content:space-between; align-items:center; padding:5px 8px; background:rgba(4,7,13,0.92); border-bottom:1px solid var(--border); font-size:10.5px; font-weight:700; color:var(--text-main); gap:5px; flex-wrap:wrap; }
+  .screen-live-pill { background:var(--pink); color:#fff; font-size:8.5px; padding:1px 5px; border-radius:4px; margin-left:4px; }
   .screen-live-pill.cam { background:var(--green); color:#031518; }
-  .screen-video-wrap { position:relative; width:100%; background:#000; display:flex; align-items:center; justify-content:center; min-height:140px; max-height:290px; overflow:hidden; }
-  .screen-card.featured-tile .screen-video-wrap { max-height:360px; }
-  .screen-video-wrap video { width:100%; max-height:360px; object-fit:contain; background:#000; display:block; }
+  .screen-video-wrap { position:relative; width:100%; background:#000; display:flex; align-items:center; justify-content:center; min-height:130px; max-height:260px; overflow:hidden; }
+  .screen-card.featured-tile .screen-video-wrap { max-height:320px; }
+  .screen-video-wrap video { width:100%; max-height:320px; object-fit:contain; background:#000; display:block; }
   .screen-card.nsfw-masked .screen-video-wrap video { filter:blur(26px) brightness(0.3); }
-  .media-nsfw-shield { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:8px; background:rgba(4,7,13,0.85); color:var(--pink); font-size:12px; font-weight:800; z-index:5; cursor:pointer; }
+  .media-nsfw-shield { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:8px; background:rgba(4,7,13,0.85); color:var(--pink); font-size:11.5px; font-weight:800; z-index:5; cursor:pointer; }
   .screen-card.nsfw-masked .media-nsfw-shield { display:flex; }
   .btn-fs { background:#0d1829; border:1px solid var(--border); color:var(--brand); padding:3px 7px; border-radius:4px; font-size:10px; font-weight:700; cursor:pointer; }
 
-  .chat-scroll-area { flex:1; overflow-y:auto; padding:8px 14px; display:flex; flex-direction:column; gap:6px; min-height:0; }
+  .chat-scroll-area { flex:1; overflow-y:auto; padding:8px 12px; display:flex; flex-direction:column; gap:6px; min-height:0; }
   .messages-container { display:flex; flex-direction:column; gap:6px; }
   .msg-item { display:flex; gap:12px; padding:8px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; }
   body.compact-chat .msg-item { padding:4px 10px; }
@@ -617,51 +608,51 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .msg-time { font-size:10.5px; color:var(--text-muted); font-family:monospace; }
   .msg-text { font-size:var(--chat-font-size); color:var(--text-main); margin-top:3px; line-height:1.4; user-select:text; word-break:break-word; }
   .msg-text a { color:var(--brand); text-decoration:none; border-bottom:1px dashed var(--brand); }
-  .chat-inline-media { max-width:min(100%,420px); max-height:260px; border-radius:6px; margin-top:6px; display:block; border:1px solid var(--cyan-border); }
-  .filtered-block-card { display:inline-flex; align-items:center; gap:8px; background:rgba(255,30,86,0.12); border:1px dashed var(--pink-border); color:#ff80a0; padding:6px 10px; border-radius:6px; font-size:12px; margin-top:4px; }
+  .chat-inline-media { max-width:min(100%,400px); max-height:240px; border-radius:6px; margin-top:6px; display:block; border:1px solid var(--cyan-border); }
+  .filtered-block-card { display:inline-flex; align-items:center; gap:8px; background:rgba(255,42,133,0.12); border:1px dashed var(--pink-border); color:#ff80a0; padding:6px 10px; border-radius:6px; font-size:12px; margin-top:4px; }
   .spoiler-blur-wrap { position:relative; display:inline-block; width:100%; background:#060b14; border:1px solid var(--pink-border); border-radius:6px; padding:8px 10px; margin-top:4px; cursor:pointer; }
   .spoiler-blur-content { filter:blur(8px); user-select:none; pointer-events:none; }
   .spoiler-blur-wrap.revealed .spoiler-blur-content { filter:none; user-select:text; pointer-events:auto; }
   .spoiler-badge { font-size:11px; font-weight:700; color:var(--pink); margin-bottom:4px; }
   .spoiler-blur-wrap.revealed .spoiler-badge { display:none; }
 
-  .chat-bottom { padding:6px 14px 10px; flex-shrink:0; }
-  .console-box { background:var(--bg-card); border:1px solid var(--cyan-border); border-radius:8px; padding:6px 12px 8px; display:flex; flex-direction:column; gap:5px; }
-  .console-top-label { display:flex; justify-content:space-between; font-size:9.5px; font-weight:800; color:var(--text-muted); text-transform:uppercase; }
-  .input-row { display:flex; align-items:center; gap:10px; }
-  .chat-inp { flex:1; min-width:0; background:#050a12; border:1px solid var(--border); border-radius:6px; padding:8px 12px; color:var(--text-main); font-size:13.5px; outline:none; }
+  .chat-bottom { padding:6px 12px 8px; flex-shrink:0; }
+  .console-box { background:var(--bg-card); border:1px solid var(--cyan-border); border-radius:8px; padding:6px 10px 8px; display:flex; flex-direction:column; gap:5px; }
+  .console-top-label { display:flex; justify-content:space-between; font-size:9px; font-weight:800; color:var(--text-muted); text-transform:uppercase; }
+  .input-row { display:flex; align-items:center; gap:8px; }
+  .chat-inp { flex:1; min-width:0; background:#050a12; border:1px solid var(--border); border-radius:6px; padding:8px 11px; color:var(--text-main); font-size:14px; outline:none; }
 
   /* ПРАВАЯ КОЛОНКА И ВЫЕЗЖАЮЩИЙ ПРОФИЛЬ */
-  .right-panel { width:245px; background:rgba(6,11,20,0.88); border-left:1px solid var(--border); padding:12px 10px; display:flex; flex-direction:column; gap:4px; overflow-y:auto; height:100%; }
+  .right-panel { width:245px; background:rgba(6,11,20,0.92); border-left:1px solid var(--border); padding:12px 10px; display:flex; flex-direction:column; gap:4px; overflow-y:auto; height:100%; }
   .telemetry-mini-card { background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:9px 10px; margin-bottom:6px; font-size:10.5px; }
   .tm-row { display:flex; justify-content:space-between; color:var(--text-normal); margin-top:4px; font-family:monospace; }
   .tm-val { color:var(--brand); font-weight:700; }
   .right-sec-title { font-size:10.5px; text-transform:uppercase; color:var(--brand); font-weight:800; padding:8px 6px 4px; }
-  .online-user-item { display:flex; align-items:center; gap:8px; padding:5px 7px; border-radius:6px; cursor:pointer; min-width:0; }
+  .online-user-item { display:flex; align-items:center; gap:10px; padding:6px 7px; border-radius:6px; cursor:pointer; min-width:0; }
   .online-user-item:hover { background:var(--bg-hover); }
   .member-text-col { flex:1; overflow:hidden; display:flex; flex-direction:column; min-width:0; }
   .member-nick-row { display:flex; align-items:center; gap:5px; font-size:13px; font-weight:700; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .member-status-sub { font-size:10px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .mini-btn { background:rgba(20,241,217,0.08); border:1px solid var(--border); color:var(--brand); padding:2px 7px; border-radius:4px; font-size:10px; font-weight:800; cursor:pointer; }
+  .mini-btn { background:rgba(0,240,255,0.08); border:1px solid var(--border); color:var(--brand); padding:2px 7px; border-radius:4px; font-size:10px; font-weight:800; cursor:pointer; }
   .friend-tag { font-size:9.5px; color:var(--green); font-weight:800; }
 
-  .profile-drawer-backdrop { position:fixed; inset:0; background:rgba(2,5,10,0.55); backdrop-filter:blur(2px); z-index:970; display:none; }
+  .profile-drawer-backdrop { position:fixed; inset:0; background:rgba(2,5,10,0.65); backdrop-filter:blur(3px); z-index:970; display:none; }
   .profile-drawer-backdrop.open { display:block; }
-  .profile-slide-drawer { position:fixed; top:40px; right:0; bottom:24px; width:365px; max-width:94vw; z-index:975; transform:translateX(106%); transition:transform 0.28s cubic-bezier(0.16,1,0.3,1); display:flex; flex-direction:column; padding:12px; pointer-events:none; }
+  .profile-slide-drawer { position:fixed; top:0; right:0; bottom:0; width:365px; max-width:92vw; z-index:975; transform:translateX(106%); transition:transform 0.26s cubic-bezier(0.16,1,0.3,1); display:flex; flex-direction:column; padding:10px; pointer-events:none; }
   .profile-slide-drawer.open { transform:translateX(0); pointer-events:auto; }
   .psd-inner { flex:1; display:flex; flex-direction:column; overflow-y:auto; }
-  .dp-banner { height:118px; background:linear-gradient(90deg,var(--brand),var(--pink)); position:relative; flex-shrink:0; overflow:hidden; }
+  .dp-banner { height:120px; background:linear-gradient(90deg,var(--brand),var(--pink)); position:relative; flex-shrink:0; overflow:hidden; }
   .dp-banner-svg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none; }
-  .dp-close-x { position:absolute; top:10px; right:10px; width:28px; height:28px; border-radius:6px; background:rgba(4,7,13,0.78); border:1px solid var(--border); color:#fff; font-weight:800; cursor:pointer; z-index:5; }
+  .dp-close-x { position:absolute; top:10px; right:10px; width:30px; height:30px; border-radius:6px; background:rgba(4,7,13,0.82); border:1px solid var(--border); color:#fff; font-weight:800; cursor:pointer; z-index:5; }
   .dp-body { padding:10px 16px 16px; position:relative; flex:1; display:flex; flex-direction:column; gap:10px; }
   .dp-nick-line { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .dp-nick { font-size:18px; font-weight:900; color:#fff; }
   .dp-status { font-size:12.5px; color:var(--brand); }
-  .dp-sec { background:rgba(4,7,13,0.72); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px 12px; }
+  .dp-sec { background:rgba(4,7,13,0.75); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px 12px; }
   .dp-sec-title { font-size:10px; font-weight:800; color:var(--brand); margin-bottom:5px; text-transform:uppercase; }
   .dp-bio { font-size:12.5px; color:var(--text-normal); white-space:pre-wrap; }
   .dp-tags { display:flex; gap:5px; flex-wrap:wrap; margin-top:4px; }
-  .dp-tag { background:rgba(20,241,217,0.12); border:1px solid var(--border); color:var(--brand); padding:3px 8px; border-radius:4px; font-size:11px; font-weight:700; }
+  .dp-tag { background:rgba(0,240,255,0.12); border:1px solid var(--border); color:var(--brand); padding:3px 8px; border-radius:4px; font-size:11px; font-weight:700; }
   .dp-actions-col { display:flex; flex-direction:column; gap:7px; margin-top:auto; padding-top:8px; }
   .status-pill { font-size:10px; padding:2px 7px; border-radius:4px; font-weight:800; }
   .status-pill.on { background:rgba(16,185,129,0.18); color:var(--green); }
@@ -670,46 +661,46 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .bottom-status-footer { height:24px; background:#03060b; border-top:1px solid var(--border); padding:0 14px; display:flex; align-items:center; justify-content:space-between; font-size:10px; font-family:monospace; color:var(--text-muted); flex-shrink:0; }
   .bsf-green { color:var(--brand); font-weight:700; }
 
-  .btn-cyan { background:var(--brand); color:#031518; border:none; padding:7px 14px; border-radius:6px; font-weight:800; font-size:11.5px; text-transform:uppercase; cursor:pointer; white-space:nowrap; }
-  .btn-danger { background:var(--pink); color:#fff; border:none; padding:7px 12px; border-radius:6px; font-weight:800; font-size:11.5px; text-transform:uppercase; cursor:pointer; }
+  .btn-cyan { background:var(--brand); color:#031518; border:none; padding:8px 14px; border-radius:6px; font-weight:800; font-size:11.5px; text-transform:uppercase; cursor:pointer; white-space:nowrap; }
+  .btn-danger { background:var(--pink); color:#fff; border:none; padding:8px 12px; border-radius:6px; font-weight:800; font-size:11.5px; text-transform:uppercase; cursor:pointer; }
   .btn-login-mini { background:#0d1829; border:1px solid var(--border); color:var(--brand); padding:6px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; }
   .btn-tg { background:var(--brand); color:#031518; border:none; width:100%; padding:10px 14px; border-radius:6px; font-weight:800; font-size:12.5px; text-transform:uppercase; cursor:pointer; margin-bottom:10px; }
 
-  .floating-call-overlay { position:fixed; right:18px; bottom:40px; width:285px; background:rgba(5,9,16,0.96); border:1px solid var(--brand); border-radius:8px; padding:10px 12px; z-index:980; display:none; flex-direction:column; gap:8px; }
+  .floating-call-overlay { position:fixed; right:16px; bottom:38px; width:280px; background:rgba(5,9,16,0.96); border:1px solid var(--brand); border-radius:8px; padding:9px 11px; z-index:930; display:none; flex-direction:column; gap:7px; box-shadow:0 8px 24px rgba(0,0,0,0.7); }
   .floating-call-overlay.show { display:flex; }
-  .fco-head { display:flex; justify-content:space-between; align-items:center; cursor:move; border-bottom:1px solid var(--border); padding-bottom:6px; }
+  .fco-head { display:flex; justify-content:space-between; align-items:center; cursor:move; border-bottom:1px solid var(--border); padding-bottom:5px; }
   .fco-live { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:800; color:var(--green); }
   .fco-pulse { width:8px; height:8px; clip-path:var(--hex); background:var(--green); }
   .fco-timer { font-size:11px; font-family:monospace; color:var(--brand); }
-  .fco-peers { display:flex; flex-wrap:wrap; gap:5px; max-height:70px; overflow-y:auto; }
-  .fco-peer-chip { display:inline-flex; align-items:center; gap:5px; background:#0d1829; border:1px solid var(--border); padding:3px 8px; border-radius:4px; font-size:11px; color:#fff; }
+  .fco-peers { display:flex; flex-wrap:wrap; gap:5px; max-height:54px; overflow-y:auto; }
+  .fco-peer-chip { display:inline-flex; align-items:center; gap:5px; background:#0d1829; border:1px solid var(--border); padding:2px 7px; border-radius:4px; font-size:10.5px; color:#fff; }
   .fco-actions { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; }
   .fco-btn { background:#0d1829; border:1px solid var(--border); color:var(--brand); padding:6px 4px; border-radius:4px; font-size:10.5px; font-weight:700; cursor:pointer; }
   .fco-btn.danger { background:var(--pink); border-color:var(--pink); color:#fff; }
 
-  .modal-backdrop { position:fixed; inset:0; background:rgba(2,5,10,0.84); backdrop-filter:blur(5px); display:none; align-items:center; justify-content:center; z-index:999; padding:12px; }
+  .modal-backdrop { position:fixed; inset:0; background:rgba(2,5,10,0.86); backdrop-filter:blur(5px); display:none; align-items:center; justify-content:center; z-index:999; padding:10px; }
   .modal-backdrop.open { display:flex; }
-  .modal-box { background:#070d17; border:1px solid var(--brand); border-radius:10px; padding:20px; width:400px; max-width:100%; }
-  .modal-box input[type="text"],.modal-box input[type="password"],.modal-box textarea,.modal-box select { width:100%; padding:10px; background:#040810; border:1px solid var(--border); border-radius:6px; color:#fff; margin-bottom:10px; font-size:13px; outline:none; }
+  .modal-box { background:#070d17; border:1px solid var(--brand); border-radius:10px; padding:18px; width:400px; max-width:100%; }
+  .modal-box input[type="text"],.modal-box input[type="password"],.modal-box textarea,.modal-box select { width:100%; padding:10px; background:#040810; border:1px solid var(--border); border-radius:6px; color:#fff; margin-bottom:10px; font-size:14px; outline:none; }
   .link-box { background:#040810; border:1px dashed var(--brand); padding:10px; color:var(--brand); font-size:12px; word-break:break-all; margin-bottom:10px; border-radius:6px; display:block; text-align:center; text-decoration:none; }
   .auth-tabs { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:12px; background:#040810; padding:4px; border-radius:6px; border:1px solid var(--border); }
   .auth-tab { padding:7px; font-size:12px; font-weight:700; text-align:center; cursor:pointer; color:var(--text-muted); border-radius:4px; }
   .auth-tab.active { background:var(--brand); color:#031518; }
 
-  .settings-modal-box { background:#070d17; border:1px solid var(--brand); border-radius:10px; width:900px; max-width:100%; height:640px; max-height:92vh; display:grid; grid-template-columns:220px minmax(0,1fr); overflow:hidden; }
-  .settings-nav { background:#050911; border-right:1px solid var(--border); padding:16px 10px; display:flex; flex-direction:column; gap:3px; overflow-y:auto; }
-  .settings-nav-label { font-size:10px; font-weight:800; text-transform:uppercase; color:var(--brand); padding:8px 10px 4px; }
-  .settings-nav-btn { padding:8px 10px; border-radius:6px; font-size:12.5px; font-weight:600; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; gap:8px; white-space:nowrap; }
+  .settings-modal-box { background:#070d17; border:1px solid var(--brand); border-radius:10px; width:900px; max-width:100%; height:640px; max-height:92dvh; display:grid; grid-template-columns:220px minmax(0,1fr); overflow:hidden; }
+  .settings-nav { background:#050911; border-right:1px solid var(--border); padding:14px 10px; display:flex; flex-direction:column; gap:4px; overflow-y:auto; }
+  .settings-nav-label { font-size:10px; font-weight:800; text-transform:uppercase; color:var(--brand); padding:6px 10px 3px; }
+  .settings-nav-btn { padding:8px 10px; border-radius:6px; font-size:12.5px; font-weight:600; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; gap:8px; white-space:nowrap; flex-shrink:0; }
   .settings-nav-btn.active { background:var(--bg-active); color:var(--brand); border-left:2px solid var(--brand); }
-  .settings-content { padding:20px 24px; overflow-y:auto; display:flex; flex-direction:column; gap:14px; min-width:0; }
+  .settings-content { padding:18px 20px; overflow-y:auto; display:flex; flex-direction:column; gap:14px; min-width:0; }
   .settings-pane { display:none; flex-direction:column; gap:12px; min-width:0; }
   .settings-pane.active { display:flex; }
   .settings-head { display:flex; justify-content:space-between; align-items:center; gap:10px; border-bottom:1px solid var(--border); padding-bottom:10px; flex-wrap:wrap; }
-  .settings-head h3 { font-size:16px; font-weight:800; color:var(--brand); text-transform:uppercase; }
+  .settings-head h3 { font-size:15px; font-weight:800; color:var(--brand); text-transform:uppercase; }
   .field-label { font-size:10.5px; font-weight:800; text-transform:uppercase; color:var(--brand); margin-bottom:6px; display:block; }
   .settings-card { background:rgba(4,8,16,0.9); border:1px solid var(--border); border-radius:8px; padding:14px; display:flex; flex-direction:column; gap:10px; }
   .settings-grid-2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
-  .settings-card input[type="text"],.settings-card textarea,.settings-card select { width:100%; padding:8px 10px; background:#03060c; border:1px solid var(--border); border-radius:6px; color:#fff; font-size:13px; outline:none; }
+  .settings-card input[type="text"],.settings-card textarea,.settings-card select { width:100%; padding:8px 10px; background:#03060c; border:1px solid var(--border); border-radius:6px; color:#fff; font-size:14px; outline:none; }
   .toggle-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:7px 0; border-bottom:1px solid var(--border); }
   .toggle-row:last-child { border-bottom:none; }
   .toggle-title { font-size:13px; font-weight:600; color:#fff; }
@@ -717,7 +708,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .cyber-switch input { opacity:0; width:0; height:0; }
   .cyber-slider { position:absolute; inset:0; background:#101929; border:1px solid var(--border); border-radius:20px; transition:0.2s; }
   .cyber-slider::before { content:''; position:absolute; width:14px; height:14px; left:3px; top:3px; background:var(--text-muted); clip-path:var(--hex); transition:0.2s; }
-  .cyber-switch input:checked + .cyber-slider { background:rgba(20,241,217,0.22); border-color:var(--brand); }
+  .cyber-switch input:checked + .cyber-slider { background:rgba(0,240,255,0.22); border-color:var(--brand); }
   .cyber-switch input:checked + .cyber-slider::before { transform:translateX(18px); background:var(--brand); }
   .cyber-range { -webkit-appearance:none; appearance:none; width:100%; height:6px; background:#03060c; border:1px solid var(--border); border-radius:4px; outline:none; margin-top:4px; }
   .cyber-range::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; clip-path:var(--hex); background:var(--brand); cursor:pointer; }
@@ -727,39 +718,87 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .mic-meter-bar { height:100%; width:0%; background:linear-gradient(90deg,var(--green),var(--brand),var(--pink)); transition:width 0.06s; }
 
   .fx-sets-grid { display:flex; flex-direction:column; gap:14px; }
-  .fx-bundle-card { border-radius:12px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:16px; border:1.5px solid var(--border); background:rgba(5,10,18,0.94); }
-  .fx-bundle-card.set1-card { border-color:#00f0ff; box-shadow:0 0 20px rgba(255,30,138,0.28); background:linear-gradient(135deg,rgba(255,30,138,0.18),rgba(0,240,255,0.12),rgba(5,10,18,0.96)); }
+  .fx-bundle-card { border-radius:12px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:14px; border:1.5px solid var(--border); background:rgba(5,10,18,0.94); }
+  .fx-bundle-card.set1-card { border-color:#00f0ff; box-shadow:0 0 20px rgba(255,42,133,0.28); background:linear-gradient(135deg,rgba(255,42,133,0.18),rgba(0,240,255,0.12),rgba(5,10,18,0.96)); }
   .fx-bundle-card.set2-card { border-color:#fcee09; box-shadow:0 0 20px rgba(252,238,9,0.24); background:linear-gradient(135deg,rgba(252,238,9,0.16),rgba(0,255,157,0.12),rgba(5,10,18,0.96)); }
   .fx-bundle-card.set3-card { border-color:#ff003c; box-shadow:0 0 20px rgba(255,0,60,0.28); background:linear-gradient(135deg,rgba(255,0,60,0.2),rgba(0,240,255,0.1),rgba(5,10,18,0.96)); }
-  .fxb-left { display:flex; align-items:center; gap:16px; min-width:0; flex:1; }
+  .fxb-left { display:flex; align-items:center; gap:14px; min-width:0; flex:1; }
 
-  .keybind-row { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:#040810; border:1px solid var(--border); border-radius:6px; gap:10px; }
-  .kb-btn { background:#0d1829; border:1px solid var(--cyan-border); color:var(--brand); font-family:monospace; font-size:12px; font-weight:800; padding:6px 14px; border-radius:5px; cursor:pointer; min-width:140px; text-align:center; }
-  .kb-btn.recording { background:rgba(255,30,86,0.25); border-color:var(--pink); color:#fff; }
+  .keybind-row { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:#040810; border:1px solid var(--border); border-radius:6px; gap:10px; flex-wrap:wrap; }
+  .kb-btn { background:#0d1829; border:1px solid var(--cyan-border); color:var(--brand); font-family:monospace; font-size:12px; font-weight:800; padding:6px 14px; border-radius:5px; cursor:pointer; min-width:130px; text-align:center; }
+  .kb-btn.recording { background:rgba(255,42,133,0.25); border-color:var(--pink); color:#fff; }
 
-  .mob-top-btn { display:none; background:transparent; border:none; color:var(--brand); font-size:20px; cursor:pointer; }
-  .mob-drawer-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:940; }
-  .mob-bottom-nav { display:none; height:52px; background:#04070d; border-top:1px solid var(--border); grid-template-columns:repeat(5,1fr); align-items:center; flex-shrink:0; z-index:960; }
+  .mob-top-btn { display:none; background:rgba(0,240,255,0.08); border:1px solid var(--border); border-radius:6px; color:var(--brand); width:32px; height:32px; align-items:center; justify-content:center; font-size:17px; cursor:pointer; flex-shrink:0; }
+  .mob-drawer-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.74); z-index:940; }
+  .mob-bottom-nav {
+    display:none; height:calc(54px + env(safe-area-inset-bottom, 0px));
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+    background:#04070d; border-top:1px solid var(--border);
+    grid-template-columns:repeat(5,1fr); align-items:center; flex-shrink:0; z-index:960;
+  }
   .mob-nav-item { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; height:100%; color:var(--text-muted); font-size:10px; font-weight:700; cursor:pointer; }
-  .mob-nav-item.active { color:var(--brand); background:rgba(20,241,217,0.08); }
+  .mob-nav-item.active { color:var(--brand); background:rgba(0,240,255,0.08); }
 
+  /* ЧИСТАЯ МОБИЛЬНАЯ ОПТИМИЗАЦИЯ ПОД ANDROID БЕЗ ПЕРЕСЕЧЕНИЙ */
   @media (max-width:900px) {
-    .tt-proto-pill,.ash-wave,.bottom-status-footer { display:none; }
-    .workspace { display:flex; flex-direction:column; flex:1; }
-    .main-chat { flex:1; width:100%; height:100%; }
+    .tt-proto-pill,.tt-cyber-tag,.ash-wave,.bottom-status-footer,.ss-left span:first-child { display:none; }
+    .top-telemetry-bar { height:44px; padding:0 10px; }
+    .sub-sync-bar { height:36px; padding:0 10px; }
+    .workspace { display:flex; flex-direction:column; flex:1; min-height:0; }
+    .main-chat { flex:1; width:100%; height:100%; min-height:0; }
     .mob-top-btn { display:inline-flex; }
     .mob-bottom-nav { display:grid; }
-    .servers-rail { position:fixed; top:0; bottom:52px; left:0; width:68px; z-index:955; transform:translateX(-340px); transition:transform 0.24s; }
-    .channels-panel { position:fixed; top:0; bottom:52px; left:68px; width:calc(100vw - 68px); max-width:260px; z-index:955; transform:translateX(-340px); transition:transform 0.24s; }
-    body.mob-left-open .servers-rail,body.mob-left-open .channels-panel,body.mob-right-open .right-panel { transform:translateX(0); }
-    .right-panel { position:fixed; top:0; bottom:52px; right:0; width:min(86vw,280px); z-index:955; transform:translateX(105%); transition:transform 0.24s; }
-    body.mob-left-open .mob-drawer-backdrop,body.mob-right-open .mob-drawer-backdrop { display:block; }
-    .chat-inp { font-size:16px; }
-    .floating-call-overlay { right:10px; left:10px; width:auto; bottom:60px; }
-    .settings-modal-box { grid-template-columns:1fr; grid-template-rows:auto 1fr; height:92dvh; }
-    .settings-nav { flex-direction:row; overflow-x:auto; padding:8px; }
+    .servers-rail {
+      position:fixed; top:0; bottom:calc(54px + env(safe-area-inset-bottom, 0px));
+      left:0; width:64px; z-index:955; transform:translateX(-340px); transition:transform 0.24s ease;
+    }
+    .channels-panel {
+      position:fixed; top:0; bottom:calc(54px + env(safe-area-inset-bottom, 0px));
+      left:64px; width:calc(100vw - 64px); max-width:265px; z-index:955;
+      transform:translateX(-340px); transition:transform 0.24s ease;
+      box-shadow:8px 0 24px rgba(0,0,0,0.8);
+    }
+    body.mob-left-open .servers-rail, body.mob-left-open .channels-panel { transform:translateX(0); }
+    .right-panel {
+      position:fixed; top:0; bottom:calc(54px + env(safe-area-inset-bottom, 0px));
+      right:0; width:min(84vw,280px); z-index:955;
+      transform:translateX(105%); transition:transform 0.24s ease;
+      box-shadow:-8px 0 24px rgba(0,0,0,0.8);
+    }
+    body.mob-right-open .right-panel { transform:translateX(0); }
+    body.mob-left-open .mob-drawer-backdrop, body.mob-right-open .mob-drawer-backdrop { display:block; }
+
+    .audio-stream-header-card { margin:6px 10px 2px; padding:8px 10px; }
+    .chat-scroll-area { padding:6px 10px; }
+    .chat-bottom { padding:4px 10px 6px; }
+    .chat-inp { font-size:16px; padding:8px 10px; }
+
+    /* Компактный плавающий виджет звонка на телефоне, чтобы не перекрывать чат */
+    .floating-call-overlay {
+      right:10px; left:10px; width:auto;
+      bottom:calc(60px + env(safe-area-inset-bottom, 0px));
+      padding:7px 10px;
+    }
+    .fco-peers { display:none; }
+
+    .profile-slide-drawer { width:100vw; max-width:100vw; padding:0; }
+    .profile-slide-drawer .profile-surface { border-radius:0; height:100%; border:none; }
+
+    .settings-modal-box {
+      grid-template-columns:1fr; grid-template-rows:auto 1fr;
+      width:100vw; height:100dvh; max-height:100dvh; border-radius:0;
+    }
+    .settings-nav {
+      flex-direction:row; overflow-x:auto; padding:8px 10px;
+      border-right:none; border-bottom:1px solid var(--border); gap:6px;
+    }
+    .settings-nav::-webkit-scrollbar { display:none; }
     .settings-nav-label { display:none; }
+    .settings-nav-btn { border-left:none; border-bottom:2px solid transparent; padding:7px 10px; }
+    .settings-nav-btn.active { border-left:none; border-bottom:2px solid var(--brand); }
+    .settings-content { padding:14px; }
     .settings-grid-2,.fx-bundle-card,.fxb-left { grid-template-columns:1fr; flex-direction:column; align-items:flex-start; }
+    .fx-bundle-card button { width:100%; }
   }
 </style>
 </head>
@@ -772,13 +811,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       <span class="tt-proto-pill">МЕСТО ДЛЯ СВОИХ // P2P ПРОТОКОЛ</span>
     </div>
     <div class="tt-right">
-      <div class="tt-node-pill"><span class="tt-node-dot"></span><span id="tt-node-label">Узел активен • cy-4371</span></div>
-      <button class="tt-invite-btn" onclick="openInviteModal()">+ ПРИГЛАСИТЬ ДРУГА</button>
+      <div class="tt-node-pill"><span class="tt-node-dot"></span><span id="tt-node-label">cy-4371</span></div>
+      <button class="tt-invite-btn" onclick="openInviteModal()">+ ПРИГЛАСИТЬ</button>
     </div>
   </div>
 
   <div class="sub-sync-bar">
-    <div class="ss-left"><span>● АКТИВНАЯ СЕТЬ:</span><span style="color:#fff;font-weight:800;">P2P СИНХРОНИЗАЦИЯ</span></div>
+    <div class="ss-left"><span>● СЕТЬ:</span><span style="color:#fff;font-weight:800;">P2P ONLINE</span></div>
     <div class="ss-right">
       <button class="ss-btn fx-btn" onclick="openSettingsModal('fx')">✨ ЭФФЕКТЫ</button>
       <button class="ss-btn" onclick="openSettingsModal('keybinds')">⌨️ БИНДЫ</button>
@@ -855,7 +894,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div class="audio-stream-header-card">
           <div class="ash-left">
             <span style="color:var(--brand);font-size:18px;font-weight:900;">#</span>
-            <div><div class="ash-label" id="top-ch-desc">АКТИВНЫЙ АУДИО ПОТОК // КАНАЛ</div><div class="ash-channel" id="top-ch-name">общий</div></div>
+            <div style="min-width:0;"><div class="ash-label" id="top-ch-desc">АКТИВНЫЙ АУДИО ПОТОК // КАНАЛ</div><div class="ash-channel" id="top-ch-name">общий</div></div>
           </div>
           <div class="ash-wave">
             <div class="ash-bar" style="animation-delay:0s"></div><div class="ash-bar" style="animation-delay:.2s"></div><div class="ash-bar" style="animation-delay:.4s"></div><div class="ash-bar" style="animation-delay:.1s"></div><div class="ash-bar" style="animation-delay:.3s"></div><div class="ash-bar" style="animation-delay:.5s"></div><div class="ash-bar" style="animation-delay:.15s"></div><div class="ash-bar" style="animation-delay:.35s"></div><div class="ash-bar" style="animation-delay:.05s"></div><div class="ash-bar" style="animation-delay:.25s"></div><div class="ash-bar" style="animation-delay:.45s"></div><div class="ash-bar" style="animation-delay:.12s"></div>
@@ -868,7 +907,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
         <div class="media-stage-dock" id="media-stage-dock">
           <div class="msd-header">
-            <span class="msd-title">📹 ТРАНСЛЯЦИИ В КАНАЛЕ (КЛИК ПО ОКНУ — ФОКУС)</span>
+            <span class="msd-title">📹 ТРАНСЛЯЦИИ В КАНАЛЕ</span>
             <div style="display:flex;gap:6px;">
               <button class="msd-layout-btn active" id="btn-stage-grid" onclick="setStageLayout('grid')">⊞ Сетка</button>
               <button class="msd-layout-btn" id="btn-stage-spot" onclick="setStageLayout('spotlight')">⊡ Фокус</button>
@@ -906,7 +945,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- ВЫЕЗЖАЮЩИЙ СПРАВА ПРОФИЛЬ С ДВОЙНЫМ 6-УГОЛЬНЫМ МЕДАЛЬОНОМ, МОЛНИЯМИ И ЛЮСИ/ДЭВИДОМ/СИЛЬВЕРХЕНДОМ -->
+  <!-- ВЫЕЗЖАЮЩАЯ СПРАВА КАРТОЧКА ПРОФИЛЯ -->
   <div class="profile-drawer-backdrop" id="view-profile-backdrop" onclick="closeViewProfileModal()"></div>
   <div class="profile-slide-drawer" id="view-profile-drawer">
     <div class="profile-surface psd-inner" id="vp-surface">
@@ -972,7 +1011,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div class="settings-nav-btn" data-pane="voice" onclick="switchSettingsPane('voice')">🎙️ Голос и видео</div>
         <div class="settings-nav-btn" data-pane="appearance" onclick="switchSettingsPane('appearance')">🎨 Внешний вид</div>
         <div class="settings-nav-btn" data-pane="notifications" onclick="switchSettingsPane('notifications')">🔔 Уведомления</div>
-        <div style="margin-top:auto;padding-top:10px;"><button class="btn-login-mini" style="width:100%;" onclick="closeSettingsModal()">✕ ЗАКРЫТЬ (ESC)</button></div>
+        <div style="margin-top:auto;padding-top:10px;"><button class="btn-login-mini" style="width:100%;" onclick="closeSettingsModal()">✕ ЗАКРЫТЬ</button></div>
       </div>
       <div class="settings-content">
         <div class="settings-pane active" id="pane-profile">
@@ -996,15 +1035,15 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div><label class="field-label">О себе</label><textarea id="prof-bio-inp" rows="2" maxlength="220" oninput="updateProfilePreview()"></textarea></div>
             <div><label class="field-label">Интересы (через запятую)</label><input type="text" id="prof-interests-inp" maxlength="140" oninput="updateProfilePreview()"></div>
             <div class="settings-grid-2">
-              <div><label class="field-label">Цвет баннера</label><div class="color-swatches"><div class="color-swatch" style="background:#14f1d9;" onclick="selectBannerColor('#14f1d9')"></div><div class="color-swatch" style="background:#ff1e56;" onclick="selectBannerColor('#ff1e56')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectBannerColor('#10b981')"></div><div class="color-swatch" style="background:#fcee09;" onclick="selectBannerColor('#fcee09')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectBannerColor('#b829ff')"></div></div></div>
-              <div><label class="field-label">Цвет 6-угольника</label><div class="color-swatches"><div class="color-swatch" style="background:#ff1e56;" onclick="selectAvatarColor('#ff1e56')"></div><div class="color-swatch" style="background:#14f1d9;" onclick="selectAvatarColor('#14f1d9')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectAvatarColor('#10b981')"></div><div class="color-swatch" style="background:#fcee09;" onclick="selectAvatarColor('#fcee09')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectAvatarColor('#b829ff')"></div></div></div>
+              <div><label class="field-label">Цвет баннера</label><div class="color-swatches"><div class="color-swatch" style="background:#00f0ff;" onclick="selectBannerColor('#00f0ff')"></div><div class="color-swatch" style="background:#ff2a85;" onclick="selectBannerColor('#ff2a85')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectBannerColor('#10b981')"></div><div class="color-swatch" style="background:#fcee09;" onclick="selectBannerColor('#fcee09')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectBannerColor('#b829ff')"></div></div></div>
+              <div><label class="field-label">Цвет 6-угольника</label><div class="color-swatches"><div class="color-swatch" style="background:#ff2a85;" onclick="selectAvatarColor('#ff2a85')"></div><div class="color-swatch" style="background:#00f0ff;" onclick="selectAvatarColor('#00f0ff')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectAvatarColor('#10b981')"></div><div class="color-swatch" style="background:#fcee09;" onclick="selectAvatarColor('#fcee09')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectAvatarColor('#b829ff')"></div></div></div>
             </div>
           </div>
         </div>
 
         <div class="settings-pane" id="pane-fx">
           <div class="settings-head">
-            <h3>✨ Эффекты (Неоновые 6-угольные рамки с молниями и персонажами)</h3>
+            <h3>✨ Эффекты (Оригинальная рамка Люси + Наборы 2 и 3)</h3>
             <button class="btn-login-mini" id="btn-disable-fx" onclick="selectEffectSet('')">Отключить</button>
           </div>
           <div class="fx-sets-grid">
@@ -1013,10 +1052,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
                 <div id="fx-demo-slot-1"></div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span style="font-size:15px;font-weight:900;color:#00f0ff;">Набор 1: Люси Кушинада // Edgerunners S1 (Из вашего видео)</span>
+                    <span style="font-size:15px;font-weight:900;color:#00f0ff;">Набор 1: Люси Кушинада // Оригинальная рамка</span>
                     <span class="cyber-badge b-set1">🌙 LUCY NET</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Двойная 6-угольная неоновая рамка (розовая маджента + циан), зигзаги электрических молний по граням, летящие искры, геймерский кибер-арт внутри и Люси справа внахлёст на рамку на фоне дождливого Найт-Сити.</div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Ваша оригинальная шестиугольная неоновая рамка с Люси и глитч-частицами вокруг аватара + полное оформление карточки профиля в неоновых тонах Люси.</div>
                 </div>
               </div>
               <button class="btn-cyan" id="btn-fx-set1" onclick="selectEffectSet('set1')">🎁 ЗАБРАТЬ</button>
@@ -1027,10 +1066,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
                 <div id="fx-demo-slot-2"></div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span style="font-size:15px;font-weight:900;color:#fcee09;">Набор 2: Дэвид Мартинес // Sandevistan Overdrive (Сезон 2)</span>
+                    <span style="font-size:15px;font-weight:900;color:#fcee09;">Набор 2: Дэвид Мартинес // Sandevistan Overdrive</span>
                     <span class="cyber-badge b-set2">⚡ SANDY S2</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Двойная жёлто-изумрудная 6-угольная рамка ускорения времени с зелёными молниями, голографический купол Луны и Дэвид в жёлтой куртке с имплантом Сандевистан справа от рамки.</div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Двойная жёлто-изумрудная шестиугольная рамка ускорения времени с молниями, бейджем «⚡ SANDY S2» и фоном купола Луны.</div>
                 </div>
               </div>
               <button class="btn-cyan" id="btn-fx-set2" onclick="selectEffectSet('set2')">🎁 ЗАБРАТЬ</button>
@@ -1044,7 +1083,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
                     <span style="font-size:15px;font-weight:900;color:#ff4d79;">Набор 3: Джонни Сильверхенд & V // Cyberpunk 2077 Relic</span>
                     <span class="cyber-badge b-set3">🔥 RELIC MAX</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Багрово-бирюзовый 6-угольный контур биочипа Relic с алыми молниями, небоскрёбы Arasaka Tower на фоне и Джонни Сильверхенд с серебряной рукой справа от рамки.</div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Багрово-бирюзовый шестиугольный контур биочипа Relic с электрическими разрядами, бейджем «🔥 RELIC MAX» и фоном Arasaka Tower.</div>
                 </div>
               </div>
               <button class="btn-cyan" id="btn-fx-set3" onclick="selectEffectSet('set3')">🎁 ЗАБРАТЬ</button>
@@ -1147,9 +1186,24 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function () {});
 
   function setMobActiveTab(t) { document.querySelectorAll('#mob-bottom-nav .mob-nav-item').forEach(function (e) { e.classList.toggle('active', e.id === t); }); }
-  function closeMobileDrawers() { document.body.classList.remove('mob-left-open', 'mob-right-open'); setMobActiveTab('mob-tab-chat'); }
-  function toggleMobileLeft() { const o = document.body.classList.contains('mob-left-open'); document.body.classList.remove('mob-right-open'); if (o) closeMobileDrawers(); else { document.body.classList.add('mob-left-open'); setMobActiveTab('mob-tab-left'); } }
-  function toggleMobileRight() { const o = document.body.classList.contains('mob-right-open'); document.body.classList.remove('mob-left-open'); if (o) closeMobileDrawers(); else { document.body.classList.add('mob-right-open'); setMobActiveTab('mob-tab-right'); } }
+  function closeMobileDrawers() {
+    document.body.classList.remove('mob-left-open', 'mob-right-open');
+    setMobActiveTab('mob-tab-chat');
+  }
+  function toggleMobileLeft() {
+    closeViewProfileModal();
+    const o = document.body.classList.contains('mob-left-open');
+    document.body.classList.remove('mob-right-open');
+    if (o) closeMobileDrawers();
+    else { document.body.classList.add('mob-left-open'); setMobActiveTab('mob-tab-left'); }
+  }
+  function toggleMobileRight() {
+    closeViewProfileModal();
+    const o = document.body.classList.contains('mob-right-open');
+    document.body.classList.remove('mob-left-open');
+    if (o) closeMobileDrawers();
+    else { document.body.classList.add('mob-right-open'); setMobActiveTab('mob-tab-right'); }
+  }
 
   function setPersistCookie(n, v) { try { document.cookie = n + '=' + encodeURIComponent(v) + '; path=/; max-age=31536000; SameSite=Lax'; } catch (e) {} }
   function getPersistCookie(n) { try { const m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; } catch (e) { return ''; } }
@@ -1172,74 +1226,55 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function updateBrowserUrl() { try { window.history.replaceState({}, '', window.location.pathname + '?room=' + encodeURIComponent(currentRoom) + '&channel=' + encodeURIComponent(currentChannel)); } catch (e) {} }
 
-  // --- ДЕТАЛИЗИРОВАННЫЕ СЦЕНЫ 3 НАБОРОВ (ПО ВАШЕМУ ВИДЕО С ЛЮСИ + ДЭВИД + СИЛЬВЕРХЕНД) ---
+  // --- 3 НАБОРА ЭФФЕКТОВ: НАБОР 1 ИСПОЛЬЗУЕТ ИМЕННО ВАШ ФАЙЛ variant1_lucy_avatar_frame.jpg ---
   const FX_SETS_META = {
     set1: {
       code: '⚡FX:SET1', avaClass: 'fx-set1', badgeClass: 'b-set1', badgeText: '🌙 LUCY NET', surfaceClass: 'theme-set1',
-      cOuter: '#ff1e8a', cInner: '#00f0ff', cBolt: '#5ffbf1',
-      title: 'Набор 1: Люси Кушинада // Edgerunners S1 (Двойной неон + молнии)',
-      // Фон баннера: ночной дождливый Найт-Сити с неоновыми вывесками и летающим спиннером как в видео
-      bannerSvg: '<svg class="dp-banner-svg" viewBox="0 0 360 118" preserveAspectRatio="none"><rect width="360" height="118" fill="#060913"/><rect x="14" y="12" width="38" height="106" fill="#0b1324"/><rect x="20" y="24" width="26" height="42" fill="#ff1e8a" opacity="0.28"/><rect x="62" y="28" width="45" height="90" fill="#091020"/><rect x="118" y="8" width="52" height="110" fill="#0c1528"/><rect x="126" y="18" width="36" height="14" fill="#00f0ff" opacity="0.35"/><rect x="250" y="16" width="48" height="102" fill="#0b1222"/><rect x="260" y="30" width="12" height="55" fill="#ff1e8a" opacity="0.35"/><rect x="308" y="22" width="42" height="96" fill="#09101d"/><ellipse cx="78" cy="42" rx="18" ry="5" fill="#101d33" stroke="#00f0ff" stroke-width="1.2"/><circle cx="68" cy="43" r="2" fill="#ff1e8a"/><circle cx="88" cy="43" r="2" fill="#00f0ff"/><g stroke="#00f0ff" stroke-width="0.8" opacity="0.35"><line x1="40" y1="0" x2="20" y2="118"/><line x1="110" y1="0" x2="90" y2="118"/><line x1="190" y1="0" x2="170" y2="118"/><line x1="270" y1="0" x2="250" y2="118"/><line x1="330" y1="0" x2="310" y2="118"/></g></svg>',
-      // Внутренний арт шестиугольника: кирпичная стена с неоном, геймерский стол и персонаж в кепке из видео
-      innerSvg: '<svg viewBox="0 0 100 100" width="100%" height="100%"><rect width="100" height="100" fill="#0b1324"/><g stroke="#1b2942" stroke-width="1"><line x1="0" y1="25" x2="100" y2="25"/><line x1="0" y1="45" x2="100" y2="45"/><line x1="0" y1="65" x2="100" y2="65"/><line x1="35" y1="25" x2="35" y2="45"/><line x1="70" y1="45" x2="70" y2="65"/></g><circle cx="65" cy="40" r="28" fill="#00f0ff" opacity="0.18"/><circle cx="30" cy="55" r="24" fill="#ff1e8a" opacity="0.2"/><polygon points="8,72 44,58 48,66 12,82" fill="#142238" stroke="#00ff9d" stroke-width="1.2"/><rect x="26" y="48" width="14" height="7" rx="1" fill="#ff1e56"/><circle cx="64" cy="44" r="9" fill="#e2c6b6"/><path d="M54 42 Q64 32 74 42 Z" fill="#1e293b"/><rect x="58" y="42" width="12" height="4" rx="1" fill="#00f0ff"/><path d="M50 75 Q52 54 64 54 Q76 54 78 75 Z" fill="#1e3a5f" stroke="#00f0ff" stroke-width="1"/></svg>',
-      // Детализированная Люси справа внахлёст на шестиугольник (бело-пастельное каре, красные глаза и подводка, белая куртка с открытыми плечами, чёрный бодисьют с красными деталями)
-      charSvg: '<svg class="cds-character-right" viewBox="0 0 110 145"><defs><linearGradient id="lucyHair" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ffffff"/><stop offset="55%" stop-color="#d8f3ff"/><stop offset="85%" stop-color="#ffc2e2"/><stop offset="100%" stop-color="#00f0ff"/></linearGradient><linearGradient id="lucyJacket" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f1f5f9"/><stop offset="100%" stop-color="#94a3b8"/></linearGradient></defs><g filter="drop-shadow(0 0 6px rgba(0,240,255,0.55))"><path d="M38 144 L44 102 L78 104 L84 144 Z" fill="#1e2436" stroke="#00f0ff" stroke-width="1.2"/><path d="M44 102 L48 56 L74 56 L78 104 Z" fill="#0d111a" stroke="#ff1e8a" stroke-width="1.3"/><polygon points="58,64 64,64 62,88 56,88" fill="#ff1e56"/><path d="M30 88 C28 66 36 56 46 56 L48 92 C38 94 32 92 30 88 Z" fill="url(#lucyJacket)" stroke="#cbd5e1" stroke-width="1.2"/><path d="M74 56 C86 58 94 70 92 94 L76 92 Z" fill="url(#lucyJacket)" stroke="#cbd5e1" stroke-width="1.2"/><ellipse cx="60" cy="48" rx="9" ry="6" fill="#fbd5c8"/><path d="M45 26 C45 12 77 12 77 28 C77 40 68 48 60 48 C52 48 45 40 45 26 Z" fill="#fde2d8"/><path d="M38 30 C36 10 52 4 63 6 C78 8 86 20 82 42 C80 32 75 22 68 20 C64 28 56 28 48 22 C44 28 42 38 43 45 C39 40 38 35 38 30 Z" fill="url(#lucyHair)"/><path d="M49 30 L56 31" stroke="#ff1e56" stroke-width="2" stroke-linecap="round"/><path d="M64 31 L71 30" stroke="#ff1e56" stroke-width="2" stroke-linecap="round"/><circle cx="53" cy="32" r="2.2" fill="#ff0055"/><circle cx="67" cy="32" r="2.2" fill="#ff0055"/><path d="M57 41 Q60 43 63 41" fill="none" stroke="#e11d48" stroke-width="1.4"/></g></svg>'
+      frameImgUrl: '/variant1_lucy_avatar_frame.jpg',
+      cOuter: '#ff2a85', cInner: '#00f0ff',
+      title: 'Набор 1: Люси Кушинада // Оригинальная неоновая рамка',
+      bannerSvg: '<svg class="dp-banner-svg" viewBox="0 0 360 120" preserveAspectRatio="none"><rect width="360" height="120" fill="#050811"/><g stroke="#00f0ff" stroke-width="0.8" opacity="0.25"><line x1="0" y1="30" x2="360" y2="30"/><line x1="0" y1="60" x2="360" y2="60"/><line x1="0" y1="90" x2="360" y2="90"/><line x1="60" y1="0" x2="60" y2="120"/><line x1="180" y1="0" x2="180" y2="120"/><line x1="300" y1="0" x2="300" y2="120"/></g><polygon points="220,10 270,35 270,85 220,110 170,85 170,35" fill="none" stroke="#ff2a85" stroke-width="2" opacity="0.55"/><polygon points="295,18 335,40 335,80 295,102 255,80 255,40" fill="none" stroke="#00f0ff" stroke-width="2" opacity="0.65"/><rect x="18" y="22" width="16" height="6" fill="#00f0ff" opacity="0.7"/><rect x="28" y="32" width="22" height="5" fill="#ff2a85" opacity="0.7"/></svg>'
     },
     set2: {
       code: '⚡FX:SET2', avaClass: 'fx-set2', badgeClass: 'b-set2', badgeText: '⚡ SANDY S2', surfaceClass: 'theme-set2',
-      cOuter: '#fcee09', cInner: '#00ff9d', cBolt: '#fcee09',
+      cOuter: '#fcee09', cInner: '#00ff9d',
       title: 'Набор 2: Дэвид Мартинес // Sandevistan Overdrive (Сезон 2)',
-      bannerSvg: '<svg class="dp-banner-svg" viewBox="0 0 360 118" preserveAspectRatio="none"><rect width="360" height="118" fill="#04120e"/><circle cx="285" cy="48" r="36" fill="#fcee09" opacity="0.22"/><circle cx="285" cy="48" r="26" fill="#fffbe6" opacity="0.35"/><path d="M0 95 L60 65 L120 85 L190 45 L260 80 L360 50 L360 118 L0 118 Z" fill="#07221b" opacity="0.7"/><g stroke="#00ff9d" stroke-width="1.2" opacity="0.4"><line x1="20" y1="20" x2="140" y2="20"/><line x1="40" y1="38" x2="190" y2="38"/><line x1="15" y1="56" x2="110" y2="56"/></g></svg>',
-      innerSvg: '<svg viewBox="0 0 100 100" width="100%" height="100%"><rect width="100" height="100" fill="#061914"/><circle cx="50" cy="50" r="34" fill="none" stroke="#00ff9d" stroke-width="1.5" stroke-dasharray="6 4"/><path d="M50 18 L50 82 M36 30 L64 30 M32 50 L68 50 M36 70 L64 70" stroke="#fcee09" stroke-width="3" stroke-linecap="round"/><circle cx="50" cy="30" r="4" fill="#00ff9d"/><circle cx="50" cy="50" r="4" fill="#00ff9d"/><circle cx="50" cy="70" r="4" fill="#00ff9d"/></svg>',
-      // Дэвид Мартинес в культовой жёлтой куртке с неоновым воротником и зелёным свечением Сандевистана
-      charSvg: '<svg class="cds-character-right" viewBox="0 0 110 145"><g filter="drop-shadow(0 0 6px rgba(252,238,9,0.55))"><path d="M30 144 L36 62 L24 50 L42 42 L78 42 L94 52 L84 64 L88 144 Z" fill="#fcee09" stroke="#04120c" stroke-width="1.5"/><path d="M46 52 L74 52 L70 144 L48 144 Z" fill="#0f172a"/><path d="M38 42 L46 28 L74 28 L82 42 Z" fill="#1e293b" stroke="#00ff9d" stroke-width="1.8"/><circle cx="60" cy="28" r="13" fill="#f1c2a5"/><path d="M44 22 L48 8 L58 14 L64 6 L72 14 L78 10 L76 26 Z" fill="#111827"/><circle cx="55" cy="28" r="2" fill="#fcee09"/><circle cx="66" cy="28" r="2" fill="#fcee09"/><path d="M48 68 L72 68 M50 84 L70 84" stroke="#00ff9d" stroke-width="2.5"/></g></svg>'
+      bannerSvg: '<svg class="dp-banner-svg" viewBox="0 0 360 120" preserveAspectRatio="none"><rect width="360" height="120" fill="#04120e"/><circle cx="285" cy="48" r="36" fill="#fcee09" opacity="0.22"/><circle cx="285" cy="48" r="26" fill="#fffbe6" opacity="0.35"/><path d="M0 95 L60 65 L120 85 L190 45 L260 80 L360 50 L360 120 L0 120 Z" fill="#07221b" opacity="0.7"/></svg>'
     },
     set3: {
       code: '⚡FX:SET3', avaClass: 'fx-set3', badgeClass: 'b-set3', badgeText: '🔥 RELIC MAX', surfaceClass: 'theme-set3',
-      cOuter: '#ff003c', cInner: '#00f0ff', cBolt: '#ff003c',
+      cOuter: '#ff003c', cInner: '#00f0ff',
       title: 'Набор 3: Джонни Сильверхенд & V // Cyberpunk 2077 Relic',
-      bannerSvg: '<svg class="dp-banner-svg" viewBox="0 0 360 118" preserveAspectRatio="none"><rect width="360" height="118" fill="#120308"/><rect x="145" y="0" width="70" height="118" fill="#1f050d" stroke="#ff003c" stroke-width="1"/><circle cx="180" cy="34" r="14" fill="none" stroke="#ff003c" stroke-width="2.2"/><g stroke="#00f0ff" stroke-width="1" opacity="0.45"><line x1="0" y1="28" x2="130" y2="28"/><line x1="230" y1="64" x2="360" y2="64"/><line x1="30" y1="88" x2="160" y2="88"/></g></svg>',
-      innerSvg: '<svg viewBox="0 0 100 100" width="100%" height="100%"><rect width="100" height="100" fill="#16040a"/><polygon points="50,14 82,34 72,78 50,90 28,78 18,34" fill="#2b0610" stroke="#ff003c" stroke-width="2"/><circle cx="38" cy="48" r="6" fill="#00f0ff"/><circle cx="62" cy="48" r="6" fill="#00f0ff"/><path d="M34 68 L44 74 L56 74 L66 68" fill="none" stroke="#fcee09" stroke-width="2.5"/></svg>',
-      // Джонни Сильверхенд в бронежилете, красных очках-авиаторах и с серебряной бионической рукой
-      charSvg: '<svg class="cds-character-right" viewBox="0 0 110 145"><g filter="drop-shadow(0 0 6px rgba(255,0,60,0.6))"><path d="M36 144 L40 54 L80 54 L84 144 Z" fill="#18181b" stroke="#ff003c" stroke-width="1.5"/><path d="M22 98 C20 72 28 56 40 56 L42 104 Z" fill="#94a3b8" stroke="#00f0ff" stroke-width="1.6"/><line x1="25" y1="72" x2="40" y2="72" stroke="#0f172a" stroke-width="2"/><line x1="24" y1="84" x2="41" y2="84" stroke="#0f172a" stroke-width="2"/><circle cx="60" cy="30" r="13" fill="#e2b89b"/><path d="M44 18 C46 8 74 8 76 18 L78 46 L72 44 L72 24 L48 24 L48 44 L42 46 Z" fill="#09090b"/><rect x="48" y="25" width="11" height="7" rx="2" fill="#ff003c" stroke="#cbd5e1" stroke-width="1"/><rect x="61" y="25" width="11" height="7" rx="2" fill="#ff003c" stroke="#cbd5e1" stroke-width="1"/><path d="M52 38 L68 38 L64 43 L56 43 Z" fill="#18181b"/></g></svg>'
+      bannerSvg: '<svg class="dp-banner-svg" viewBox="0 0 360 120" preserveAspectRatio="none"><rect width="360" height="120" fill="#120308"/><rect x="145" y="0" width="70" height="120" fill="#1f050d" stroke="#ff003c" stroke-width="1"/><circle cx="180" cy="34" r="14" fill="none" stroke="#ff003c" stroke-width="2.2"/><g stroke="#00f0ff" stroke-width="1" opacity="0.45"><line x1="0" y1="28" x2="130" y2="28"/><line x1="230" y1="64" x2="360" y2="64"/></g></svg>'
     }
   };
 
-  // Генератор двойной 6-угольной неоновой рамки с молниями, искрами и персонажем справа (точно как на видео)
   function buildHeroHexMedallionHTML(letters, avaColor, setKey, statusCls) {
     const m = FX_SETS_META[setKey];
     if (!m) {
-      return '<div class="hex-wrap" style="width:82px;height:82px;margin-top:26px;">' +
-        '<div class="hex-border"><div class="hex-core" style="font-size:22px;background:' + escapeHtml(avaColor || '#ff1e56') + ';">' + escapeHtml(letters) + '</div></div>' +
+      return '<div class="hex-wrap" style="width:84px;height:84px;margin-top:24px;">' +
+        '<div class="hex-border"><div class="hex-core" style="font-size:22px;background:' + escapeHtml(avaColor || '#ff2a85') + ';">' + escapeHtml(letters) + '</div></div>' +
         (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') +
       '</div>';
     }
-    return '<div class="cds-hex-frame">' +
-      '<div class="cds-inner-art">' + m.innerSvg +
-        '<span class="cds-nick-overlay" style="position:absolute;bottom:8px;font-size:13px;">' + escapeHtml(letters) + '</span>' +
-      '</div>' +
-      '<svg class="cds-neon-svg" viewBox="0 0 140 140">' +
-        '<defs>' +
-          '<filter id="glow-' + setKey + '"><feGaussianBlur stdDeviation="2.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
-        '</defs>' +
-        '<!-- Внешний неоновый шестиугольник (Розовый/Жёлтый/Красный) -->' +
-        '<polygon points="70,6 126,38 126,102 70,134 14,102 14,38" fill="none" stroke="' + m.cOuter + '" stroke-width="3.4" filter="url(#glow-' + setKey + ')"/>' +
-        '<!-- Внутренний неоновый шестиугольник (Яркий циан/Изумруд) -->' +
-        '<polygon points="70,13 119,41 119,99 70,127 21,99 21,41" fill="none" stroke="' + m.cInner + '" stroke-width="2.6" filter="url(#glow-' + setKey + ')"/>' +
-        '<!-- Зигзагообразные электрические разряды и молнии вдоль граней как на 00:03 и 00:07 видео -->' +
-        '<polyline class="cds-bolt" points="70,3 42,16 48,22 18,35 10,44 16,66" stroke="' + m.cBolt + '" filter="url(#glow-' + setKey + ')"/>' +
-        '<polyline class="cds-bolt b2" points="12,96 34,114 28,120 62,136 74,132 104,118" stroke="#ffffff" filter="url(#glow-' + setKey + ')"/>' +
-        '<polyline class="cds-bolt b3" points="128,42 134,68 124,76 130,98 96,122" stroke="' + m.cInner + '" filter="url(#glow-' + setKey + ')"/>' +
-        '<!-- Светящиеся искры вокруг шестиугольника -->' +
-        '<circle class="cds-spark" cx="24" cy="22" r="2.2" fill="#fff"/>' +
-        '<circle class="cds-spark s2" cx="10" cy="78" r="2" fill="' + m.cInner + '"/>' +
-        '<circle class="cds-spark s3" cx="55" cy="136" r="2.2" fill="' + m.cOuter + '"/>' +
-        '<circle class="cds-spark" cx="108" cy="18" r="1.8" fill="' + m.cInner + '"/>' +
+    // Если выбран Набор 1 — рендерим именно вашу приложенную рамку variant1_lucy_avatar_frame.jpg поверх аватара
+    if (m.frameImgUrl) {
+      return '<div class="cds-user-core" style="background:' + escapeHtml(avaColor || '#101d30') + ';">' + escapeHtml(letters) + '</div>' +
+        '<img class="cds-frame-img" src="' + m.frameImgUrl + '" alt="Lucy Frame">' +
+        (statusCls ? '<span class="hex-status-dot ' + statusCls + '" style="right:22px;bottom:14px;"></span>' : '');
+    }
+    // Для Наборов 2 и 3 — двойной неоновый шестиугольник в том же стиле
+    return '<div class="cds-user-core" style="left:22%;top:20%;width:56%;height:60%;background:' + escapeHtml(avaColor || '#101d30') + ';">' + escapeHtml(letters) + '</div>' +
+      '<svg class="cds-frame-img" viewBox="0 0 150 150">' +
+        '<polygon points="75,10 132,42 132,108 75,140 18,108 18,42" fill="none" stroke="' + m.cOuter + '" stroke-width="4"/>' +
+        '<polygon points="75,18 124,46 124,104 75,132 26,104 26,46" fill="none" stroke="' + m.cInner + '" stroke-width="3"/>' +
+        '<rect x="10" y="34" width="12" height="4" fill="' + m.cInner + '"/>' +
+        '<rect x="126" y="102" width="14" height="5" fill="' + m.cOuter + '"/>' +
       '</svg>' +
-    '</div>' + m.charSvg;
+      (statusCls ? '<span class="hex-status-dot ' + statusCls + '" style="right:24px;bottom:14px;"></span>' : '');
   }
 
-  let myProfile = { bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#14f1d9', avatarColor: '#ff1e56', fxSet: '' };
+  let myProfile = { bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#00f0ff', avatarColor: '#ff2a85', fxSet: 'set1' };
   try { myProfile = Object.assign(myProfile, JSON.parse(localStorage.getItem('cyber_profile') || '{}')); } catch (e) {}
 
   function detectFxSetFromInterests(raw) {
@@ -1280,7 +1315,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const b = document.getElementById('btn-fx-' + k);
       if (b) b.textContent = (cur === k) ? '✓ АКТИВЕН' : '🎁 ЗАБРАТЬ';
       const slot = document.getElementById('fx-demo-slot-' + (idx + 1));
-      if (slot) slot.innerHTML = '<div class="cyber-diode-scene" style="margin:0;transform:scale(0.78);transform-origin:left center;width:165px;height:112px;">' + buildHeroHexMedallionHTML(myNick.slice(0, 2).toUpperCase(), myProfile.avatarColor, k, '') + '</div>';
+      if (slot) slot.innerHTML = '<div class="cyber-diode-scene" style="margin:0;width:118px;height:112px;">' + buildHeroHexMedallionHTML(myNick.slice(0, 2).toUpperCase(), myProfile.avatarColor, k, '') + '</div>';
     });
     const dis = document.getElementById('btn-disable-fx');
     if (dis) dis.style.display = cur ? 'inline-block' : 'none';
@@ -1322,7 +1357,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function rememberUserInVault(u) {
     if (!u || !u.pid || u.nick === '?') return;
     const prev = localVault.knownUsers[u.pid] || {};
-    localVault.knownUsers[u.pid] = { pid: u.pid, nick: u.nick || prev.nick || 'Участник', bio: u.bio !== undefined ? u.bio : (prev.bio || ''), interests: u.interests !== undefined ? u.interests : (prev.interests || ''), customStatus: u.customStatus !== undefined ? u.customStatus : (prev.customStatus || ''), presence: u.presence || prev.presence || 'online', bannerColor: u.bannerColor || prev.bannerColor || '#14f1d9', avatarColor: u.avatarColor || prev.avatarColor || '#ff1e56' };
+    localVault.knownUsers[u.pid] = { pid: u.pid, nick: u.nick || prev.nick || 'Участник', bio: u.bio !== undefined ? u.bio : (prev.bio || ''), interests: u.interests !== undefined ? u.interests : (prev.interests || ''), customStatus: u.customStatus !== undefined ? u.customStatus : (prev.customStatus || ''), presence: u.presence || prev.presence || 'online', bannerColor: u.bannerColor || prev.bannerColor || '#00f0ff', avatarColor: u.avatarColor || prev.avatarColor || '#ff2a85' };
   }
   function saveLocalVault() {
     try {
@@ -1421,8 +1456,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         ctx.fillText('⬢ ' + u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : ''), 24, y);
       });
     }
-    ctx.strokeStyle = '#14f1d9'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, w - 2, h - 2);
-    ctx.fillStyle = '#14f1d9'; ctx.font = 'bold 14px sans-serif'; ctx.fillText('🔊 ' + String(currentVoiceChannel || 'Эфир').slice(0, 22), 16, 25);
+    ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, w - 2, h - 2);
+    ctx.fillStyle = '#00f0ff'; ctx.font = 'bold 14px sans-serif'; ctx.fillText('🔊 ' + String(currentVoiceChannel || 'Эфир').slice(0, 22), 16, 25);
     ctx.fillStyle = '#e6f7ff'; ctx.font = 'bold 13px monospace'; ctx.fillText(formatCallTime(callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0), w - 58, 25);
   }
 
@@ -1479,7 +1514,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const r = el('div', 'vc-user-row');
       const hw = el('div', 'hex-wrap' + (m ? ' ' + m.avaClass : '')); hw.style.cssText = 'width:24px;height:24px;';
       const hb = el('div', 'hex-border'), hc = el('div', 'hex-core', String(u.nick || '?').slice(0, 2).toUpperCase());
-      hc.style.cssText = 'font-size:8.5px;background:' + (u.avatarColor || '#14f1d9') + ';';
+      hc.style.cssText = 'font-size:8.5px;background:' + (u.avatarColor || '#00f0ff') + ';';
       hb.appendChild(hc); hw.appendChild(hb); r.appendChild(hw);
       r.appendChild(el('span', '', u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '')));
       r.onclick = function () { openUserProfileCard(u); };
@@ -1511,7 +1546,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function applyNickUI() {
     document.getElementById('user-name-label').textContent = myNick;
-    const ava = document.getElementById('user-ava'); ava.textContent = myNick.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#ff1e56';
+    const ava = document.getElementById('user-ava'); ava.textContent = myNick.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#ff2a85';
     const curSet = myProfile.fxSet || detectFxSetFromInterests(myProfile.interests), meta = FX_SETS_META[curSet];
     const wrap = document.getElementById('user-ava-wrap'); if (wrap) wrap.className = 'hex-wrap' + (meta ? ' ' + meta.avaClass : '');
     const badgeSlot = document.getElementById('user-bar-badge-slot'); if (badgeSlot) badgeSlot.innerHTML = getBadgeHTML(curSet);
@@ -1535,7 +1570,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function renderServerChannels() {
     const sName = currentServerMeta.name || currentRoom;
     document.getElementById('srv-title-label').textContent = sName;
-    const nodeLbl = document.getElementById('tt-node-label'); if (nodeLbl) nodeLbl.textContent = 'Узел активен • ' + currentRoom;
+    const nodeLbl = document.getElementById('tt-node-label'); if (nodeLbl) nodeLbl.textContent = currentRoom;
     const tList = currentServerMeta.textChannels || ['общий']; if (!tList.includes(currentChannel)) currentChannel = tList[0] || 'общий';
     const vList = currentServerMeta.voiceChannels || ['Ночной эфир']; if (!vList.includes(currentVoiceChannel)) currentVoiceChannel = vList[0] || 'Ночной эфир';
 
@@ -1561,9 +1596,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function applyChannelUI(ch) {
     const sName = currentServerMeta.name || 'Ночной клуб';
     document.getElementById('top-ch-name').textContent = ch;
-    document.getElementById('top-ch-desc').textContent = 'АКТИВНЫЙ АУДИО ПОТОК // ' + sName.toUpperCase();
+    document.getElementById('top-ch-desc').textContent = 'АКТИВНЫЙ ПОТОК // ' + sName.toUpperCase();
     document.getElementById('banner-desc').textContent = 'КАНАЛ #' + ch.toUpperCase();
-    document.getElementById('chat-input').placeholder = 'Написать сообщение в #' + ch + '...';
+    document.getElementById('chat-input').placeholder = 'Написать в #' + ch + '...';
     document.querySelectorAll('.ch-btn').forEach(function (i) { i.classList.toggle('active', i.getAttribute('data-ch') === ch); });
   }
   function updateVoicePanelUI() { document.getElementById('voice-panel-title').textContent = currentVoiceChannel; updateFloatingOverlayUI(); }
@@ -1651,7 +1686,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const author = String(m.author || '?'), viol = checkContentViolation(m.text, m.flags);
     const memberObj = (lastMembers || []).find(function (u) { return u.nick === author; }) || (author === myNick ? getMyMemberObject() : { nick: author });
     const setKey = getUserFxSet(memberObj), fxMeta = FX_SETS_META[setKey];
-    const fxCls = fxMeta ? ' ' + fxMeta.avaClass : '', avaCol = (memberObj && memberObj.avatarColor) || '#14f1d9';
+    const fxCls = fxMeta ? ' ' + fxMeta.avaClass : '', avaCol = (memberObj && memberObj.avatarColor) || '#00f0ff';
     const div = el('div', 'msg-item');
     div.innerHTML =
       '<div class="hex-wrap' + fxCls + '" style="width:38px;height:38px;margin-top:2px;cursor:pointer;">' +
@@ -1678,7 +1713,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
     const avaWrap = el('div', 'hex-wrap' + (fxMeta ? ' ' + fxMeta.avaClass : '')); avaWrap.style.cssText = 'width:34px;height:34px;';
     const hb = el('div', 'hex-border'), ava = el('div', 'hex-core', String(u.nick || '?').slice(0, 2).toUpperCase());
-    ava.style.cssText = 'font-size:11px;background:' + (u.avatarColor || '#14f1d9') + ';';
+    ava.style.cssText = 'font-size:11px;background:' + (u.avatarColor || '#00f0ff') + ';';
     hb.appendChild(ava); avaWrap.appendChild(hb); avaWrap.appendChild(el('span', 'hex-status-dot ' + (u.online ? (u.presence || 'online') : 'off')));
     d.appendChild(avaWrap);
 
@@ -1731,11 +1766,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function openUserProfileCard(u) {
     if (!u) return;
+    closeMobileDrawers();
     const setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
     document.getElementById('vp-surface').className = 'profile-surface psd-inner' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
-    document.getElementById('vp-banner').style.background = u.bannerColor || '#14f1d9';
+    document.getElementById('vp-banner').style.background = u.bannerColor || '#00f0ff';
     document.getElementById('vp-banner-art').innerHTML = fxMeta ? fxMeta.bannerSvg : '';
-    document.getElementById('vp-hero-stage').innerHTML = buildHeroHexMedallionHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#ff1e56', setKey, u.online ? (u.presence || 'online') : 'off');
+    document.getElementById('vp-hero-stage').innerHTML = buildHeroHexMedallionHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#ff2a85', setKey, u.online ? (u.presence || 'online') : 'off');
     document.getElementById('vp-nick').textContent = u.nick || 'Участник';
     document.getElementById('vp-badge-slot').innerHTML = getBadgeHTML(setKey);
     document.getElementById('vp-fx-label').textContent = fxMeta ? fxMeta.title : 'Стандартный кибер-контур';
@@ -1769,7 +1805,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function openSettingsModal(pane) {
-    closeMobileDrawers(); setMobActiveTab('mob-tab-profile');
+    closeMobileDrawers(); closeViewProfileModal(); setMobActiveTab('mob-tab-profile');
     document.getElementById('prof-nick-inp').value = myNick;
     document.getElementById('prof-presence-sel').value = myProfile.presence || 'online';
     document.getElementById('prof-status-inp').value = myProfile.customStatus || '';
@@ -1811,9 +1847,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const finalIntr = cleanTags.join(', ');
 
     document.getElementById('preview-surface').className = 'profile-surface' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
-    document.getElementById('preview-banner').style.background = myProfile.bannerColor || '#14f1d9';
+    document.getElementById('preview-banner').style.background = myProfile.bannerColor || '#00f0ff';
     document.getElementById('preview-banner-art').innerHTML = fxMeta ? fxMeta.bannerSvg : '';
-    document.getElementById('preview-hero-stage').innerHTML = buildHeroHexMedallionHTML(n.slice(0, 2).toUpperCase(), myProfile.avatarColor || '#ff1e56', curSet, pr);
+    document.getElementById('preview-hero-stage').innerHTML = buildHeroHexMedallionHTML(n.slice(0, 2).toUpperCase(), myProfile.avatarColor || '#ff2a85', curSet, pr);
     document.getElementById('preview-nick').textContent = n;
     document.getElementById('preview-badge-slot').innerHTML = getBadgeHTML(curSet);
     document.getElementById('preview-status').textContent = st || 'В сети';
@@ -2178,28 +2214,48 @@ const server = http.createServer(async (req, res) => {
       return res.end(HTML_PAGE);
     }
 
+    // Раздача вашей рамки Люси и других картинок из корня проекта
+    if (req.method === 'GET' && (url.pathname === '/variant1_lucy_avatar_frame.jpg' || url.pathname === '/set2_frame.jpg' || url.pathname === '/set3_frame.jpg')) {
+      const imgPath = path.join(__dirname, path.basename(url.pathname));
+      if (fs.existsSync(imgPath)) {
+        res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' });
+        return res.end(fs.readFileSync(imgPath));
+      }
+    }
+
+    // Раздача PNG-иконок 192x192 и 512x512 для PWABuilder без ошибки 404
+    if (req.method === 'GET' && (url.pathname === '/icon-192.png' || url.pathname === '/icon-512.png' || url.pathname === '/logo.png')) {
+      const logoFile = path.join(__dirname, 'logo.png');
+      const logoFileAlt = path.join(__dirname, 'logo (1).png');
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
+      if (fs.existsSync(logoFile)) return res.end(fs.readFileSync(logoFile));
+      if (fs.existsSync(logoFileAlt)) return res.end(fs.readFileSync(logoFileAlt));
+      // Встроенный валидный PNG-буфер на случай, если файл ещё не загружен в Git
+      const fallbackPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAMAAABlApw1AAAABlBMVEX///8ef49/6C72AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAaklEQVR4nO3BMQEAAADCoPVPbQwfoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOA1v9QAATX6870AAAAASUVORK5CYII=', 'base64');
+      return res.end(fallbackPng);
+    }
+
     if (req.method === 'GET' && url.pathname === '/manifest.json') {
       res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8' });
       return res.end(JSON.stringify({
-        name: 'СИГНАЛ — Ночной клуб',
+        id: '/',
+        name: 'СИГНАЛ — Киберпанк Сеть',
         short_name: 'СИГНАЛ',
+        description: 'Голосовые и текстовые P2P-каналы связи СИГНАЛ // CYBER.NET',
         start_url: '/',
+        scope: '/',
         display: 'standalone',
-        background_color: '#040609',
-        theme_color: '#040609',
+        orientation: 'portrait',
+        background_color: '#04070d',
+        theme_color: '#04070d',
+        dir: 'ltr',
+        lang: 'ru',
+        categories: ['social', 'communication'],
         icons: [
-          {
-            src: "/icon-192.png",
-            sizes: "192x192",
-            type: "image/png",
-            purpose: "any maskable"
-          },
-          {
-            src: "/icon-512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "any maskable"
-          }
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ]
       }));
     }
