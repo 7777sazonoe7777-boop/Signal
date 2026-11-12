@@ -365,14 +365,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     --brand:#00f0ff; --brand-hover:#66f7ff; --pink:#ff2a85; --green:#10b981; --red:#ff1e56; --yellow:#fcee09;
     --text-main:#e6f7ff; --text-normal:#b4cde0; --text-muted:#63809b; --text-dim:#3b536b;
     --border:rgba(0,240,255,0.16); --pink-border:rgba(255,42,133,0.48); --cyan-border:rgba(0,240,255,0.4);
-    --chat-font-size:14px; --hex:polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    --chat-font-size:14px;
+    /* Правильный выровненный 6-угольник (не сплюснутый), совпадающий с гранями ваших рамок */
+    --hex-regular:polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%);
+    --hex-inner-hole:polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
     --pcb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='none' stroke='%2300f0ff' stroke-width='0.8' stroke-opacity='0.05'%3E%3Cpath d='M0 20h30l15 15v30l15 15h40l20-20h20M20 0v25l20 20h35l15-15h50M0 95h25l20 20v25M80 140v-25l20-20h40'/%3E%3C/g%3E%3C/svg%3E");
   }
-  @keyframes neonSpin { 0%{transform:translate(-50%,-50%) rotate(0deg);} 100%{transform:translate(-50%,-50%) rotate(360deg);} }
-  @keyframes neonSpinRev { 0%{transform:translate(-50%,-50%) rotate(360deg);} 100%{transform:translate(-50%,-50%) rotate(0deg);} }
   @keyframes eqPulse { 0%,100%{transform:scaleY(0.25);opacity:0.45;} 50%{transform:scaleY(1);opacity:1;} }
   @keyframes badgeFlow { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
-  @keyframes framePulse { 0%,100%{filter:drop-shadow(0 0 6px rgba(0,240,255,0.55)) drop-shadow(0 0 10px rgba(255,42,133,0.45));} 50%{filter:drop-shadow(0 0 12px rgba(0,240,255,0.9)) drop-shadow(0 0 18px rgba(255,42,133,0.8));} }
 
   * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
   html, body {
@@ -383,69 +383,64 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     padding-top:env(safe-area-inset-top, 0px);
   }
 
-  /* 6-УГОЛЬНЫЕ АВАТАРЫ С ПРЯМЫМ НАЛОЖЕНИЕМ ВАШЕЙ КАРТИНКИ РАМКИ ЛЮСИ */
+  /* ИКОНКИ АВАТАРОВ ВО ВСЕХ МЕСТАХ САЙТА С ВИДИМЫМИ ОРИГИНАЛЬНЫМИ РАМКАМИ */
   .hex-wrap {
     position:relative; display:inline-flex; align-items:center; justify-content:center;
-    flex-shrink:0; overflow:visible;
+    flex-shrink:0; overflow:visible !important;
   }
   .hex-border {
-    position:relative; width:100%; height:100%; clip-path:var(--hex);
-    background:rgba(0,240,255,0.3); display:flex; align-items:center; justify-content:center;
-    padding:2px; overflow:hidden; z-index:2;
+    position:relative; width:100%; height:100%;
+    clip-path:var(--hex-regular);
+    background:rgba(0,240,255,0.35); display:flex; align-items:center; justify-content:center;
+    padding:2px; overflow:hidden; z-index:1;
   }
-  .hex-wrap.fx-set2 .hex-border::before,
-  .hex-wrap.fx-set3 .hex-border::before {
-    content:''; position:absolute; top:50%; left:50%; width:220%; height:220%; z-index:0;
-    animation:neonSpin 2.1s linear infinite;
+  /* Когда надета рамка набора — подгоняем ядро под внутреннее шестиугольное окно рамки */
+  .hex-wrap.has-custom-frame .hex-border {
+    width:54%; height:58%;
+    margin-right:5%; margin-top:4%;
+    clip-path:var(--hex-inner-hole);
+    padding:0; background:transparent;
   }
-  .hex-wrap.fx-set1 { filter:drop-shadow(0 0 6px rgba(0,240,255,0.75)) drop-shadow(0 0 10px rgba(255,42,133,0.65)); }
-  .hex-wrap.fx-set1 .hex-border { background:linear-gradient(135deg, #00f0ff, #ff2a85); }
-
-  /* Наложенная поверх мини-аватара ваша оригинальная рамка с Люси */
-  .hex-wrap.fx-set1::after {
-    content:''; position:absolute;
-    width:162%; height:162%; left:-27%; top:-31%;
-    background:url('/variant1_lucy_avatar_frame.jpg') center/contain no-repeat;
-    mix-blend-mode:screen; pointer-events:none; z-index:5;
-  }
-
-  .hex-wrap.fx-set2 { filter:drop-shadow(0 0 6px #fcee09) drop-shadow(0 0 10px #00ff9d); }
-  .hex-wrap.fx-set2 .hex-border::before { background:conic-gradient(from 0deg, #fcee09 0%, #00ff9d 40%, transparent 55%, #ff0055 80%, #fcee09 100%); }
-
-  .hex-wrap.fx-set3 { filter:drop-shadow(0 0 7px #ff003c) drop-shadow(0 0 11px #00f0ff); }
-  .hex-wrap.fx-set3 .hex-border::before { background:conic-gradient(from 0deg, #ff003c 0%, #00f0ff 35%, transparent 50%, #ff003c 75%, #fcee09 100%); }
-
   .hex-core {
-    position:relative; z-index:2; width:100%; height:100%; clip-path:var(--hex);
-    background:linear-gradient(145deg,#101d30,#08101c); color:#fff; font-weight:800;
+    position:relative; z-index:1; width:100%; height:100%;
+    clip-path:inherit;
+    background:linear-gradient(145deg,#14253d,#08111e); color:#fff; font-weight:800;
     display:flex; align-items:center; justify-content:center; overflow:hidden;
+  }
+  /* Наложенная оригинальная картинка рамки на маленьких иконках в чате, в списке участников и внизу */
+  .mini-frame-overlay {
+    position:absolute; width:146%; height:146%;
+    left:-23%; top:-23%;
+    object-fit:contain; mix-blend-mode:screen;
+    pointer-events:none; z-index:4;
   }
   .hex-status-dot {
     position:absolute; right:-2px; bottom:-2px; width:10px; height:10px;
-    clip-path:var(--hex); background:var(--green); border:1.5px solid #04070d; z-index:6;
+    clip-path:var(--hex-regular); background:var(--green); border:1.5px solid #04070d; z-index:6;
   }
   .hex-status-dot.idle { background:var(--yellow); }
   .hex-status-dot.dnd { background:var(--red); }
   .hex-status-dot.invisible,.hex-status-dot.offline,.hex-status-dot.off { background:var(--text-dim); }
 
-  /* КРУПНЫЙ АВАТАР ПРОФИЛЯ С ВАШЕЙ ОРИГИНАЛЬНОЙ КАРТИНКОЙ РАМКИ ЛЮСИ */
+  /* КРУПНЫЙ МЕДАЛЬОН АВАТАРА В ПРОФИЛЕ И НАСТРОЙКАХ — ВЫРОВНЕННЫЙ ПОД ОТВЕРСТИЕ РАМКИ */
   .cyber-diode-scene {
-    position:relative; width:154px; height:146px; margin-top:-66px; margin-left:6px;
+    position:relative; width:148px; height:148px; margin:4px auto 2px;
     display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    overflow:visible;
   }
-  /* Внутреннее 6-угольное ядро аватара точно по центру отверстия вашей рамки */
+  /* Внутренний шестиугольник с точными пропорциями 0.88:1 (ровные грани параллельно рамке) */
   .cds-user-core {
-    position:absolute; left:17%; top:20%; width:56%; height:60%;
-    clip-path:var(--hex); background:linear-gradient(145deg,#112036,#070d18);
+    position:absolute;
+    left:22.4%; top:24.8%; width:50.2%; height:56.8%;
+    clip-path:var(--hex-inner-hole);
+    background:linear-gradient(145deg,#1d3557,#0b1628);
     display:flex; align-items:center; justify-content:center;
-    font-size:24px; font-weight:900; color:#fff; z-index:1;
-    box-shadow:inset 0 0 18px rgba(0,240,255,0.35);
+    font-size:22px; font-weight:900; color:#fff; z-index:1;
+    box-shadow:inset 0 0 16px rgba(0,240,255,0.3);
   }
-  /* Сама ваша картинка variant1_lucy_avatar_frame.jpg поверх аватара */
   .cds-frame-img {
     position:absolute; inset:0; width:100%; height:100%;
     object-fit:contain; mix-blend-mode:screen; pointer-events:none; z-index:3;
-    animation:framePulse 3s ease-in-out infinite;
   }
 
   /* БЕЙДЖИ СПРАВА ОТ НИКА */
@@ -455,32 +450,54 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     white-space:nowrap; flex-shrink:0; background-size:200% 200%; animation:badgeFlow 2.5s ease infinite;
   }
   .cyber-badge.b-set1 { background-image:linear-gradient(90deg,#ff2a85,#00f0ff,#ff2a85); color:#fff; box-shadow:0 0 8px rgba(0,240,255,0.6); }
-  .cyber-badge.b-set2 { background-image:linear-gradient(90deg,#fcee09,#00ff9d,#fcee09); color:#04120c; box-shadow:0 0 8px rgba(252,238,9,0.6); }
-  .cyber-badge.b-set3 { background-image:linear-gradient(90deg,#ff003c,#00f0ff,#ff003c); color:#fff; box-shadow:0 0 8px rgba(255,0,60,0.7); }
+  .cyber-badge.b-set2 { background-image:linear-gradient(90deg,#ff6a00,#fcee09,#00f0ff); color:#04120c; box-shadow:0 0 8px rgba(255,106,0,0.65); }
+  .cyber-badge.b-set3 { background-image:linear-gradient(90deg,#ff003c,#ff5500,#ff003c); color:#fff; box-shadow:0 0 8px rgba(255,0,60,0.7); }
 
-  /* ПРОФИЛЬ В СТИЛЕ НАБОРА 1 (КАК НА ВАШЕЙ КАРТИНКЕ С ЛЮСИ) И НАБОРОВ 2, 3 */
-  .profile-surface { position:relative; background:#050a14; border:1px solid var(--border); border-radius:12px; overflow:hidden; transition:0.25s; }
-  .profile-surface.theme-set1 {
-    border:2px solid #00f0ff;
-    box-shadow:0 0 24px rgba(0,240,255,0.45), 0 0 14px rgba(255,42,133,0.45), inset 0 0 26px rgba(255,42,133,0.22);
-    background:
-      radial-gradient(circle at 85% 15%, rgba(255,42,133,0.26), rgba(0,240,255,0.14) 48%, #050811 92%);
+  /* КАРТОЧКА ПРОФИЛЯ С ВАШИМИ ОРИГИНАЛЬНЫМИ РАМКАМИ ПРОФИЛЯ ИЗ ТРОЙНОЙ КАРТИНКИ */
+  .profile-surface {
+    position:relative; background:#060a12; border:1px solid var(--border);
+    border-radius:14px; overflow:hidden; transition:0.25s;
   }
-  .profile-surface.theme-set1 .dp-banner {
-    background:
-      linear-gradient(180deg, rgba(5,8,17,0.2) 0%, #050811 100%),
-      url('/variant1_lucy_avatar_frame.jpg') right 35% / cover no-repeat,
-      linear-gradient(125deg, #1b062e 0%, #ff2a85 52%, #00f0ff 100%) !important;
+  /* Наложенная оригинальная рамка профиля поверх карточки */
+  .profile-frame-overlay {
+    position:absolute; inset:0; width:100%; height:100%;
+    background-image:url('/profile_frames_3sets.jpg');
+    background-repeat:no-repeat;
+    background-size:300% 100%;
+    mix-blend-mode:screen;
+    pointer-events:none;
+    z-index:8;
+    opacity:0;
+    transition:opacity 0.2s;
+  }
+  .profile-surface.theme-set1 .profile-frame-overlay {
+    opacity:1; background-position:0% 0%;
+  }
+  .profile-surface.theme-set2 .profile-frame-overlay {
+    opacity:1; background-position:50% 0%;
+  }
+  .profile-surface.theme-set3 .profile-frame-overlay {
+    opacity:1; background-position:100% 0%;
+  }
+  .profile-surface.theme-set1 {
+    border:1px solid rgba(184,41,255,0.55);
+    box-shadow:0 0 26px rgba(184,41,255,0.35);
+    background:radial-gradient(circle at 50% 12%, rgba(184,41,255,0.22), #050811 75%);
   }
   .profile-surface.theme-set2 {
-    border:2px solid #fcee09;
-    box-shadow:0 0 24px rgba(252,238,9,0.4), inset 0 0 22px rgba(0,255,157,0.2);
-    background:radial-gradient(circle at 80% 18%, rgba(252,238,9,0.24), rgba(0,255,157,0.12) 48%, #041012 94%);
+    border:1px solid rgba(255,120,0,0.55);
+    box-shadow:0 0 26px rgba(255,120,0,0.35);
+    background:radial-gradient(circle at 50% 12%, rgba(0,240,255,0.18), #060911 75%);
   }
   .profile-surface.theme-set3 {
-    border:2px solid #ff003c;
-    box-shadow:0 0 26px rgba(255,0,60,0.5), inset 0 0 22px rgba(0,240,255,0.2);
-    background:radial-gradient(circle at 80% 18%, rgba(255,0,60,0.26), rgba(0,240,255,0.1) 52%, #110409 95%);
+    border:1px solid rgba(255,0,60,0.6);
+    box-shadow:0 0 26px rgba(255,0,60,0.4);
+    background:radial-gradient(circle at 50% 12%, rgba(255,40,0,0.22), #090508 75%);
+  }
+  /* Внутренние отступы карточки профиля, чтобы контент лежал аккуратно внутри вашей рамки */
+  .profile-surface[class*="theme-set"] .dp-body {
+    padding:54px 30px 26px;
+    position:relative; z-index:4;
   }
 
   /* ВЕРХНЯЯ ПАНЕЛЬ */
@@ -507,10 +524,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .srv-pill-wrap { position:relative; width:68px; display:flex; justify-content:center; align-items:center; }
   .srv-pill-bar { position:absolute; left:0; width:3px; height:10px; background:var(--brand); opacity:0; transition:0.18s; }
   .srv-pill-wrap.active .srv-pill-bar { opacity:1; height:36px; }
-  .srv-ico { width:44px; height:44px; clip-path:var(--hex); background:#0c1626; color:var(--text-normal); font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .srv-ico { width:44px; height:44px; clip-path:var(--hex-regular); background:#0c1626; color:var(--text-normal); font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
   .srv-ico:hover,.srv-pill-wrap.active .srv-ico { background:var(--brand); color:#031518; box-shadow:0 0 14px rgba(0,240,255,0.6); }
   .srv-ico.home-ico { background:#0d1829; color:var(--yellow); font-size:18px; }
-  .srv-ico-action { width:44px; height:44px; clip-path:var(--hex); background:rgba(255,42,133,0.18); color:var(--pink); font-size:20px; font-weight:800; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .srv-ico-action { width:44px; height:44px; clip-path:var(--hex-regular); background:rgba(255,42,133,0.18); color:var(--pink); font-size:20px; font-weight:800; display:flex; align-items:center; justify-content:center; cursor:pointer; }
 
   .workspace { flex:1; display:grid; grid-template-columns:250px 1fr 245px; min-height:0; overflow:hidden; position:relative; }
   body.hide-members-panel .workspace { grid-template-columns:250px 1fr; }
@@ -541,8 +558,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .ch-unread-badge { background:var(--pink); color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:999px; }
   .off-badge { font-size:9px; color:var(--text-muted); font-weight:800; }
   .off-badge.on { color:var(--green); }
-  .voice-connected-users { display:flex; flex-direction:column; gap:5px; padding:4px 0 6px 18px; }
-  .vc-user-row { display:flex; align-items:center; gap:8px; padding:3px 6px; border-radius:4px; font-size:12px; color:var(--text-normal); cursor:pointer; }
+  .voice-connected-users { display:flex; flex-direction:column; gap:6px; padding:4px 0 6px 18px; }
+  .vc-user-row { display:flex; align-items:center; gap:10px; padding:4px 6px; border-radius:4px; font-size:12px; color:var(--text-normal); cursor:pointer; }
 
   /* ГОЛОСОВОЙ ДОК СНИЗУ СЛЕВА */
   .sidebar-voice-dock { background:rgba(6,16,26,0.96); border-top:1px solid var(--cyan-border); padding:9px 10px; display:flex; flex-direction:column; gap:7px; flex-shrink:0; }
@@ -557,13 +574,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .svd-btn.active-cam { background:rgba(16,185,129,0.25); border-color:var(--green); color:#6ee7b7; }
   .svd-btn.active-screen { background:rgba(255,42,133,0.25); border-color:var(--pink); color:#ffaec2; }
 
-  .user-bar { height:56px; padding:0 10px; background:var(--bg-userbar); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:6px; flex-shrink:0; }
-  .user-info { display:flex; align-items:center; gap:10px; padding:4px; border-radius:6px; cursor:pointer; flex:1; min-width:0; }
+  .user-bar { height:58px; padding:0 10px; background:var(--bg-userbar); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:6px; flex-shrink:0; overflow:visible; }
+  .user-info { display:flex; align-items:center; gap:12px; padding:4px 6px; border-radius:6px; cursor:pointer; flex:1; min-width:0; overflow:visible; }
   .user-name-row { display:flex; align-items:center; gap:5px; min-width:0; }
   .user-name { font-size:13px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .user-sub { font-size:10px; color:var(--brand); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .user-bar-controls { display:flex; align-items:center; gap:4px; }
-  .ub-ctrl-btn { width:32px; height:32px; clip-path:var(--hex); background:#0d1829; border:none; color:var(--brand); font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .ub-ctrl-btn { width:32px; height:32px; clip-path:var(--hex-regular); background:#0d1829; border:none; color:var(--brand); font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
   .ub-ctrl-btn.off { background:rgba(255,42,133,0.25); color:var(--pink); }
 
   /* ЦЕНТРАЛЬНАЯ ЗОНА И СЦЕНА КАМЕР */
@@ -600,9 +617,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .btn-fs { background:#0d1829; border:1px solid var(--border); color:var(--brand); padding:3px 7px; border-radius:4px; font-size:10px; font-weight:700; cursor:pointer; }
 
   .chat-scroll-area { flex:1; overflow-y:auto; padding:8px 12px; display:flex; flex-direction:column; gap:6px; min-height:0; }
-  .messages-container { display:flex; flex-direction:column; gap:6px; }
-  .msg-item { display:flex; gap:12px; padding:8px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; }
-  body.compact-chat .msg-item { padding:4px 10px; }
+  .messages-container { display:flex; flex-direction:column; gap:8px; }
+  .msg-item { display:flex; gap:14px; padding:10px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; overflow:visible; }
+  body.compact-chat .msg-item { padding:6px 10px; }
   .msg-head-line { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .msg-author { font-size:13.5px; font-weight:800; color:var(--brand); cursor:pointer; }
   .msg-time { font-size:10.5px; color:var(--text-muted); font-family:monospace; }
@@ -628,7 +645,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .tm-row { display:flex; justify-content:space-between; color:var(--text-normal); margin-top:4px; font-family:monospace; }
   .tm-val { color:var(--brand); font-weight:700; }
   .right-sec-title { font-size:10.5px; text-transform:uppercase; color:var(--brand); font-weight:800; padding:8px 6px 4px; }
-  .online-user-item { display:flex; align-items:center; gap:10px; padding:6px 7px; border-radius:6px; cursor:pointer; min-width:0; }
+  .online-user-item { display:flex; align-items:center; gap:12px; padding:7px 8px; border-radius:6px; cursor:pointer; min-width:0; overflow:visible; }
   .online-user-item:hover { background:var(--bg-hover); }
   .member-text-col { flex:1; overflow:hidden; display:flex; flex-direction:column; min-width:0; }
   .member-nick-row { display:flex; align-items:center; gap:5px; font-size:13px; font-weight:700; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -636,24 +653,22 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .mini-btn { background:rgba(0,240,255,0.08); border:1px solid var(--border); color:var(--brand); padding:2px 7px; border-radius:4px; font-size:10px; font-weight:800; cursor:pointer; }
   .friend-tag { font-size:9.5px; color:var(--green); font-weight:800; }
 
-  .profile-drawer-backdrop { position:fixed; inset:0; background:rgba(2,5,10,0.65); backdrop-filter:blur(3px); z-index:970; display:none; }
+  .profile-drawer-backdrop { position:fixed; inset:0; background:rgba(2,5,10,0.68); backdrop-filter:blur(3px); z-index:970; display:none; }
   .profile-drawer-backdrop.open { display:block; }
-  .profile-slide-drawer { position:fixed; top:0; right:0; bottom:0; width:365px; max-width:92vw; z-index:975; transform:translateX(106%); transition:transform 0.26s cubic-bezier(0.16,1,0.3,1); display:flex; flex-direction:column; padding:10px; pointer-events:none; }
+  .profile-slide-drawer { position:fixed; top:0; right:0; bottom:0; width:380px; max-width:95vw; z-index:975; transform:translateX(106%); transition:transform 0.26s cubic-bezier(0.16,1,0.3,1); display:flex; flex-direction:column; padding:10px; pointer-events:none; }
   .profile-slide-drawer.open { transform:translateX(0); pointer-events:auto; }
   .psd-inner { flex:1; display:flex; flex-direction:column; overflow-y:auto; }
-  .dp-banner { height:120px; background:linear-gradient(90deg,var(--brand),var(--pink)); position:relative; flex-shrink:0; overflow:hidden; }
-  .dp-banner-svg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none; }
-  .dp-close-x { position:absolute; top:10px; right:10px; width:30px; height:30px; border-radius:6px; background:rgba(4,7,13,0.82); border:1px solid var(--border); color:#fff; font-weight:800; cursor:pointer; z-index:5; }
-  .dp-body { padding:10px 16px 16px; position:relative; flex:1; display:flex; flex-direction:column; gap:10px; }
-  .dp-nick-line { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  .dp-nick { font-size:18px; font-weight:900; color:#fff; }
-  .dp-status { font-size:12.5px; color:var(--brand); }
-  .dp-sec { background:rgba(4,7,13,0.75); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px 12px; }
+  .dp-close-x { position:absolute; top:14px; right:14px; width:32px; height:32px; border-radius:6px; background:rgba(4,7,13,0.88); border:1px solid var(--border); color:#fff; font-weight:800; cursor:pointer; z-index:12; }
+  .dp-body { padding:38px 24px 22px; position:relative; z-index:4; flex:1; display:flex; flex-direction:column; gap:10px; }
+  .dp-nick-line { display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; text-align:center; }
+  .dp-nick { font-size:19px; font-weight:900; color:#fff; }
+  .dp-status { font-size:12.5px; color:var(--brand); text-align:center; }
+  .dp-sec { background:rgba(4,7,13,0.82); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 12px; backdrop-filter:blur(4px); }
   .dp-sec-title { font-size:10px; font-weight:800; color:var(--brand); margin-bottom:5px; text-transform:uppercase; }
   .dp-bio { font-size:12.5px; color:var(--text-normal); white-space:pre-wrap; }
   .dp-tags { display:flex; gap:5px; flex-wrap:wrap; margin-top:4px; }
   .dp-tag { background:rgba(0,240,255,0.12); border:1px solid var(--border); color:var(--brand); padding:3px 8px; border-radius:4px; font-size:11px; font-weight:700; }
-  .dp-actions-col { display:flex; flex-direction:column; gap:7px; margin-top:auto; padding-top:8px; }
+  .dp-actions-col { display:flex; flex-direction:column; gap:7px; margin-top:auto; padding-top:8px; position:relative; z-index:10; }
   .status-pill { font-size:10px; padding:2px 7px; border-radius:4px; font-weight:800; }
   .status-pill.on { background:rgba(16,185,129,0.18); color:var(--green); }
   .status-pill.off { background:rgba(255,255,255,0.06); color:var(--text-muted); }
@@ -670,7 +685,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .floating-call-overlay.show { display:flex; }
   .fco-head { display:flex; justify-content:space-between; align-items:center; cursor:move; border-bottom:1px solid var(--border); padding-bottom:5px; }
   .fco-live { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:800; color:var(--green); }
-  .fco-pulse { width:8px; height:8px; clip-path:var(--hex); background:var(--green); }
+  .fco-pulse { width:8px; height:8px; clip-path:var(--hex-regular); background:var(--green); }
   .fco-timer { font-size:11px; font-family:monospace; color:var(--brand); }
   .fco-peers { display:flex; flex-wrap:wrap; gap:5px; max-height:54px; overflow-y:auto; }
   .fco-peer-chip { display:inline-flex; align-items:center; gap:5px; background:#0d1829; border:1px solid var(--border); padding:2px 7px; border-radius:4px; font-size:10.5px; color:#fff; }
@@ -707,22 +722,28 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .cyber-switch { position:relative; display:inline-block; width:40px; height:22px; flex-shrink:0; cursor:pointer; }
   .cyber-switch input { opacity:0; width:0; height:0; }
   .cyber-slider { position:absolute; inset:0; background:#101929; border:1px solid var(--border); border-radius:20px; transition:0.2s; }
-  .cyber-slider::before { content:''; position:absolute; width:14px; height:14px; left:3px; top:3px; background:var(--text-muted); clip-path:var(--hex); transition:0.2s; }
+  .cyber-slider::before { content:''; position:absolute; width:14px; height:14px; left:3px; top:3px; background:var(--text-muted); clip-path:var(--hex-regular); transition:0.2s; }
   .cyber-switch input:checked + .cyber-slider { background:rgba(0,240,255,0.22); border-color:var(--brand); }
   .cyber-switch input:checked + .cyber-slider::before { transform:translateX(18px); background:var(--brand); }
   .cyber-range { -webkit-appearance:none; appearance:none; width:100%; height:6px; background:#03060c; border:1px solid var(--border); border-radius:4px; outline:none; margin-top:4px; }
-  .cyber-range::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; clip-path:var(--hex); background:var(--brand); cursor:pointer; }
+  .cyber-range::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; clip-path:var(--hex-regular); background:var(--brand); cursor:pointer; }
   .color-swatches { display:flex; gap:8px; flex-wrap:wrap; }
-  .color-swatch { width:26px; height:26px; clip-path:var(--hex); cursor:pointer; }
+  .color-swatch { width:26px; height:26px; clip-path:var(--hex-regular); cursor:pointer; }
   .mic-meter-wrap { width:100%; height:8px; background:#03060c; border:1px solid var(--border); border-radius:4px; overflow:hidden; }
   .mic-meter-bar { height:100%; width:0%; background:linear-gradient(90deg,var(--green),var(--brand),var(--pink)); transition:width 0.06s; }
 
   .fx-sets-grid { display:flex; flex-direction:column; gap:14px; }
   .fx-bundle-card { border-radius:12px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:14px; border:1.5px solid var(--border); background:rgba(5,10,18,0.94); }
   .fx-bundle-card.set1-card { border-color:#00f0ff; box-shadow:0 0 20px rgba(255,42,133,0.28); background:linear-gradient(135deg,rgba(255,42,133,0.18),rgba(0,240,255,0.12),rgba(5,10,18,0.96)); }
-  .fx-bundle-card.set2-card { border-color:#fcee09; box-shadow:0 0 20px rgba(252,238,9,0.24); background:linear-gradient(135deg,rgba(252,238,9,0.16),rgba(0,255,157,0.12),rgba(5,10,18,0.96)); }
+  .fx-bundle-card.set2-card { border-color:#ff7b00; box-shadow:0 0 20px rgba(255,123,0,0.28); background:linear-gradient(135deg,rgba(255,123,0,0.18),rgba(0,240,255,0.12),rgba(5,10,18,0.96)); }
   .fx-bundle-card.set3-card { border-color:#ff003c; box-shadow:0 0 20px rgba(255,0,60,0.28); background:linear-gradient(135deg,rgba(255,0,60,0.2),rgba(0,240,255,0.1),rgba(5,10,18,0.96)); }
   .fxb-left { display:flex; align-items:center; gap:14px; min-width:0; flex:1; }
+  .fxb-preview-pair { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .fxb-prof-thumb {
+    width:72px; height:104px; border-radius:8px; border:1px solid rgba(255,255,255,0.2);
+    background-image:url('/profile_frames_3sets.jpg'); background-repeat:no-repeat; background-size:300% 100%;
+    flex-shrink:0;
+  }
 
   .keybind-row { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:#040810; border:1px solid var(--border); border-radius:6px; gap:10px; flex-wrap:wrap; }
   .kb-btn { background:#0d1829; border:1px solid var(--cyan-border); color:var(--brand); font-family:monospace; font-size:12px; font-weight:800; padding:6px 14px; border-radius:5px; cursor:pointer; min-width:130px; text-align:center; }
@@ -739,7 +760,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .mob-nav-item { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; height:100%; color:var(--text-muted); font-size:10px; font-weight:700; cursor:pointer; }
   .mob-nav-item.active { color:var(--brand); background:rgba(0,240,255,0.08); }
 
-  /* ЧИСТАЯ МОБИЛЬНАЯ ОПТИМИЗАЦИЯ ПОД ANDROID БЕЗ ПЕРЕСЕЧЕНИЙ */
   @media (max-width:900px) {
     .tt-proto-pill,.tt-cyber-tag,.ash-wave,.bottom-status-footer,.ss-left span:first-child { display:none; }
     .top-telemetry-bar { height:44px; padding:0 10px; }
@@ -772,18 +792,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     .chat-scroll-area { padding:6px 10px; }
     .chat-bottom { padding:4px 10px 6px; }
     .chat-inp { font-size:16px; padding:8px 10px; }
-
-    /* Компактный плавающий виджет звонка на телефоне, чтобы не перекрывать чат */
     .floating-call-overlay {
       right:10px; left:10px; width:auto;
       bottom:calc(60px + env(safe-area-inset-bottom, 0px));
       padding:7px 10px;
     }
     .fco-peers { display:none; }
-
     .profile-slide-drawer { width:100vw; max-width:100vw; padding:0; }
     .profile-slide-drawer .profile-surface { border-radius:0; height:100%; border:none; }
-
     .settings-modal-box {
       grid-template-columns:1fr; grid-template-rows:auto 1fr;
       width:100vw; height:100dvh; max-height:100dvh; border-radius:0;
@@ -873,8 +889,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
         <div class="user-bar">
           <div class="user-info" onclick="openUserProfileCard(getMyMemberObject())">
-            <div class="hex-wrap" id="user-ava-wrap" style="width:36px;height:36px;">
+            <div class="hex-wrap" id="user-ava-wrap" style="width:40px;height:40px;">
               <div class="hex-border"><div class="hex-core" id="user-ava" style="font-size:11px;">ГО</div></div>
+              <img class="mini-frame-overlay" id="user-ava-frame-img" style="display:none;" alt="">
               <span class="hex-status-dot" id="user-presence-dot"></span>
             </div>
             <div style="overflow:hidden;min-width:0;flex:1;">
@@ -945,18 +962,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- ВЫЕЗЖАЮЩАЯ СПРАВА КАРТОЧКА ПРОФИЛЯ -->
+  <!-- ВЫЕЗЖАЮЩАЯ СПРАВА КАРТОЧКА ПРОФИЛЯ С ОРИГИНАЛЬНЫМИ РАМКАМИ АВАТАРА И ПРОФИЛЯ -->
   <div class="profile-drawer-backdrop" id="view-profile-backdrop" onclick="closeViewProfileModal()"></div>
   <div class="profile-slide-drawer" id="view-profile-drawer">
     <div class="profile-surface psd-inner" id="vp-surface">
-      <div class="dp-banner" id="vp-banner">
-        <div id="vp-banner-art"></div>
-        <button class="dp-close-x" onclick="closeViewProfileModal()">✕</button>
-      </div>
+      <div class="profile-frame-overlay"></div>
+      <button class="dp-close-x" onclick="closeViewProfileModal()">✕</button>
       <div class="dp-body">
         <div class="cyber-diode-scene" id="vp-hero-stage"></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-          <div class="dp-nick-line"><span class="dp-nick" id="vp-nick">Участник</span><span id="vp-badge-slot"></span></div>
+        <div class="dp-nick-line">
+          <span class="dp-nick" id="vp-nick">Участник</span>
+          <span id="vp-badge-slot"></span>
           <span class="status-pill on" id="vp-online-pill">В СЕТИ</span>
         </div>
         <div class="dp-status" id="vp-status"></div>
@@ -1017,7 +1033,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div class="settings-pane active" id="pane-profile">
           <div class="settings-head"><h3>⬢ Мой профиль</h3><button class="btn-cyan" onclick="saveProfileSettings()">СОХРАНИТЬ</button></div>
           <div class="profile-surface" id="preview-surface">
-            <div class="dp-banner" id="preview-banner" style="height:105px;"><div id="preview-banner-art"></div></div>
+            <div class="profile-frame-overlay"></div>
             <div class="dp-body">
               <div class="cyber-diode-scene" id="preview-hero-stage"></div>
               <div class="dp-nick-line"><span class="dp-nick" id="preview-nick">Гость</span><span id="preview-badge-slot"></span></div>
@@ -1035,27 +1051,30 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div><label class="field-label">О себе</label><textarea id="prof-bio-inp" rows="2" maxlength="220" oninput="updateProfilePreview()"></textarea></div>
             <div><label class="field-label">Интересы (через запятую)</label><input type="text" id="prof-interests-inp" maxlength="140" oninput="updateProfilePreview()"></div>
             <div class="settings-grid-2">
-              <div><label class="field-label">Цвет баннера</label><div class="color-swatches"><div class="color-swatch" style="background:#00f0ff;" onclick="selectBannerColor('#00f0ff')"></div><div class="color-swatch" style="background:#ff2a85;" onclick="selectBannerColor('#ff2a85')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectBannerColor('#10b981')"></div><div class="color-swatch" style="background:#fcee09;" onclick="selectBannerColor('#fcee09')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectBannerColor('#b829ff')"></div></div></div>
-              <div><label class="field-label">Цвет 6-угольника</label><div class="color-swatches"><div class="color-swatch" style="background:#ff2a85;" onclick="selectAvatarColor('#ff2a85')"></div><div class="color-swatch" style="background:#00f0ff;" onclick="selectAvatarColor('#00f0ff')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectAvatarColor('#10b981')"></div><div class="color-swatch" style="background:#fcee09;" onclick="selectAvatarColor('#fcee09')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectAvatarColor('#b829ff')"></div></div></div>
+              <div><label class="field-label">Цвет подсветки</label><div class="color-swatches"><div class="color-swatch" style="background:#00f0ff;" onclick="selectBannerColor('#00f0ff')"></div><div class="color-swatch" style="background:#ff2a85;" onclick="selectBannerColor('#ff2a85')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectBannerColor('#10b981')"></div><div class="color-swatch" style="background:#fcee09;" onclick="selectBannerColor('#fcee09')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectBannerColor('#b829ff')"></div></div></div>
+              <div><label class="field-label">Цвет 6-угольника</label><div class="color-swatches"><div class="color-swatch" style="background:#3b82f6;" onclick="selectAvatarColor('#3b82f6')"></div><div class="color-swatch" style="background:#ff2a85;" onclick="selectAvatarColor('#ff2a85')"></div><div class="color-swatch" style="background:#00f0ff;" onclick="selectAvatarColor('#00f0ff')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectAvatarColor('#10b981')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectAvatarColor('#b829ff')"></div></div></div>
             </div>
           </div>
         </div>
 
         <div class="settings-pane" id="pane-fx">
           <div class="settings-head">
-            <h3>✨ Эффекты (Оригинальная рамка Люси + Наборы 2 и 3)</h3>
+            <h3>✨ Эффекты (Все 3 оригинальные рамки аватара + 3 рамки профиля)</h3>
             <button class="btn-login-mini" id="btn-disable-fx" onclick="selectEffectSet('')">Отключить</button>
           </div>
           <div class="fx-sets-grid">
             <div class="fx-bundle-card set1-card">
               <div class="fxb-left">
-                <div id="fx-demo-slot-1"></div>
+                <div class="fxb-preview-pair">
+                  <div id="fx-demo-slot-1"></div>
+                  <div class="fxb-prof-thumb" style="background-position:0% 0%;" title="Рамка профиля Набора 1"></div>
+                </div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span style="font-size:15px;font-weight:900;color:#00f0ff;">Набор 1: Люси Кушинада // Оригинальная рамка</span>
+                    <span style="font-size:15px;font-weight:900;color:#00f0ff;">Набор 1: Люси Кушинада // Edgerunners S1</span>
                     <span class="cyber-badge b-set1">🌙 LUCY NET</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Ваша оригинальная шестиугольная неоновая рамка с Люси и глитч-частицами вокруг аватара + полное оформление карточки профиля в неоновых тонах Люси.</div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Оригинальная неоновая рамка аватара с Люси + фиолетовая неоновая рамка профиля с Луной, проводами и портретом Люси.</div>
                 </div>
               </div>
               <button class="btn-cyan" id="btn-fx-set1" onclick="selectEffectSet('set1')">🎁 ЗАБРАТЬ</button>
@@ -1063,13 +1082,16 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
             <div class="fx-bundle-card set2-card">
               <div class="fxb-left">
-                <div id="fx-demo-slot-2"></div>
+                <div class="fxb-preview-pair">
+                  <div id="fx-demo-slot-2"></div>
+                  <div class="fxb-prof-thumb" style="background-position:50% 0%;" title="Рамка профиля Набора 2"></div>
+                </div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span style="font-size:15px;font-weight:900;color:#fcee09;">Набор 2: Дэвид Мартинес // Sandevistan Overdrive</span>
-                    <span class="cyber-badge b-set2">⚡ SANDY S2</span>
+                    <span style="font-size:15px;font-weight:900;color:#fcee09;">Набор 2: Edgerunners // Граффити «ОПАСНО» (Сезон 2)</span>
+                    <span class="cyber-badge b-set2">⚠️ EDGERUN</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Двойная жёлто-изумрудная шестиугольная рамка ускорения времени с молниями, бейджем «⚡ SANDY S2» и фоном купола Луны.</div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Оригинальная огненно-жёлтая рамка аватара «CYBER» с героиней + граффити-рамка профиля с черепом в короне, баллончиками и колючей проволокой.</div>
                 </div>
               </div>
               <button class="btn-cyan" id="btn-fx-set2" onclick="selectEffectSet('set2')">🎁 ЗАБРАТЬ</button>
@@ -1077,13 +1099,16 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
             <div class="fx-bundle-card set3-card">
               <div class="fxb-left">
-                <div id="fx-demo-slot-3"></div>
+                <div class="fxb-preview-pair">
+                  <div id="fx-demo-slot-3"></div>
+                  <div class="fxb-prof-thumb" style="background-position:100% 0%;" title="Рамка профиля Набора 3"></div>
+                </div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span style="font-size:15px;font-weight:900;color:#ff4d79;">Набор 3: Джонни Сильверхенд & V // Cyberpunk 2077 Relic</span>
-                    <span class="cyber-badge b-set3">🔥 RELIC MAX</span>
+                    <span style="font-size:15px;font-weight:900;color:#ff4d79;">Набор 3: Джонни Сильверхенд // SAMURAI (Cyberpunk 2077)</span>
+                    <span class="cyber-badge b-set3">🔥 SAMURAI</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Багрово-бирюзовый шестиугольный контур биочипа Relic с электрическими разрядами, бейджем «🔥 RELIC MAX» и фоном Arasaka Tower.</div>
+                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Оригинальная стальная рамка аватара «SAMURAI» с Джонни Сильверхендом + рамка профиля с цепями, горящей гитарой и маской Самурая.</div>
                 </div>
               </div>
               <button class="btn-cyan" id="btn-fx-set3" onclick="selectEffectSet('set3')">🎁 ЗАБРАТЬ</button>
@@ -1226,55 +1251,58 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function updateBrowserUrl() { try { window.history.replaceState({}, '', window.location.pathname + '?room=' + encodeURIComponent(currentRoom) + '&channel=' + encodeURIComponent(currentChannel)); } catch (e) {} }
 
-  // --- 3 НАБОРА ЭФФЕКТОВ: НАБОР 1 ИСПОЛЬЗУЕТ ИМЕННО ВАШ ФАЙЛ variant1_lucy_avatar_frame.jpg ---
+  // --- ВСЕ 3 НАБОРА ПОДКЛЮЧЕНЫ К ВАШИМ ОРИГИНАЛЬНЫМ КАРТИНКАМ БЕЗ ПЕРЕРИСОВКИ ---
   const FX_SETS_META = {
     set1: {
       code: '⚡FX:SET1', avaClass: 'fx-set1', badgeClass: 'b-set1', badgeText: '🌙 LUCY NET', surfaceClass: 'theme-set1',
       frameImgUrl: '/variant1_lucy_avatar_frame.jpg',
-      cOuter: '#ff2a85', cInner: '#00f0ff',
-      title: 'Набор 1: Люси Кушинада // Оригинальная неоновая рамка',
-      bannerSvg: '<svg class="dp-banner-svg" viewBox="0 0 360 120" preserveAspectRatio="none"><rect width="360" height="120" fill="#050811"/><g stroke="#00f0ff" stroke-width="0.8" opacity="0.25"><line x1="0" y1="30" x2="360" y2="30"/><line x1="0" y1="60" x2="360" y2="60"/><line x1="0" y1="90" x2="360" y2="90"/><line x1="60" y1="0" x2="60" y2="120"/><line x1="180" y1="0" x2="180" y2="120"/><line x1="300" y1="0" x2="300" y2="120"/></g><polygon points="220,10 270,35 270,85 220,110 170,85 170,35" fill="none" stroke="#ff2a85" stroke-width="2" opacity="0.55"/><polygon points="295,18 335,40 335,80 295,102 255,80 255,40" fill="none" stroke="#00f0ff" stroke-width="2" opacity="0.65"/><rect x="18" y="22" width="16" height="6" fill="#00f0ff" opacity="0.7"/><rect x="28" y="32" width="22" height="5" fill="#ff2a85" opacity="0.7"/></svg>'
+      title: 'Набор 1: Люси Кушинада // Edgerunners S1'
     },
     set2: {
-      code: '⚡FX:SET2', avaClass: 'fx-set2', badgeClass: 'b-set2', badgeText: '⚡ SANDY S2', surfaceClass: 'theme-set2',
-      cOuter: '#fcee09', cInner: '#00ff9d',
-      title: 'Набор 2: Дэвид Мартинес // Sandevistan Overdrive (Сезон 2)',
-      bannerSvg: '<svg class="dp-banner-svg" viewBox="0 0 360 120" preserveAspectRatio="none"><rect width="360" height="120" fill="#04120e"/><circle cx="285" cy="48" r="36" fill="#fcee09" opacity="0.22"/><circle cx="285" cy="48" r="26" fill="#fffbe6" opacity="0.35"/><path d="M0 95 L60 65 L120 85 L190 45 L260 80 L360 50 L360 120 L0 120 Z" fill="#07221b" opacity="0.7"/></svg>'
+      code: '⚡FX:SET2', avaClass: 'fx-set2', badgeClass: 'b-set2', badgeText: '⚠️ EDGERUN', surfaceClass: 'theme-set2',
+      frameImgUrl: '/variant2_edgerunner_avatar_frame.jpg',
+      title: 'Набор 2: Edgerunners // Граффити «ОПАСНО» (Сезон 2)'
     },
     set3: {
-      code: '⚡FX:SET3', avaClass: 'fx-set3', badgeClass: 'b-set3', badgeText: '🔥 RELIC MAX', surfaceClass: 'theme-set3',
-      cOuter: '#ff003c', cInner: '#00f0ff',
-      title: 'Набор 3: Джонни Сильверхенд & V // Cyberpunk 2077 Relic',
-      bannerSvg: '<svg class="dp-banner-svg" viewBox="0 0 360 120" preserveAspectRatio="none"><rect width="360" height="120" fill="#120308"/><rect x="145" y="0" width="70" height="120" fill="#1f050d" stroke="#ff003c" stroke-width="1"/><circle cx="180" cy="34" r="14" fill="none" stroke="#ff003c" stroke-width="2.2"/><g stroke="#00f0ff" stroke-width="1" opacity="0.45"><line x1="0" y1="28" x2="130" y2="28"/><line x1="230" y1="64" x2="360" y2="64"/></g></svg>'
+      code: '⚡FX:SET3', avaClass: 'fx-set3', badgeClass: 'b-set3', badgeText: '🔥 SAMURAI', surfaceClass: 'theme-set3',
+      frameImgUrl: '/variant3_johnny_avatar_frame.jpg',
+      title: 'Набор 3: Джонни Сильверхенд // SAMURAI (Cyberpunk 2077)'
     }
   };
 
-  function buildHeroHexMedallionHTML(letters, avaColor, setKey, statusCls) {
+  // Генератор иконки с рамкой для ВСЕХ мест (чат, список участников, голосовой канал)
+  function buildMiniHexAvatarHTML(letters, avaColor, setKey, sizePx, statusCls) {
     const m = FX_SETS_META[setKey];
+    const sz = sizePx || 36;
+    const fSize = Math.max(9, Math.round(sz * 0.3));
     if (!m) {
-      return '<div class="hex-wrap" style="width:84px;height:84px;margin-top:24px;">' +
-        '<div class="hex-border"><div class="hex-core" style="font-size:22px;background:' + escapeHtml(avaColor || '#ff2a85') + ';">' + escapeHtml(letters) + '</div></div>' +
+      return '<div class="hex-wrap" style="width:' + sz + 'px;height:' + sz + 'px;">' +
+        '<div class="hex-border"><div class="hex-core" style="font-size:' + fSize + 'px;background:' + escapeHtml(avaColor || '#3b82f6') + ';">' + escapeHtml(letters) + '</div></div>' +
         (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') +
       '</div>';
     }
-    // Если выбран Набор 1 — рендерим именно вашу приложенную рамку variant1_lucy_avatar_frame.jpg поверх аватара
-    if (m.frameImgUrl) {
-      return '<div class="cds-user-core" style="background:' + escapeHtml(avaColor || '#101d30') + ';">' + escapeHtml(letters) + '</div>' +
-        '<img class="cds-frame-img" src="' + m.frameImgUrl + '" alt="Lucy Frame">' +
-        (statusCls ? '<span class="hex-status-dot ' + statusCls + '" style="right:22px;bottom:14px;"></span>' : '');
+    return '<div class="hex-wrap has-custom-frame ' + m.avaClass + '" style="width:' + sz + 'px;height:' + sz + 'px;">' +
+      '<div class="hex-border"><div class="hex-core" style="font-size:' + Math.max(8, fSize - 1) + 'px;background:' + escapeHtml(avaColor || '#3b82f6') + ';">' + escapeHtml(letters) + '</div></div>' +
+      '<img class="mini-frame-overlay" src="' + m.frameImgUrl + '" alt="">' +
+      (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') +
+    '</div>';
+  }
+
+  // Генератор крупного аватара в профиле и настройках с выровненным шестиугольником под рамку
+  function buildHeroHexMedallionHTML(letters, avaColor, setKey, statusCls) {
+    const m = FX_SETS_META[setKey];
+    if (!m) {
+      return '<div class="hex-wrap" style="width:88px;height:88px;">' +
+        '<div class="hex-border"><div class="hex-core" style="font-size:24px;background:' + escapeHtml(avaColor || '#3b82f6') + ';">' + escapeHtml(letters) + '</div></div>' +
+        (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') +
+      '</div>';
     }
-    // Для Наборов 2 и 3 — двойной неоновый шестиугольник в том же стиле
-    return '<div class="cds-user-core" style="left:22%;top:20%;width:56%;height:60%;background:' + escapeHtml(avaColor || '#101d30') + ';">' + escapeHtml(letters) + '</div>' +
-      '<svg class="cds-frame-img" viewBox="0 0 150 150">' +
-        '<polygon points="75,10 132,42 132,108 75,140 18,108 18,42" fill="none" stroke="' + m.cOuter + '" stroke-width="4"/>' +
-        '<polygon points="75,18 124,46 124,104 75,132 26,104 26,46" fill="none" stroke="' + m.cInner + '" stroke-width="3"/>' +
-        '<rect x="10" y="34" width="12" height="4" fill="' + m.cInner + '"/>' +
-        '<rect x="126" y="102" width="14" height="5" fill="' + m.cOuter + '"/>' +
-      '</svg>' +
+    return '<div class="cds-user-core" style="background:' + escapeHtml(avaColor || '#3b82f6') + ';">' + escapeHtml(letters) + '</div>' +
+      '<img class="cds-frame-img" src="' + m.frameImgUrl + '" alt="Frame">' +
       (statusCls ? '<span class="hex-status-dot ' + statusCls + '" style="right:24px;bottom:14px;"></span>' : '');
   }
 
-  let myProfile = { bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#00f0ff', avatarColor: '#ff2a85', fxSet: 'set1' };
+  let myProfile = { bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#00f0ff', avatarColor: '#3b82f6', fxSet: 'set1' };
   try { myProfile = Object.assign(myProfile, JSON.parse(localStorage.getItem('cyber_profile') || '{}')); } catch (e) {}
 
   function detectFxSetFromInterests(raw) {
@@ -1315,7 +1343,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const b = document.getElementById('btn-fx-' + k);
       if (b) b.textContent = (cur === k) ? '✓ АКТИВЕН' : '🎁 ЗАБРАТЬ';
       const slot = document.getElementById('fx-demo-slot-' + (idx + 1));
-      if (slot) slot.innerHTML = '<div class="cyber-diode-scene" style="margin:0;width:118px;height:112px;">' + buildHeroHexMedallionHTML(myNick.slice(0, 2).toUpperCase(), myProfile.avatarColor, k, '') + '</div>';
+      if (slot) slot.innerHTML = '<div class="cyber-diode-scene" style="margin:0;width:110px;height:110px;">' + buildHeroHexMedallionHTML(myNick.slice(0, 2).toUpperCase(), myProfile.avatarColor, k, '') + '</div>';
     });
     const dis = document.getElementById('btn-disable-fx');
     if (dis) dis.style.display = cur ? 'inline-block' : 'none';
@@ -1357,7 +1385,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function rememberUserInVault(u) {
     if (!u || !u.pid || u.nick === '?') return;
     const prev = localVault.knownUsers[u.pid] || {};
-    localVault.knownUsers[u.pid] = { pid: u.pid, nick: u.nick || prev.nick || 'Участник', bio: u.bio !== undefined ? u.bio : (prev.bio || ''), interests: u.interests !== undefined ? u.interests : (prev.interests || ''), customStatus: u.customStatus !== undefined ? u.customStatus : (prev.customStatus || ''), presence: u.presence || prev.presence || 'online', bannerColor: u.bannerColor || prev.bannerColor || '#00f0ff', avatarColor: u.avatarColor || prev.avatarColor || '#ff2a85' };
+    localVault.knownUsers[u.pid] = { pid: u.pid, nick: u.nick || prev.nick || 'Участник', bio: u.bio !== undefined ? u.bio : (prev.bio || ''), interests: u.interests !== undefined ? u.interests : (prev.interests || ''), customStatus: u.customStatus !== undefined ? u.customStatus : (prev.customStatus || ''), presence: u.presence || prev.presence || 'online', bannerColor: u.bannerColor || prev.bannerColor || '#00f0ff', avatarColor: u.avatarColor || prev.avatarColor || '#3b82f6' };
   }
   function saveLocalVault() {
     try {
@@ -1510,12 +1538,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function renderSidebarVoicePeers() {
     const box = document.getElementById('sidebar-voice-peers'); if (!box) return; box.innerHTML = '';
     getVoiceChannelMembers().forEach(function (u) {
-      const setKey = getUserFxSet(u), m = FX_SETS_META[setKey];
+      const setKey = getUserFxSet(u);
       const r = el('div', 'vc-user-row');
-      const hw = el('div', 'hex-wrap' + (m ? ' ' + m.avaClass : '')); hw.style.cssText = 'width:24px;height:24px;';
-      const hb = el('div', 'hex-border'), hc = el('div', 'hex-core', String(u.nick || '?').slice(0, 2).toUpperCase());
-      hc.style.cssText = 'font-size:8.5px;background:' + (u.avatarColor || '#00f0ff') + ';';
-      hb.appendChild(hc); hw.appendChild(hb); r.appendChild(hw);
+      const avaHolder = document.createElement('div');
+      avaHolder.innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 28, '');
+      r.appendChild(avaHolder.firstChild);
       r.appendChild(el('span', '', u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '')));
       r.onclick = function () { openUserProfileCard(u); };
       box.appendChild(r);
@@ -1546,9 +1573,15 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function applyNickUI() {
     document.getElementById('user-name-label').textContent = myNick;
-    const ava = document.getElementById('user-ava'); ava.textContent = myNick.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#ff2a85';
+    const ava = document.getElementById('user-ava'); ava.textContent = myNick.slice(0, 2).toUpperCase(); ava.style.background = myProfile.avatarColor || '#3b82f6';
     const curSet = myProfile.fxSet || detectFxSetFromInterests(myProfile.interests), meta = FX_SETS_META[curSet];
-    const wrap = document.getElementById('user-ava-wrap'); if (wrap) wrap.className = 'hex-wrap' + (meta ? ' ' + meta.avaClass : '');
+    const wrap = document.getElementById('user-ava-wrap');
+    if (wrap) wrap.className = 'hex-wrap' + (meta ? ' has-custom-frame ' + meta.avaClass : '');
+    const fImg = document.getElementById('user-ava-frame-img');
+    if (fImg) {
+      if (meta && meta.frameImgUrl) { fImg.src = meta.frameImgUrl; fImg.style.display = 'block'; }
+      else { fImg.style.display = 'none'; }
+    }
     const badgeSlot = document.getElementById('user-bar-badge-slot'); if (badgeSlot) badgeSlot.innerHTML = getBadgeHTML(curSet);
     document.getElementById('user-presence-dot').className = 'hex-status-dot ' + (myProfile.presence || 'online');
     const sStat = checkContentViolation(myProfile.customStatus || '').length ? '' : myProfile.customStatus;
@@ -1685,12 +1718,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const box = document.getElementById('messages-list'), hint = document.getElementById('empty-hint'); if (hint) hint.remove();
     const author = String(m.author || '?'), viol = checkContentViolation(m.text, m.flags);
     const memberObj = (lastMembers || []).find(function (u) { return u.nick === author; }) || (author === myNick ? getMyMemberObject() : { nick: author });
-    const setKey = getUserFxSet(memberObj), fxMeta = FX_SETS_META[setKey];
-    const fxCls = fxMeta ? ' ' + fxMeta.avaClass : '', avaCol = (memberObj && memberObj.avatarColor) || '#00f0ff';
+    const setKey = getUserFxSet(memberObj);
+    const avaCol = (memberObj && memberObj.avatarColor) || '#3b82f6';
     const div = el('div', 'msg-item');
     div.innerHTML =
-      '<div class="hex-wrap' + fxCls + '" style="width:38px;height:38px;margin-top:2px;cursor:pointer;">' +
-        '<div class="hex-border"><div class="hex-core" style="font-size:12px;background:' + escapeHtml(avaCol) + ';">' + escapeHtml(author.slice(0, 2).toUpperCase()) + '</div></div>' +
+      '<div style="cursor:pointer;margin-top:2px;">' +
+        buildMiniHexAvatarHTML(author.slice(0, 2).toUpperCase(), avaCol, setKey, 40, '') +
       '</div>' +
       '<div style="flex:1;min-width:0;">' +
         '<div class="msg-head-line"><span class="msg-author">' + escapeHtml(author) + '</span>' + getBadgeHTML(setKey) + '<span class="msg-time">' + escapeHtml(m.time) + '</span></div>' +
@@ -1709,13 +1742,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function renderMemberRow(u, friendPids) {
-    const d = el('div', 'online-user-item' + (u.online ? ' is-online' : '')); if (!u.online) d.style.opacity = '0.5';
+    const d = el('div', 'online-user-item' + (u.online ? ' is-online' : '')); if (!u.online) d.style.opacity = '0.55';
     const setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
-    const avaWrap = el('div', 'hex-wrap' + (fxMeta ? ' ' + fxMeta.avaClass : '')); avaWrap.style.cssText = 'width:34px;height:34px;';
-    const hb = el('div', 'hex-border'), ava = el('div', 'hex-core', String(u.nick || '?').slice(0, 2).toUpperCase());
-    ava.style.cssText = 'font-size:11px;background:' + (u.avatarColor || '#00f0ff') + ';';
-    hb.appendChild(ava); avaWrap.appendChild(hb); avaWrap.appendChild(el('span', 'hex-status-dot ' + (u.online ? (u.presence || 'online') : 'off')));
-    d.appendChild(avaWrap);
+    const avaHolder = document.createElement('div');
+    avaHolder.innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 36, u.online ? (u.presence || 'online') : 'off');
+    d.appendChild(avaHolder.firstChild);
 
     const col = el('div', 'member-text-col'), nr = el('div', 'member-nick-row');
     const nickTxt = el('span', '', u.nick + (u.inVoice ? ' 🔊' : '') + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : ''));
@@ -1769,9 +1800,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     closeMobileDrawers();
     const setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
     document.getElementById('vp-surface').className = 'profile-surface psd-inner' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
-    document.getElementById('vp-banner').style.background = u.bannerColor || '#00f0ff';
-    document.getElementById('vp-banner-art').innerHTML = fxMeta ? fxMeta.bannerSvg : '';
-    document.getElementById('vp-hero-stage').innerHTML = buildHeroHexMedallionHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#ff2a85', setKey, u.online ? (u.presence || 'online') : 'off');
+    document.getElementById('vp-hero-stage').innerHTML = buildHeroHexMedallionHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, u.online ? (u.presence || 'online') : 'off');
     document.getElementById('vp-nick').textContent = u.nick || 'Участник';
     document.getElementById('vp-badge-slot').innerHTML = getBadgeHTML(setKey);
     document.getElementById('vp-fx-label').textContent = fxMeta ? fxMeta.title : 'Стандартный кибер-контур';
@@ -1847,9 +1876,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const finalIntr = cleanTags.join(', ');
 
     document.getElementById('preview-surface').className = 'profile-surface' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
-    document.getElementById('preview-banner').style.background = myProfile.bannerColor || '#00f0ff';
-    document.getElementById('preview-banner-art').innerHTML = fxMeta ? fxMeta.bannerSvg : '';
-    document.getElementById('preview-hero-stage').innerHTML = buildHeroHexMedallionHTML(n.slice(0, 2).toUpperCase(), myProfile.avatarColor || '#ff2a85', curSet, pr);
+    document.getElementById('preview-hero-stage').innerHTML = buildHeroHexMedallionHTML(n.slice(0, 2).toUpperCase(), myProfile.avatarColor || '#3b82f6', curSet, pr);
     document.getElementById('preview-nick').textContent = n;
     document.getElementById('preview-badge-slot').innerHTML = getBadgeHTML(curSet);
     document.getElementById('preview-status').textContent = st || 'В сети';
