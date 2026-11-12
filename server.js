@@ -2236,32 +2236,41 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost:' + PORT);
 
+    // 1. Главная страница
     if (req.method === 'GET' && url.pathname === '/') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end(HTML_PAGE);
     }
 
-    // Раздача вашей рамки Люси и других картинок из корня проекта
-    if (req.method === 'GET' && (url.pathname === '/variant1_lucy_avatar_frame.jpg' || url.pathname === '/set2_frame.jpg' || url.pathname === '/set3_frame.jpg')) {
-      const imgPath = path.join(__dirname, path.basename(url.pathname));
-      if (fs.existsSync(imgPath)) {
-        res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' });
-        return res.end(fs.readFileSync(imgPath));
+    // 2. РАЗДАЧА ВАШИХ КАРТИНОК РАМОК АВАТАРОВ И ПРОФИЛЕЙ
+    const STATIC_IMAGES = {
+      '/variant1_lucy_avatar_frame.jpg': ['variant1_lucy_avatar_frame.jpg'],
+      '/variant2_edgerunner_avatar_frame.jpg': ['variant2_edgerunner_avatar_frame.jpg', 'set2_frame.jpg'],
+      '/variant3_johnny_avatar_frame.jpg': ['variant3_johnny_avatar_frame.jpg', 'set3_frame.jpg'],
+      '/profile_frames_3sets.jpg': ['Gemini_Generated_Image_4kd03t4kd03t4kd0.jpg', 'profile_frames_3sets.jpg']
+    };
+    if (req.method === 'GET' && STATIC_IMAGES[url.pathname]) {
+      for (const fname of STATIC_IMAGES[url.pathname]) {
+        const fullPath = path.join(__dirname, fname);
+        if (fs.existsSync(fullPath)) {
+          res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' });
+          return res.end(fs.readFileSync(fullPath));
+        }
       }
     }
 
-    // Раздача PNG-иконок 192x192 и 512x512 для PWABuilder без ошибки 404
+    // 3. РАЗДАЧА ЛОГОТИПА ДЛЯ APK (PWABuilder) БЕЗ ОШИБКИ 404
     if (req.method === 'GET' && (url.pathname === '/icon-192.png' || url.pathname === '/icon-512.png' || url.pathname === '/logo.png')) {
-      const logoFile = path.join(__dirname, 'logo.png');
-      const logoFileAlt = path.join(__dirname, 'logo (1).png');
+      const logo1 = path.join(__dirname, 'logo.png');
+      const logo2 = path.join(__dirname, 'logo (1).png');
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
-      if (fs.existsSync(logoFile)) return res.end(fs.readFileSync(logoFile));
-      if (fs.existsSync(logoFileAlt)) return res.end(fs.readFileSync(logoFileAlt));
-      // Встроенный валидный PNG-буфер на случай, если файл ещё не загружен в Git
+      if (fs.existsSync(logo1)) return res.end(fs.readFileSync(logo1));
+      if (fs.existsSync(logo2)) return res.end(fs.readFileSync(logo2));
       const fallbackPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAMAAABlApw1AAAABlBMVEX///8ef49/6C72AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAaklEQVR4nO3BMQEAAADCoPVPbQwfoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOA1v9QAATX6870AAAAASUVORK5CYII=', 'base64');
       return res.end(fallbackPng);
     }
 
+    // 4. МАНИФЕСТ ДЛЯ СБОРКИ ANDROID APK
     if (req.method === 'GET' && url.pathname === '/manifest.json') {
       res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8' });
       return res.end(JSON.stringify({
@@ -2287,6 +2296,7 @@ const server = http.createServer(async (req, res) => {
       }));
     }
 
+    // 5. SERVICE WORKER ДЛЯ ФОНОВОЙ РАБОТЫ
     if (req.method === 'GET' && url.pathname === '/sw.js') {
       res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
       return res.end("self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',()=>{});");
@@ -2387,8 +2397,8 @@ const server = http.createServer(async (req, res) => {
       if (body.interests !== undefined) u.interests = cleanText(body.interests, 160);
       if (body.customStatus !== undefined) u.customStatus = cleanText(body.customStatus, 60);
       if (body.presence !== undefined) u.presence = cleanPresence(body.presence);
-      if (body.bannerColor !== undefined) u.bannerColor = cleanColor(body.bannerColor, '#0d9488');
-      if (body.avatarColor !== undefined) u.avatarColor = cleanColor(body.avatarColor, '#e11d48');
+      if (body.bannerColor !== undefined) u.bannerColor = cleanColor(body.bannerColor, '#00f0ff');
+      if (body.avatarColor !== undefined) u.avatarColor = cleanColor(body.avatarColor, '#3b82f6');
       scheduleSave(); notifyAllRoomsOfUser(uid); notifyFriendsOf(uid); sendSocial(uid);
       return sendJson(res, 200, { ok: true });
     }
@@ -2423,7 +2433,8 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/server/create') {
       const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Сначала войдите!' });
-      const u = ensureUser(uid, body.nick || 'Участник', true), name = String(body.name || '').trim().slice(0, 28);
+      ensureUser(uid, body.nick || 'Участник', true);
+      const name = String(body.name || '').trim().slice(0, 28);
       if (!name) return sendJson(res, 400, { error: 'Введите название сервера!' });
       const newId = 'cy-' + crypto.randomBytes(2).toString('hex');
       ensureServer(newId, name, String(body.desc || '').trim().slice(0, 80)); addMember(newId, uid);
@@ -2493,22 +2504,22 @@ const server = http.createServer(async (req, res) => {
   } catch (err) { if (!res.headersSent) res.writeHead(500); res.end(); }
 });
 
-server.on('error', err => { if (err.code !== 'EADDRINUSE') process.exit(1); });
+server.on('error', err => console.error('Ошибка сервера:', err));
 
-async function boot() {
-  for (let i = 1; i <= 5; i++) {
-    try { await loadData(); break; } catch (e) { if (i === 5) process.exit(1); await new Promise(r => setTimeout(r, 2000)); }
-  }
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log('⚡ СЕРВЕР СИГНАЛ ЗАПУЩЕН НА ПОРТУ ' + PORT);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log('⚡ СЕРВЕР СИГНАЛ ЗАПУЩЕН НА ПОРТУ ' + PORT);
+  (async () => {
+    for (let i = 1; i <= 3; i++) {
+      try { await loadData(); break; } catch (e) { if (i === 3) loaded = true; else await new Promise(r => setTimeout(r, 1500)); }
+    }
     startTelegramBotPolling();
-  });
-}
-boot();
+  })();
+});
 
 async function shutdown() {
-  setTimeout(() => process.exit(0), 4000).unref();
+  setTimeout(() => process.exit(0), 3000).unref();
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-  await saveNow(); process.exit(0);
+  try { await saveNow(); } catch (e) {}
+  process.exit(0);
 }
 ['SIGTERM', 'SIGINT'].forEach(sig => process.on(sig, shutdown));
