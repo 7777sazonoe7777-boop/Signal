@@ -74,7 +74,7 @@ ensureServer('hc-node', 'Кибер Узел', 'Технологии, код и 
 ensureServer('ma-club', 'Мастерская', 'Музыка, творчество и совместные проекты', 'MA');
 if (!rooms[DEFAULT_ROOM]['игровая-комната'].length) {
   rooms[DEFAULT_ROOM]['игровая-комната'].push({
-    author: 'СИСТЕМА СИГНАЛ', time: '00:00',
+    author: 'СИСТЕМА GEEK', time: '00:00',
     text: 'Добро пожаловать в «Ночной клуб»! Прямые звонки, индикатор голоса, фото/видео в чате и синхронизация активны.'
   });
 }
@@ -125,7 +125,7 @@ async function startTelegramBotPolling() {
                 if (pend && pend.expires > Date.now()) pend.completed = { tgId, firstName, username, code };
               }
             }
-            await tgApi('sendMessage', { chat_id: m.chat.id, parse_mode: 'Markdown', text: '⚡ *СИГНАЛ // CYBER.NET*\n\n✅ Аккаунт подтверждён!\n🔑 Код: *' + code + '*' }).catch(() => {});
+            await tgApi('sendMessage', { chat_id: m.chat.id, parse_mode: 'Markdown', text: '⚡ *GEEK // CYBER.NET*\n\n✅ Аккаунт подтверждён!\n🔑 Код: *' + code + '*' }).catch(() => {});
           }
         }
       } catch (e) { await new Promise(r => setTimeout(r, 3000)); }
@@ -391,7 +391,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#04070d">
-<title>СИГНАЛ // CYBER.NET</title>
+<title>GEEK // CYBER.NET</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
   :root {
@@ -746,7 +746,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   <div class="top-telemetry-bar">
     <div class="tt-left">
       <button class="mob-top-btn" onclick="toggleMobileLeft()">☰</button>
-      <div class="tt-logo"><span style="color:var(--brand);">⚡</span><span>СИГНАЛ</span></div>
+      <div class="tt-logo"><span style="color:var(--brand);">⚡</span><span>GEEK</span></div>
       <span class="tt-cyber-tag">CYBER.NET</span>
       <span class="tt-proto-pill">МЕСТО ДЛЯ СВОИХ // P2P ПРОТОКОЛ</span>
     </div>
@@ -1412,7 +1412,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function startBackgroundCallPersistence() {
     document.body.classList.add('voice-live');
-    if (navigator.locks && navigator.locks.request && !voiceLockRelease) navigator.locks.request('signal_voice', { mode: 'exclusive' }, function () { return new Promise(function (r) { voiceLockRelease = r; }); }).catch(function () {});
+    if (navigator.locks && navigator.locks.request && !voiceLockRelease) navigator.locks.request('geek_voice', { mode: 'exclusive' }, function () { return new Promise(function (r) { voiceLockRelease = r; }); }).catch(function () {});
     if (navigator.wakeLock && navigator.wakeLock.request && !wakeLockSentinel) navigator.wakeLock.request('screen').then(function (s) { wakeLockSentinel = s; }).catch(function () {});
     try {
       if (!keepAliveAudioEl) { keepAliveAudioEl = document.createElement('audio'); keepAliveAudioEl.playsInline = true; keepAliveAudioEl.loop = true; keepAliveAudioEl.volume = 0.02; document.body.appendChild(keepAliveAudioEl); }
@@ -1831,7 +1831,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('vp-badge-slot').innerHTML = getBadgeHTML(setKey);
     document.getElementById('vp-fx-label').textContent = fxMeta ? fxMeta.title : 'Стандартный кибер-контур';
     const pill = document.getElementById('vp-online-pill'); pill.className = 'status-pill ' + (u.online ? 'on' : 'off'); pill.textContent = u.online ? 'В СЕТИ' : 'НЕ В СЕТИ';
-    document.getElementById('vp-status').textContent = u.customStatus || 'В эфире СИГНАЛ';
+    document.getElementById('vp-status').textContent = u.customStatus || 'В эфире GEEK';
     document.getElementById('vp-bio').textContent = u.bio || 'Оператор пока не добавил описание.';
     const tb = document.getElementById('vp-tags'); tb.innerHTML = '';
     cleanInterestsForDisplay(u.interests).forEach(function (tg) { tb.appendChild(el('span', 'dp-tag', tg)); });
@@ -2573,8 +2573,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/manifest.json') {
       res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8' });
       return res.end(JSON.stringify({
-        id: '/', name: 'Signal CyberNet', short_name: 'Signal',
-        description: 'Голосовые и текстовые P2P-каналы связи СИГНАЛ // CYBER.NET',
+        id: '/', name: 'Geek CyberNet', short_name: 'Geek',
+        description: 'Голосовые и текстовые P2P-каналы связи GEEK // CYBER.NET',
         start_url: '/', scope: '/', display: 'standalone', orientation: 'portrait',
         background_color: '#04070d', theme_color: '#04070d', dir: 'ltr', lang: 'ru',
         categories: ['social', 'communication'],
@@ -2870,7 +2870,7 @@ const server = http.createServer(async (req, res) => {
 server.on('error', err => console.error('Ошибка сервера:', err));
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log('⚡ СЕРВЕР СИГНАЛ ЗАПУЩЕН НА ПОРТУ ' + PORT);
+  console.log('⚡ СЕРВЕР GEEK ЗАПУЩЕН НА ПОРТУ ' + PORT);
   (async () => {
     for (let i = 1; i <= 3; i++) {
       try { await loadData(); break; } catch (e) { if (i === 3) loaded = true; else await new Promise(r => setTimeout(r, 1500)); }
