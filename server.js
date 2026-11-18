@@ -86,7 +86,10 @@ const safeVoiceChannel = (r, c) => {
   const m = ensureServer(r);
   return m.voiceChannels.includes(s) ? s : String(s || m.voiceChannels[0]).trim().slice(0, 40);
 };
-const getRoom = r => (ensureServer(r), rooms[r]);
+function getRoom(r) {
+  ensureServer(r);
+  return rooms[r];
+}
 const getRoom = r => (ensureServer(r), rooms[r]);
 async function tgApi(method, body) {
   if (!TELEGRAM_BOT_TOKEN) return null;
