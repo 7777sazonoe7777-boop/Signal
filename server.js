@@ -68,7 +68,6 @@ function ensureServer(room, name, desc, icon) {
   serversMeta[r].textChannels.forEach(ch => { if (!rooms[r][ch]) rooms[r][ch] = []; });
   return serversMeta[r];
 }
-
 ensureServer(DEFAULT_ROOM, 'Ночной клуб', 'Игры, идеи и разговоры после полуночи', 'НК');
 ensureServer('hc-node', 'Кибер Узел', 'Технологии, код и ночные эфиры', 'HC');
 ensureServer('ma-club', 'Мастерская', 'Музыка, творчество и совместные проекты', 'MA');
@@ -78,13 +77,14 @@ if (!rooms[DEFAULT_ROOM]['игровая-комната'].length) {
     text: 'Добро пожаловать в GEEK // CYBER.NET! Личные чаты, прямые звонки, индикатор голоса и синхронизация активны.'
   });
 }
+
+const safeChannel = (r, c) => { const m = ensureServer(r); return m.textChannels.includes(String(c || '').trim()) ? String(c).trim() : m.textChannels[0]; };
 const safeVoiceChannel = (r, c) => {
   const s = String(c || '').trim();
   if (s.startsWith('__dm__')) return s.slice(0, 64);
   const m = ensureServer(r);
   return m.voiceChannels.includes(s) ? s : String(s || m.voiceChannels[0]).trim().slice(0, 40);
 };
-const safeVoiceChannel = (r, c) => { const m = ensureServer(r); return m.voiceChannels.includes(String(c || '').trim()) ? String(c).trim() : String(c || m.voiceChannels[0]).trim().slice(0, 40); };
 const getRoom = r => (ensureServer(r), rooms[r]);
 
 async function tgApi(method, body) {
@@ -382,7 +382,6 @@ setInterval(() => {
   });
   Object.keys(rooms).forEach(r => broadcastUsers(r));
 }, 15000);
-
 const HTML_PAGE = String.raw`<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -423,7 +422,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     padding-top:env(safe-area-inset-top, 0px);
   }
 
-  /* ЖЁСТКАЯ ПРОПОРЦИОНАЛЬНОСТЬ ВСЕХ РАМОК АВАТАРА И ПРОФИЛЯ НА ЛЮБОЙ ВКЛАДКЕ */
+  /* ЖЁСТКАЯ ПРОПОРЦИОНАЛЬНОСТЬ ВСЕХ РАМОК АВАТАРА И ПРОФИЛЯ */
   .hex-wrap { position:relative; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0 !important; aspect-ratio:1 / 1 !important; overflow:visible !important; }
   .hex-border { position:relative; width:100%; height:100%; clip-path:var(--hex-regular); background:rgba(0,240,255,0.35); display:flex; align-items:center; justify-content:center; padding:2px; overflow:hidden; z-index:1; }
   .hex-wrap.has-custom-frame .hex-border { width:54%; height:58%; margin-right:5%; margin-top:4%; clip-path:var(--hex-inner-hole); padding:0; background:transparent; }
@@ -444,7 +443,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .cyber-badge.b-set2 { background-image:linear-gradient(90deg,#ff6a00,#fcee09,#00f0ff); color:#04120c; box-shadow:0 0 8px rgba(255,106,0,0.65); }
   .cyber-badge.b-set3 { background-image:linear-gradient(90deg,#ff003c,#ff5500,#ff003c); color:#fff; box-shadow:0 0 8px rgba(255,0,60,0.7); }
 
-  /* ПРОПОРЦИОНАЛЬНЫЕ КАРТОЧКИ ПРОФИЛЯ (360x515) В НАСТРОЙКАХ И ВЫЕЗЖАЮЩЕМ МЕНЮ */
+  /* ЖЁСТКИЕ ПРОПОРЦИИ КАРТОЧКИ ПРОФИЛЯ */
   .profile-surface { position:relative; background:#060a12; border:1px solid var(--border); border-radius:14px !important; overflow:hidden; transition:0.25s; background-size:cover; background-position:center; }
   #preview-surface, .profile-slide-drawer .profile-surface {
     width:100% !important; max-width:360px !important; aspect-ratio:360 / 515 !important;
@@ -529,7 +528,19 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .btn-create-ch-wide { width:100%; background:rgba(0,240,255,0.05); border:1px solid var(--border); color:var(--text-main); font-size:11px; font-weight:800; padding:8px 10px; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; margin:6px 0 10px; }
   .cat-header { display:flex; align-items:center; justify-content:space-between; padding:8px 4px 5px; font-size:10.5px; font-weight:800; text-transform:uppercase; color:var(--text-muted); }
   .cat-add-btn { background:rgba(0,240,255,0.08); border:1px solid var(--border); color:var(--brand); width:22px; height:22px; border-radius:4px; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-  .ch-btn,.voice-ch-box { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:6px; font-size:13px; font-weight:600; color:var(--text-normal); cursor:pointer; margin-bottom:3px; border:1px solid transparent; }
+  
+  /* ЭФФЕКТ ЗЕЛЁНОЙ МОЛНИИ ПРИ НАВЕДЕНИИ НА КАНАЛ */
+  @keyframes greenLightningRun {
+    0% { left: -45%; opacity: 0; transform: skewX(-25deg) scaleY(0.9); }
+    15% { opacity: 1; }
+    50% { opacity: 1; transform: skewX(-25deg) scaleY(1.1); }
+    85% { opacity: 1; }
+    100% { left: 115%; opacity: 0; transform: skewX(-25deg) scaleY(0.9); }
+  }
+  .ch-btn,.voice-ch-box { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:6px; font-size:13px; font-weight:600; color:var(--text-normal); cursor:pointer; margin-bottom:3px; border:1px solid transparent; position:relative; overflow:hidden; }
+  .ch-btn::after,.voice-ch-box::after { content:'⚡'; position:absolute; top:0; bottom:0; left:-45%; width:48px; display:flex; align-items:center; justify-content:center; font-size:13px; color:#10b981; text-shadow:0 0 8px #10b981, 0 0 16px #10b981, 0 0 24px #6ee7b7; background:linear-gradient(90deg,transparent,rgba(16,185,129,0.38),rgba(110,231,183,0.7),rgba(16,185,129,0.38),transparent); pointer-events:none; opacity:0; z-index:3; }
+  .ch-btn:hover::after,.voice-ch-box:hover::after { animation:greenLightningRun 0.55s cubic-bezier(0.22,1,0.36,1) forwards; }
+  .ch-btn:hover .ch-name-txt,.voice-ch-box:hover .ch-name-txt { color:#6ee7b7; text-shadow:0 0 8px rgba(16,185,129,0.65); transition:color 0.18s,text-shadow 0.18s; }
   .ch-btn:hover,.voice-ch-box:hover { background:var(--bg-hover); color:#fff; }
   .ch-btn.active { background:var(--bg-active); border-color:var(--cyan-border); color:#fff; }
   .voice-ch-box.active { background:rgba(16,185,129,0.15); border-color:rgba(16,185,129,0.45); color:#6ee7b7; }
@@ -540,15 +551,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .off-badge { font-size:9px; color:var(--text-muted); font-weight:800; }
   .off-badge.on { color:var(--green); }
 
-  /* СКРЫТИЕ КАНАЛОВ СЕРВЕРА ВО ВКЛАДКЕ «ДРУЗЬЯ И ЛС» И СКРЫТИЕ ЛС НА ОБЫЧНЫХ СЕРВЕРАХ */
-  body.friends-hub-active #server-channels-section,
-  body.friends-hub-active .packet-card,
-  body.friends-hub-active .srv-badge-open {
-    display:none !important;
-  }
-  body:not(.friends-hub-active) #dm-left-section {
-    display:none !important;
-  }
+  /* СКРЫТИЕ КАНАЛОВ СЕРВЕРА ВО ВКЛАДКЕ ДРУЗЕЙ И НАОБОРОТ */
+  body.friends-hub-active #server-channels-section, body.friends-hub-active .packet-card, body.friends-hub-active .srv-badge-open { display:none !important; }
+  body:not(.friends-hub-active) #dm-left-section { display:none !important; }
 
   .dm-item-btn { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 9px; border-radius:7px; cursor:pointer; margin-bottom:5px; border:1px solid transparent; background:rgba(10,18,30,0.55); transition:0.15s; }
   .dm-item-btn:hover { background:var(--bg-hover); border-color:var(--border); }
@@ -557,7 +562,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .dm-item-nick { font-size:13px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .dm-item-sub { font-size:10px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-  .voice-connected-users { display:flex; flex-direction:column; gap:6px; padding:4px 0 6px 12px; }
+  /* УЧАСТНИКИ СТРОГО ПОД СВОИМ ГОЛОСОВЫМ КАНАЛОМ */
+  .voice-ch-group { display:flex; flex-direction:column; margin-bottom:3px; }
+  .voice-ch-peers { display:flex; flex-direction:column; gap:5px; padding:3px 0 6px 18px; }
+  .voice-ch-peers:empty { display:none; }
+
   .vc-user-row { position:relative; display:flex; align-items:center; gap:10px; padding:4px 8px; border-radius:6px; font-size:12px; color:var(--text-normal); cursor:pointer; border:1px solid transparent; transition:0.15s; }
   .vc-user-row:hover { background:var(--bg-hover); }
   .vc-user-row.is-speaking { background:rgba(16,185,129,0.16); border-color:rgba(16,185,129,0.55); box-shadow:0 0 12px rgba(16,185,129,0.25); color:#fff; }
@@ -577,17 +586,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .vup-btn { width:100%; text-align:left; padding:7px 10px; background:rgba(0,240,255,0.08); border:1px solid var(--border); color:var(--text-main); border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:7px; }
   .vup-btn:hover { background:var(--bg-active); border-color:var(--brand); color:#fff; }
 
-  .sidebar-voice-dock { background:rgba(6,16,26,0.96); border-top:1px solid var(--cyan-border); padding:9px 10px; display:flex; flex-direction:column; gap:7px; flex-shrink:0; }
-  .svd-top { display:flex; align-items:center; justify-content:space-between; gap:6px; }
-  .svd-state-row { font-size:10.5px; font-weight:800; color:var(--green); text-transform:uppercase; }
-  .svd-state-row.idle { color:var(--text-muted); }
-  .svd-channel-name { font-size:12px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .svd-hangup-btn { background:rgba(255,42,133,0.22); border:1px solid var(--pink); color:#ff80a0; padding:5px 9px; border-radius:5px; font-size:11px; font-weight:800; cursor:pointer; }
-  .svd-connect-btn { background:var(--brand); border:none; color:#031518; padding:5px 10px; border-radius:5px; font-size:10.5px; font-weight:800; cursor:pointer; }
-  .svd-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-  .svd-btn { background:#0d1829; border:1px solid var(--border); color:var(--text-normal); padding:6px 4px; border-radius:5px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; }
-  .svd-btn.active-cam { background:rgba(16,185,129,0.25); border-color:var(--green); color:#6ee7b7; }
-  .svd-btn.active-screen { background:rgba(255,42,133,0.25); border-color:var(--pink); color:#ffaec2; }
+  /* СКРЫТИЕ ПУСТОЙ НИЖНЕЙ ПАНЕЛИ «ВОЙТИ», ПОКА НЕТ АКТИВНОГО ЭФИРА */
+  .sidebar-voice-dock { display:none !important; }
+  body.voice-live .sidebar-voice-dock { display:flex !important; }
 
   .user-bar { height:58px; padding:0 10px; background:var(--bg-userbar); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:6px; flex-shrink:0; overflow:visible; }
   .user-info { display:flex; align-items:center; gap:12px; padding:4px 6px; border-radius:6px; cursor:pointer; flex:1; min-width:0; overflow:visible; }
@@ -775,68 +776,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     .settings-grid-2,.photo-upload-bar,.fx-bundle-card,.fxb-left { grid-template-columns:1fr; flex-direction:column; align-items:flex-start; }
     .fx-bundle-card button { width:100%; }
   }
-/* СКРЫТИЕ НИЖНЕЙ ПАНЕЛИ «ВОЙТИ», ПОКА НЕТ АКТИВНОГО ЗВОНКА */
-  .sidebar-voice-dock {
-    display: none !important;
-  }
-  body.voice-live .sidebar-voice-dock {
-    display: flex !important;
-  }
-
-  /* УЧАСТНИКИ ПОД КОНКРЕТНЫМ ГОЛОСОВЫМ КАНАЛОМ */
-  .voice-ch-group {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 3px;
-  }
-  .voice-ch-peers {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    padding: 3px 0 6px 18px;
-  }
-  .voice-ch-peers:empty {
-    display: none;
-  }
-
-  /* ЭФФЕКТ ПРОБЕГАЮЩЕЙ ЗЕЛЁНОЙ МОЛНИИ ПО НАЗВАНИЮ КАНАЛА ПРИ НАВЕДЕНИИ МЫШИ */
-  @keyframes greenLightningRun {
-    0% { left: -45%; opacity: 0; transform: skewX(-25deg) scaleY(0.9); }
-    15% { opacity: 1; }
-    50% { opacity: 1; transform: skewX(-25deg) scaleY(1.1); }
-    85% { opacity: 1; }
-    100% { left: 115%; opacity: 0; transform: skewX(-25deg) scaleY(0.9); }
-  }
-  .ch-btn, .voice-ch-box {
-    position: relative;
-    overflow: hidden;
-  }
-  .ch-btn::after, .voice-ch-box::after {
-    content: '⚡';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: -45%;
-    width: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    color: #10b981;
-    text-shadow: 0 0 8px #10b981, 0 0 16px #10b981, 0 0 24px #6ee7b7;
-    background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.38), rgba(110, 231, 183, 0.7), rgba(16, 185, 129, 0.38), transparent);
-    pointer-events: none;
-    opacity: 0;
-    z-index: 3;
-  }
-  .ch-btn:hover::after, .voice-ch-box:hover::after {
-    animation: greenLightningRun 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  }
-  .ch-btn:hover .ch-name-txt, .voice-ch-box:hover .ch-name-txt {
-    color: #6ee7b7;
-    text-shadow: 0 0 8px rgba(16, 185, 129, 0.65);
-    transition: color 0.18s, text-shadow 0.18s;
-  }
 </style>
 </head>
 <body>
@@ -863,7 +802,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   <div class="app-layout">
     <div class="mob-drawer-backdrop" onclick="closeMobileDrawers()"></div>
     <div class="servers-rail">
-      <!-- ЗНАЧОК ДРУЗЕЙ И ЛИЧНЫХ ЧАТОВ НАД СЕРВЕРАМИ -->
       <div class="srv-pill-wrap" id="friends-hub-pill" title="Друзья и Личные сообщения" onclick="openFriendsAndDmHub()">
         <span class="srv-pill-bar"></span>
         <div class="srv-ico friends-hub-ico">👥</div>
@@ -884,20 +822,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           <span class="pk-live">▲ LIVE</span>
         </div>
         <div class="channels-scroll">
-          <!-- БЛОК СПИСКА ДРУЗЕЙ И ЛС СЛЕВА (ПОКАЗЫВАЕТСЯ ПРИ КЛИКЕ НА ИКОНКУ ДРУЗЕЙ) -->
           <div id="dm-left-section">
             <div class="cat-header" style="color:var(--pink);"><span>💬 ДРУЗЬЯ И ЛИЧНЫЕ ЧАТЫ</span></div>
             <div id="dm-channels-list"></div>
           </div>
 
-          <!-- БЛОК КАНАЛОВ СЕРВЕРА (СКРЫВАЕТСЯ ВО ВКЛАДКЕ ДРУЗЕЙ) -->
           <div id="server-channels-section">
             <div class="cat-header"><span>◈ ТЕКСТОВЫЕ КАНАЛЫ</span><button class="cat-add-btn" onclick="openCreateChannelModal('text')">+</button></div>
             <div id="text-channels-list"></div>
             <button class="btn-create-ch-wide" onclick="openCreateChannelModal('text')"><span>СОЗДАТЬ НОВЫЙ КАНАЛ</span><span style="color:var(--brand);">+</span></button>
             <div class="cat-header" style="margin-top:6px;"><span>🔊 ГОЛОСОВЫЕ КАНАЛЫ</span><button class="cat-add-btn" onclick="openCreateChannelModal('voice')">+</button></div>
             <div id="voice-channels-list"></div>
-            <div class="voice-connected-users" id="sidebar-voice-peers"></div>
           </div>
         </div>
 
@@ -994,7 +929,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- ВСПЛЫВАЮЩЕЕ МЕНЮ УПРАВЛЕНИЯ СОБЕСЕДНИКОМ В ГОЛОСОВОМ КАНАЛЕ -->
   <div class="vc-user-popover" id="vc-user-popover">
     <div class="vup-head">
       <div id="vup-ava"></div>
@@ -1015,7 +949,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- ВСПЛЫВАЮЩЕЕ ОКНО ВХОДЯЩЕГО ПРЯМОГО ЗВОНКА 1-НА-1 -->
   <div class="incoming-call-toast" id="incoming-call-toast">
     <div style="display:flex;align-items:center;gap:10px;">
       <div id="inc-call-ava"></div>
@@ -1030,7 +963,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- ВЫЕЗЖАЮЩАЯ СПРАВА КАРТОЧКА ПРОФИЛЯ -->
   <div class="profile-drawer-backdrop" id="view-profile-backdrop" onclick="closeViewProfileModal()"></div>
   <div class="profile-slide-drawer" id="view-profile-drawer">
     <div class="profile-surface" id="vp-surface">
@@ -1339,7 +1271,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let myProfile = { bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#00f0ff', avatarColor: '#3b82f6', fxSet: 'set1', avatarImg: '', bannerImg: '' };
   if (myVerified) { try { myProfile = Object.assign(myProfile, JSON.parse(localStorage.getItem('cyber_profile') || '{}')); } catch (e) {} }
 
-  // Строгая проверка «Это мой собственный профиль» (по pid и по позывному)
   function isMeUser(u) {
     if (!u) return false;
     if (myPid && u.pid && u.pid === myPid) return true;
@@ -1527,6 +1458,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   let incomingCallData = null, ringtoneTimer = null;
   let isFriendsHubMode = false, activeDmPartner = null, dmConversations = {}, peerVolumes = {}, peerGainNodes = {};
   try { peerVolumes = JSON.parse(localStorage.getItem('geek_peer_volumes') || '{}'); } catch (e) {}
+  let inDirectCall = false, directCallPartner = null;
   let myPid = null, lastMembers = [], social = { friends: [], incoming: [], outgoing: [], servers: [] };
   let pendingChannelType = 'text', micTestStream = null, micTestTimer = null, stageLayoutMode = 'grid';
   let callStartTime = 0, voiceLockRelease = null, wakeLockSentinel = null, keepAliveAudioEl = null, bgWorker = null, subsonicWavUrl = null;
@@ -1609,36 +1541,57 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function markUserSpeaking(nick, speaking) {
     if (!nick) return;
-    document.querySelectorAll('#sidebar-voice-peers .vc-user-row').forEach(function (row) {
+    document.querySelectorAll('.voice-ch-peers .vc-user-row').forEach(function (row) {
       if (row.getAttribute('data-nick') === nick) row.classList.toggle('is-speaking', !!speaking);
     });
   }
 
-  function getVoiceChannelMembers() {
-    const uList = (lastMembers || []).filter(function (u) { return u.online && u.inVoice && (!u.voiceChannel || u.voiceChannel === currentVoiceChannel); });
-    if (!uList.some(function (u) { return isMeUser(u); }) && inVoice) uList.unshift({ pid: myPid, nick: myNick, online: true, inVoice: true, inCam: inWebcam, inScreen: inScreen, interests: myProfile.interests, avatarColor: myProfile.avatarColor, avatarImg: myProfile.avatarImg, bannerImg: myProfile.bannerImg });
-    return uList;
+  function getMembersForSpecificVoiceChannel(vch) {
+    const list = (lastMembers || []).filter(function (u) {
+      if (!u || !u.online || !u.inVoice) return false;
+      if (!u.voiceChannel || String(u.voiceChannel).startsWith('__dm__')) return false;
+      if (isMeUser(u) && (inDirectCall || activeVoiceRoom !== currentRoom)) return false;
+      return u.voiceChannel === vch;
+    });
+
+    if (inVoice && !inDirectCall && activeVoiceRoom === currentRoom && currentVoiceChannel === vch) {
+      if (!list.some(function (u) { return isMeUser(u); })) {
+        list.unshift({
+          pid: myPid, nick: myNick, online: true, inVoice: true,
+          inCam: inWebcam, inScreen: inScreen, voiceChannel: vch,
+          interests: myProfile.interests, avatarColor: myProfile.avatarColor,
+          avatarImg: myProfile.avatarImg, bannerImg: myProfile.bannerImg
+        });
+      }
+    }
+    return list;
   }
 
   function renderSidebarVoicePeers() {
-    const box = document.getElementById('sidebar-voice-peers'); if (!box) return;
     const prevSpeaking = new Set();
-    box.querySelectorAll('.vc-user-row.is-speaking').forEach(function (r) { prevSpeaking.add(r.getAttribute('data-nick')); });
-    box.innerHTML = '';
-    getVoiceChannelMembers().forEach(function (u) {
-      const setKey = getUserFxSet(u);
-      const r = el('div', 'vc-user-row' + (prevSpeaking.has(u.nick) ? ' is-speaking' : ''));
-      r.setAttribute('data-nick', u.nick);
-      const avaHolder = document.createElement('div');
-      const aImg = (isMeUser(u) ? myProfile.avatarImg : u.avatarImg) || '';
-      avaHolder.innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 28, '', aImg);
-      r.appendChild(avaHolder.firstChild);
-      r.appendChild(el('span', '', u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '')));
-      const ind = el('span', 'vc-speak-indicator');
-      ind.innerHTML = '<span class="vc-speak-bar"></span><span class="vc-speak-bar"></span><span class="vc-speak-bar"></span>';
-      r.appendChild(ind);
-      r.onclick = function (ev) { ev.stopPropagation(); openVoiceParticipantPopover(u, r); };
-      box.appendChild(r);
+    document.querySelectorAll('.vc-user-row.is-speaking').forEach(function (r) {
+      prevSpeaking.add(r.getAttribute('data-nick'));
+    });
+
+    document.querySelectorAll('[data-vch-peers]').forEach(function (peersBox) {
+      const vch = peersBox.getAttribute('data-vch-peers');
+      peersBox.innerHTML = '';
+      const members = getMembersForSpecificVoiceChannel(vch);
+      members.forEach(function (u) {
+        const setKey = getUserFxSet(u);
+        const r = el('div', 'vc-user-row' + (prevSpeaking.has(u.nick) ? ' is-speaking' : ''));
+        r.setAttribute('data-nick', u.nick);
+        const avaHolder = document.createElement('div');
+        const aImg = (isMeUser(u) ? myProfile.avatarImg : u.avatarImg) || '';
+        avaHolder.innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 28, '', aImg);
+        r.appendChild(avaHolder.firstChild);
+        r.appendChild(el('span', '', u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '')));
+        const ind = el('span', 'vc-speak-indicator');
+        ind.innerHTML = '<span class="vc-speak-bar"></span><span class="vc-speak-bar"></span><span class="vc-speak-bar"></span>';
+        r.appendChild(ind);
+        r.onclick = function (ev) { ev.stopPropagation(); openVoiceParticipantPopover(u, r); };
+        peersBox.appendChild(r);
+      });
     });
   }
 
@@ -1715,7 +1668,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     renderSidebarVoicePeers();
   }
 
-  // === ВКЛАДКА ДРУЗЕЙ И ЛС (СКРЫВАЕТ ВСЕ КАНАЛЫ СЕРВЕРА И ПОКАЗЫВАЕТ СПИСОК ДРУЗЕЙ) ===
   function openFriendsAndDmHub() {
     isFriendsHubMode = true;
     document.body.classList.add('friends-hub-active');
@@ -1917,11 +1869,23 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
     const vBox = document.getElementById('voice-channels-list'); vBox.innerHTML = '';
     vList.forEach(function (vch) {
-      const isAct = inVoice && currentVoiceChannel === vch;
+      const isAct = inVoice && !inDirectCall && activeVoiceRoom === currentRoom && currentVoiceChannel === vch;
+      const group = el('div', 'voice-ch-group');
       const row = el('div', 'voice-ch-box' + (isAct ? ' active' : ''));
-      const left = el('div', 'ch-left'); left.appendChild(el('span', 'ch-hash', '🔊')); left.appendChild(el('span', 'ch-name-txt', vch)); row.appendChild(left);
-      row.appendChild(el('span', 'off-badge' + (isAct ? ' on' : ''), isAct ? 'LIVE' : ''));
-      row.onclick = function () { selectVoiceChannel(vch); }; vBox.appendChild(row);
+      const left = el('div', 'ch-left');
+      left.appendChild(el('span', 'ch-hash', '🔊'));
+      left.appendChild(el('span', 'ch-name-txt', vch));
+      row.appendChild(left);
+      const chMembers = getMembersForSpecificVoiceChannel(vch);
+      const badgeText = isAct ? 'LIVE' : (chMembers.length ? String(chMembers.length) : '');
+      row.appendChild(el('span', 'off-badge' + (isAct || chMembers.length ? ' on' : ''), badgeText));
+      row.onclick = function () { selectVoiceChannel(vch); };
+      group.appendChild(row);
+
+      const peersBox = el('div', 'voice-ch-peers');
+      peersBox.setAttribute('data-vch-peers', vch);
+      group.appendChild(peersBox);
+      vBox.appendChild(group);
     });
     if (!activeDmPartner && !isFriendsHubMode) applyChannelUI(currentChannel);
     renderDmLeftList(); updateVoicePanelUI();
@@ -1935,7 +1899,20 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('chat-input').placeholder = 'Написать в #' + ch + '...';
     document.querySelectorAll('.ch-btn').forEach(function (i) { i.classList.toggle('active', !activeDmPartner && i.getAttribute('data-ch') === ch); });
   }
-  function updateVoicePanelUI() { document.getElementById('voice-panel-title').textContent = currentVoiceChannel; updateVoiceControlsUI(); }
+  
+  function updateVoicePanelUI() {
+    const titleEl = document.getElementById('voice-panel-title');
+    if (titleEl) {
+      if (inDirectCall && directCallPartner) {
+        titleEl.textContent = '📞 Личный звонок: ' + directCallPartner.nick;
+      } else if (String(currentVoiceChannel || '').startsWith('__dm__')) {
+        titleEl.textContent = '📞 Личный звонок 1-на-1';
+      } else {
+        titleEl.textContent = currentVoiceChannel;
+      }
+    }
+    updateVoiceControlsUI();
+  }
 
   async function switchServer(roomId) {
     const clean = String(roomId || '').trim();
@@ -2148,7 +2125,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (u.customStatus && !checkContentViolation(u.customStatus).length) col.appendChild(el('div', 'member-status-sub', u.customStatus));
     d.appendChild(col);
 
-    // Кнопки звонка, ЛС и добавления в друзья отображаются ТОЛЬКО для других людей (не для себя)
     if (!isSelf && u.pid) {
       const dmBtn = el('button', 'mini-btn', '💬');
       dmBtn.title = 'Личный чат с ' + u.nick;
@@ -2474,66 +2450,80 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     cachedMessages = roomMessagesCache[ch] || []; rerenderChatMessages(); closeMobileDrawers();
   }
 
-  function voiceChatChannelKey(vch) {
-    return 'голос-' + String(vch || 'эфир').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, 20);
-  }
-
   function jumpToActiveVoiceChannel() {
     closeMobileDrawers(); setMobActiveTab('mob-tab-voice');
     selectVoiceChannel(currentVoiceChannel || 'Ночной эфир');
   }
 
-  async function selectVoiceChannel(vch) {
+  selectVoiceChannel = async function (vch) {
     if (!myVerified) { openAuthModal(true); return; }
+    inDirectCall = false; directCallPartner = null;
     currentVoiceChannel = vch; activeVoiceRoom = currentRoom;
     updateVoicePanelUI(); renderServerChannels(); closeMobileDrawers();
 
-    const vChat = voiceChatChannelKey(vch);
+    const vChat = 'голос-' + String(vch || 'эфир').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, 20);
     if (!currentServerMeta.textChannels.includes(vChat)) {
       try { await fetch('/api/channel/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, room: currentRoom, type: 'text', name: vChat }) }); } catch (e) {}
       if (!currentServerMeta.textChannels.includes(vChat)) currentServerMeta.textChannels.push(vChat);
     }
     setChannel(vChat);
 
-    if (!inVoice) await toggleVoiceCall();
-    else {
+    if (!inVoice) {
+      await ensureVoiceConnected();
+    } else {
       const d = await postVoiceState({ inVoice: true, inScreen: inScreen, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel, voiceRoom: activeVoiceRoom });
       if (d && Array.isArray(d.peers)) connectToExistingVoicePeers(d.peers);
     }
-  }
+  };
 
-  async function startDirectCallToUser(u) {
+  startDirectCallToUser = async function (u) {
     if (!myVerified) return openAuthModal(true);
     if (!u || !u.pid || isMeUser(u)) return;
     closeViewProfileModal();
-    const dmCh = '📞 ' + myNick + ' ⇄ ' + u.nick;
-    currentVoiceChannel = dmCh; activeVoiceRoom = currentRoom;
-    updateVoicePanelUI();
+
+    inDirectCall = true; directCallPartner = u;
+    const dmVoiceKey = '__dm__' + [myPid || myNick, u.pid].sort().join('_');
+    currentVoiceChannel = dmVoiceKey; activeVoiceRoom = DEFAULT_ROOM;
+
     openDirectChatWithUser(u);
     await ensureVoiceConnected();
-    await fetch('/api/direct-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: u.pid, action: 'ring', peerId: myPeerId, callRoom: currentRoom, callChannel: dmCh }) }).catch(function () {});
-  }
+    updateVoicePanelUI(); renderServerChannels();
 
-  async function acceptDirectCall() {
+    await fetch('/api/direct-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: u.pid, action: 'ring', peerId: myPeerId, callRoom: DEFAULT_ROOM, callChannel: dmVoiceKey }) }).catch(function () {});
+  };
+
+  acceptDirectCall = async function () {
     if (!incomingCallData) return;
     const d = incomingCallData;
     stopIncomingRingtone(); document.getElementById('incoming-call-toast').classList.remove('show');
     if (d.callRoom && d.callRoom !== currentRoom) await switchServer(d.callRoom);
-    currentVoiceChannel = d.callChannel || ('📞 ' + d.fromNick);
-    activeVoiceRoom = currentRoom; updateVoicePanelUI();
+
     const callerObj = (lastMembers || []).find(function (u) { return u.pid === d.fromPid; }) || { pid: d.fromPid, nick: d.fromNick, avatarColor: d.fromColor, avatarImg: d.fromAva, online: true };
+    inDirectCall = true; directCallPartner = callerObj;
+    currentVoiceChannel = d.callChannel || ('__dm__' + [myPid || myNick, d.fromPid].sort().join('_'));
+    activeVoiceRoom = DEFAULT_ROOM;
+
     openDirectChatWithUser(callerObj);
     await ensureVoiceConnected();
+    updateVoicePanelUI(); renderServerChannels();
+
     if (d.peerId) connectToExistingVoicePeers([d.peerId]);
-    fetch('/api/direct-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: d.fromPid, action: 'accept', peerId: myPeerId, callRoom: currentRoom, callChannel: currentVoiceChannel }) }).catch(function () {});
+    fetch('/api/direct-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: d.fromPid, action: 'accept', peerId: myPeerId, callRoom: DEFAULT_ROOM, callChannel: currentVoiceChannel }) }).catch(function () {});
     incomingCallData = null;
-  }
+  };
 
   function declineDirectCall() {
     if (incomingCallData) { fetch('/api/direct-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: incomingCallData.fromPid, action: 'decline' }) }).catch(function () {}); }
     stopIncomingRingtone(); document.getElementById('incoming-call-toast').classList.remove('show'); incomingCallData = null;
   }
   function stopIncomingRingtone() { if (ringtoneTimer) { clearInterval(ringtoneTimer); ringtoneTimer = null; } }
+
+  const origToggleVoiceCall = toggleVoiceCall;
+  toggleVoiceCall = async function () {
+    if (inVoice) { inDirectCall = false; directCallPartner = null; }
+    await origToggleVoiceCall();
+    renderServerChannels();
+  };
 
   function openCreateServerModal() { if (!myVerified) return openAuthModal(true); closeMobileDrawers(); document.getElementById('create-server-modal').classList.add('open'); }
   function closeCreateServerModal() { document.getElementById('create-server-modal').classList.remove('open'); }
@@ -2636,15 +2626,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       if (inWebcam && webcamStream) callPeerWithWebcam(pid);
       if (inScreen && screenStream) callPeerWithScreen(pid);
     });
-  }
-
-  function createSilentAudioTrack() {
-    try {
-      const ctx = audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)());
-      const dst = ctx.createMediaStreamDestination(), track = dst.stream.getAudioTracks()[0];
-      if (track) track.enabled = false;
-      return track;
-    } catch (e) { return null; }
   }
 
   async function ensureVoiceConnected() {
@@ -2767,412 +2748,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     updateVoiceControlsUI();
   }
 
-  function toggleStageCollapse() {
-    const dock = document.getElementById('media-stage-dock'), btn = document.getElementById('btn-stage-collapse');
-    if (!dock) return;
-    const isCol = dock.classList.toggle('collapsed');
-    if (btn) btn.textContent = isCol ? '▼ Развернуть' : '▲ Свернуть';
-  }
-
-  (function initStageResizerAndSwipes() {
-    const handle = document.getElementById('stage-resize-bar'), dock = document.getElementById('media-stage-dock');
-    if (handle && dock) {
-      let startY = 0, startH = 250, dragging = false;
-      const onStart = function (y) { dragging = true; startY = y; dock.classList.remove('collapsed'); startH = dock.getBoundingClientRect().height; };
-      const onMove = function (y) { if (!dragging) return; dock.style.setProperty('--stage-height', Math.round(Math.max(85, Math.min(window.innerHeight * 0.72, startH + (y - startY)))) + 'px'); };
-      const onEnd = function () { dragging = false; };
-      handle.addEventListener('mousedown', function (e) { e.preventDefault(); onStart(e.clientY); });
-      window.addEventListener('mousemove', function (e) { onMove(e.clientY); });
-      window.addEventListener('mouseup', onEnd);
-      handle.addEventListener('touchstart', function (e) { if (e.touches[0]) onStart(e.touches[0].clientY); }, { passive: true });
-      window.addEventListener('touchmove', function (e) { if (dragging && e.touches[0]) onMove(e.touches[0].clientY); }, { passive: true });
-      window.addEventListener('touchend', onEnd);
-    }
-
-    let tx = 0, ty = 0;
-    document.addEventListener('touchstart', function (e) { if (e.touches && e.touches.length === 1) { tx = e.touches[0].clientX; ty = e.touches[0].clientY; } }, { passive: true });
-    document.addEventListener('touchend', function (e) {
-      if (window.innerWidth > 900 || !e.changedTouches || !e.changedTouches.length) return;
-      const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
-      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
-      const lOpen = document.body.classList.contains('mob-left-open'), rOpen = document.body.classList.contains('mob-right-open'), pOpen = document.getElementById('view-profile-drawer').classList.contains('open');
-      if (dx < -60) {
-        if (lOpen) closeMobileDrawers();
-        else if (!rOpen && !pOpen && tx > window.innerWidth * 0.65) toggleMobileRight();
-      } else if (dx > 60) {
-        if (pOpen) closeViewProfileModal();
-        else if (rOpen) closeMobileDrawers();
-        else if (!lOpen && tx < window.innerWidth * 0.35) toggleMobileLeft();
-      }
-    }, { passive: true });
-  })();
-
-  function setStageLayout(mode) {
-    stageLayoutMode = mode === 'spotlight' ? 'spotlight' : 'grid';
-    const grid = document.getElementById('screen-grid'); if (!grid) return;
-    grid.classList.toggle('spotlight-mode', stageLayoutMode === 'spotlight');
-    document.getElementById('btn-stage-grid').classList.toggle('active', stageLayoutMode === 'grid');
-    document.getElementById('btn-stage-spot').classList.toggle('active', stageLayoutMode === 'spotlight');
-    if (stageLayoutMode === 'spotlight' && !grid.querySelector('.featured-tile') && grid.firstElementChild) grid.firstElementChild.classList.add('featured-tile');
-  }
-  function updateMediaStageVisibility() {
-    const grid = document.getElementById('screen-grid'), dock = document.getElementById('media-stage-dock');
-    if (grid && dock) dock.classList.toggle('show', grid.children.length > 0);
-  }
-  function toggleMediaNsfwShield(card, btn) { if (!card) return; const m = card.classList.toggle('nsfw-masked'); if (btn) btn.textContent = m ? '👁️ Показать' : '🛡️ 18+'; }
-
-  function renderMediaTile(id, stream, title, isLocal, kind) {
-    const grid = document.getElementById('screen-grid'); let card = document.getElementById('media-tile-' + id);
-    const icon = kind === 'cam' ? '📷 ' : '🖥️ ';
-    if (!card) {
-      card = el('div', 'screen-card'); card.id = 'media-tile-' + id;
-      card.onclick = function (ev) {
-        if (ev.target.tagName === 'BUTTON') return;
-        grid.querySelectorAll('.screen-card').forEach(function (c) { c.classList.remove('featured-tile'); });
-        card.classList.add('featured-tile'); setStageLayout('spotlight');
-      };
-      const head = el('div', 'screen-card-head'), left = el('div', ''), right = el('div', ''); right.style.cssText = 'display:flex;gap:5px;align-items:center;';
-      left.appendChild(el('span', '', icon + title)); left.appendChild(el('span', 'screen-live-pill' + (kind === 'cam' ? ' cam' : ''), kind === 'cam' ? 'КАМЕРА' : 'СТРИМ'));
-      const sBtn = el('button', 'btn-fs', '🛡️ 18+'); sBtn.onclick = function () { toggleMediaNsfwShield(card, sBtn); }; right.appendChild(sBtn);
-      const fsBtn = el('button', 'btn-fs', '⛶'); fsBtn.onclick = function () { const v = card.querySelector('video'); if (v && v.requestFullscreen) v.requestFullscreen(); }; right.appendChild(fsBtn);
-      if (isLocal) { const stBtn = el('button', 'btn-fs', '✕'); stBtn.style.background = '#ff1e56'; stBtn.style.color = '#fff'; stBtn.onclick = function () { if (kind === 'cam') stopWebcam(false); else stopScreenShare(false); }; right.appendChild(stBtn); }
-      head.appendChild(left); head.appendChild(right);
-      const wrap = el('div', 'screen-video-wrap'), vid = document.createElement('video'); vid.autoplay = true; vid.playsInline = true; if (isLocal) vid.muted = true;
-      const shield = el('div', 'media-nsfw-shield'); shield.innerHTML = '<div>🔞 Скрыто фильтром 18+</div><span class="btn-cyan" style="padding:4px 10px;font-size:10px;">👁️ Показать</span>';
-      shield.onclick = function () { toggleMediaNsfwShield(card, sBtn); };
-      wrap.appendChild(vid); wrap.appendChild(shield); card.appendChild(head); card.appendChild(wrap); grid.appendChild(card);
-    }
-    const vEl = card.querySelector('video'); if (vEl && vEl.srcObject !== stream) { vEl.srcObject = stream; vEl.play().catch(function () {}); }
-    updateMediaStageVisibility();
-  }
-  function removeMediaTile(id) { const c = document.getElementById('media-tile-' + id); if (c) c.remove(); updateMediaStageVisibility(); }
-
-  function toggleMute() {
-    if (!localStream) return; isMuted = !isMuted;
-    localStream.getAudioTracks().forEach(function (t) { t.enabled = !isMuted; });
-    playUiBeep(isMuted ? 380 : 640, 0.05); updateVoiceControlsUI();
-  }
-  function toggleDeafen() { isDeafened = !isDeafened; playUiBeep(isDeafened ? 320 : 680, 0.05); applyOutputVolumeToAll(); updateVoiceControlsUI(); }
-
-  function playStream(id, stream) {
-    let a = document.getElementById('aud-' + id);
-    if (!a) {
-      a = document.createElement('audio'); a.id = 'aud-' + id; a.autoplay = true; a.playsInline = true;
-      document.getElementById('audio-box').appendChild(a);
-    }
-    if (a.srcObject !== stream) a.srcObject = stream;
-    if (appSettings.spkDeviceId && typeof a.setSinkId === 'function') a.setSinkId(appSettings.spkDeviceId).catch(function () {});
+  function createSilentAudioTrack() {
     try {
-      const actx = audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)());
-      if (actx.state === 'suspended') actx.resume().catch(function () {});
-      if (!peerGainNodes[id]) {
-        const src = actx.createMediaStreamSource(stream), gain = actx.createGain();
-        src.connect(gain); gain.connect(actx.destination);
-        peerGainNodes[id] = { gainNode: gain };
-        a.volume = 0.001;
-      }
-    } catch (e) {}
-    const member = (lastMembers || []).find(function (u) { return u.peerId === id; });
-    applyIndividualPeerVolume(id, member ? member.pid : null);
-    a.play().catch(function () {});
+      const ctx = audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+      const dst = ctx.createMediaStreamDestination(), track = dst.stream.getAudioTracks()[0];
+      if (track) track.enabled = false;
+      return track;
+    } catch (e) { return null; }
   }
-  function removeAudio(id) { const a = document.getElementById('aud-' + id); if (a) a.remove(); delete peerGainNodes[id]; }
-
-  document.addEventListener('keydown', function (e) {
-    if (recordingAction) {
-      e.preventDefault(); e.stopPropagation();
-      if (e.key === 'Escape') { recordingAction = null; renderKeybindsUI(); return; }
-      const combo = eventToComboString(e);
-      if (combo && !['Ctrl', 'Alt', 'Shift'].includes(combo)) {
-        userKeybinds[recordingAction] = combo;
-        try { localStorage.setItem('cyber_keybinds', JSON.stringify(userKeybinds)); } catch (err) {}
-        recordingAction = null; renderKeybindsUI();
-      }
-      return;
-    }
-    if (e.key === 'Escape') { closeSettingsModal(); closeViewProfileModal(); closeInviteModal(); closeMobileDrawers(); return; }
-    const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    const pressed = eventToComboString(e);
-    if (!pressed) return;
-    if (pressed === userKeybinds.mute) { e.preventDefault(); if (inVoice) toggleMute(); else toggleVoiceCall(); }
-    else if (pressed === userKeybinds.deafen) { e.preventDefault(); if (inVoice) toggleDeafen(); }
-    else if (pressed === userKeybinds.cam) { e.preventDefault(); toggleWebcam(); }
-    else if (pressed === userKeybinds.screen) { e.preventDefault(); toggleScreenShare(); }
-  });
-
-  setInterval(async function () {
-    if (!evtSource || evtSource.readyState === 2) connectEventStream();
-    if (!myVerified || !myUid) return;
-    try {
-      const res = await fetch('/api/ping', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, inVoice: inVoice, inScreen: inScreen, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel, voiceRoom: activeVoiceRoom })
-      });
-      const d = await res.json();
-      if (d && Array.isArray(d.users)) {
-        renderUsers(d.users); renderDmLeftList();
-        const activeCamPeers = new Set(d.users.filter(function (u) { return u.online && u.inCam && u.peerId; }).map(function (u) { return u.peerId; }));
-        const activeScreenPeers = new Set(d.users.filter(function (u) { return u.online && u.inScreen && u.peerId; }).map(function (u) { return u.peerId; }));
-        document.querySelectorAll('#screen-grid .screen-card').forEach(function (card) {
-          const cid = card.id || '';
-          if (cid.startsWith('media-tile-cam-') && cid !== 'media-tile-cam-local') {
-            const pid = cid.replace('media-tile-cam-', ''); if (!activeCamPeers.has(pid)) removeMediaTile('cam-' + pid);
-          } else if (cid.startsWith('media-tile-screen-') && cid !== 'media-tile-screen-local') {
-            const pid = cid.replace('media-tile-screen-', ''); if (!activeScreenPeers.has(pid)) removeMediaTile('screen-' + pid);
-          }
-        });
-        if (inVoice && peer && myPeerId) {
-          const peersInMyVoice = d.users.filter(function (u) { return u.online && u.inVoice && u.peerId && u.peerId !== myPeerId && u.voiceChannel === currentVoiceChannel; }).map(function (u) { return u.peerId; });
-          connectToExistingVoicePeers(peersInMyVoice);
-        }
-      }
-    } catch (e) {}
-  }, 8000);
-
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) connectEventStream(); });
-  window.addEventListener('online', function () { connectEventStream(); });
-// Флаг: находимся ли мы в личном звонке 1-на-1 (отдельно от голосовых каналов сервера)
-  let inDirectCall = false;
-  let directCallPartner = null;
-
-  // Убираем старый общий контейнер под всеми каналами
-  const oldGlobalVoiceBox = document.getElementById('sidebar-voice-peers');
-  if (oldGlobalVoiceBox) oldGlobalVoiceBox.style.display = 'none';
-
-  // Возвращает участников КОНКРЕТНОГО голосового канала на текущем сервере (без личных звонков!)
-  function getMembersForSpecificVoiceChannel(vch) {
-    const list = (lastMembers || []).filter(function (u) {
-      if (!u || !u.online || !u.inVoice) return false;
-      // Если человек в личном звонке (__dm__), не показываем его в голосовых каналах сервера
-      if (!u.voiceChannel || String(u.voiceChannel).startsWith('__dm__')) return false;
-      if (isMeUser(u) && (inDirectCall || activeVoiceRoom !== currentRoom)) return false;
-      return u.voiceChannel === vch;
-    });
-
-    if (inVoice && !inDirectCall && activeVoiceRoom === currentRoom && currentVoiceChannel === vch) {
-      if (!list.some(function (u) { return isMeUser(u); })) {
-        list.unshift({
-          pid: myPid, nick: myNick, online: true, inVoice: true,
-          inCam: inWebcam, inScreen: inScreen, voiceChannel: vch,
-          interests: myProfile.interests, avatarColor: myProfile.avatarColor,
-          avatarImg: myProfile.avatarImg, bannerImg: myProfile.bannerImg
-        });
-      }
-    }
-    return list;
-  }
-
-  // Отрисовка каналов: каждый голосовой канал имеет свой собственный блок участников прямо под ним
-  renderServerChannels = function () {
-    const sName = currentServerMeta.name || currentRoom;
-    if (!isFriendsHubMode) document.getElementById('srv-title-label').textContent = sName;
-    const nodeLbl = document.getElementById('tt-node-label');
-    if (nodeLbl) nodeLbl.textContent = currentRoom;
-
-    const tList = currentServerMeta.textChannels || ['общий'];
-    if (!tList.includes(currentChannel)) currentChannel = tList[0] || 'общий';
-    const vList = currentServerMeta.voiceChannels || ['Ночной эфир'];
-
-    const tBox = document.getElementById('text-channels-list');
-    tBox.innerHTML = '';
-    tList.forEach(function (ch) {
-      const row = el('div', 'ch-btn' + (!activeDmPartner && !isFriendsHubMode && ch === currentChannel ? ' active' : ''));
-      row.setAttribute('data-ch', ch);
-      const left = el('div', 'ch-left');
-      left.appendChild(el('span', 'ch-hash', ch.startsWith('голос-') ? '🔊' : '#'));
-      left.appendChild(el('span', 'ch-name-txt', ch));
-      row.appendChild(left);
-      const unread = unreadByChannel[ch] || 0;
-      if (unread > 0 && (activeDmPartner || ch !== currentChannel)) {
-        row.appendChild(el('span', 'ch-unread-badge', String(unread)));
-      }
-      row.onclick = function () { setChannel(ch); };
-      tBox.appendChild(row);
-    });
-
-    const vBox = document.getElementById('voice-channels-list');
-    vBox.innerHTML = '';
-    vList.forEach(function (vch) {
-      const isAct = inVoice && !inDirectCall && activeVoiceRoom === currentRoom && currentVoiceChannel === vch;
-      const group = el('div', 'voice-ch-group');
-
-      const row = el('div', 'voice-ch-box' + (isAct ? ' active' : ''));
-      const left = el('div', 'ch-left');
-      left.appendChild(el('span', 'ch-hash', '🔊'));
-      left.appendChild(el('span', 'ch-name-txt', vch));
-      row.appendChild(left);
-
-      const chMembers = getMembersForSpecificVoiceChannel(vch);
-      const badgeText = isAct ? 'LIVE' : (chMembers.length ? String(chMembers.length) : '');
-      row.appendChild(el('span', 'off-badge' + (isAct || chMembers.length ? ' on' : ''), badgeText));
-      row.onclick = function () { selectVoiceChannel(vch); };
-      group.appendChild(row);
-
-      // Контейнер участников именно этого голосового канала
-      const peersBox = el('div', 'voice-ch-peers');
-      peersBox.setAttribute('data-vch-peers', vch);
-      group.appendChild(peersBox);
-      vBox.appendChild(group);
-    });
-
-    if (!activeDmPartner && !isFriendsHubMode) applyChannelUI(currentChannel);
-    renderDmLeftList();
-    updateVoicePanelUI();
-  };
-
-  // Отрисовка участников строго под тем голосовым каналом, в котором они сидят
-  renderSidebarVoicePeers = function () {
-    const prevSpeaking = new Set();
-    document.querySelectorAll('.vc-user-row.is-speaking').forEach(function (r) {
-      prevSpeaking.add(r.getAttribute('data-nick'));
-    });
-
-    document.querySelectorAll('[data-vch-peers]').forEach(function (peersBox) {
-      const vch = peersBox.getAttribute('data-vch-peers');
-      peersBox.innerHTML = '';
-      const members = getMembersForSpecificVoiceChannel(vch);
-      members.forEach(function (u) {
-        const setKey = getUserFxSet(u);
-        const r = el('div', 'vc-user-row' + (prevSpeaking.has(u.nick) ? ' is-speaking' : ''));
-        r.setAttribute('data-nick', u.nick);
-        const avaHolder = document.createElement('div');
-        const aImg = (isMeUser(u) ? myProfile.avatarImg : u.avatarImg) || '';
-        avaHolder.innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 28, '', aImg);
-        r.appendChild(avaHolder.firstChild);
-        r.appendChild(el('span', '', u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '')));
-        const ind = el('span', 'vc-speak-indicator');
-        ind.innerHTML = '<span class="vc-speak-bar"></span><span class="vc-speak-bar"></span><span class="vc-speak-bar"></span>';
-        r.appendChild(ind);
-        r.onclick = function (ev) { ev.stopPropagation(); openVoiceParticipantPopover(u, r); };
-        peersBox.appendChild(r);
-      });
-    });
-  };
-
-  // Обновляем подсветку речи по всем голосовым каналам
-  markUserSpeaking = function (nick, speaking) {
-    if (!nick) return;
-    document.querySelectorAll('.voice-ch-peers .vc-user-row').forEach(function (row) {
-      if (row.getAttribute('data-nick') === nick) row.classList.toggle('is-speaking', !!speaking);
-    });
-  };
-
-  // При входе в голосовой канал сервера — выходим из режима личного звонка
-  selectVoiceChannel = async function (vch) {
-    if (!myVerified) { openAuthModal(true); return; }
-    inDirectCall = false;
-    directCallPartner = null;
-    currentVoiceChannel = vch;
-    activeVoiceRoom = currentRoom;
-    updateVoicePanelUI();
-    renderServerChannels();
-    closeMobileDrawers();
-
-    const vChat = voiceChatChannelKey(vch);
-    if (!currentServerMeta.textChannels.includes(vChat)) {
-      try {
-        await fetch('/api/channel/create', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid: myUid, room: currentRoom, type: 'text', name: vChat })
-        });
-      } catch (e) {}
-      if (!currentServerMeta.textChannels.includes(vChat)) currentServerMeta.textChannels.push(vChat);
-    }
-    setChannel(vChat);
-
-    if (!inVoice) {
-      await ensureVoiceConnected();
-    } else {
-      const d = await postVoiceState({
-        inVoice: true, inScreen: inScreen, inCam: inWebcam,
-        peerId: myPeerId, voiceChannel: currentVoiceChannel, voiceRoom: activeVoiceRoom
-      });
-      if (d && Array.isArray(d.peers)) connectToExistingVoicePeers(d.peers);
-    }
-  };
-
-  // ЛИЧНЫЙ ЗВОНОК 1-НА-1: полностью изолирован от голосовых каналов сервера
-  startDirectCallToUser = async function (u) {
-    if (!myVerified) return openAuthModal(true);
-    if (!u || !u.pid || isMeUser(u)) return;
-    closeViewProfileModal();
-
-    inDirectCall = true;
-    directCallPartner = u;
-    const dmVoiceKey = '__dm__' + [myPid || myNick, u.pid].sort().join('_');
-    currentVoiceChannel = dmVoiceKey;
-    activeVoiceRoom = DEFAULT_ROOM;
-
-    openDirectChatWithUser(u);
-    await ensureVoiceConnected();
-    updateVoicePanelUI();
-    renderServerChannels();
-
-    await fetch('/api/direct-call', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        uid: myUid, targetPid: u.pid, action: 'ring',
-        peerId: myPeerId, callRoom: DEFAULT_ROOM, callChannel: dmVoiceKey
-      })
-    }).catch(function () {});
-  };
-
-  acceptDirectCall = async function () {
-    if (!incomingCallData) return;
-    const d = incomingCallData;
-    stopIncomingRingtone();
-    document.getElementById('incoming-call-toast').classList.remove('show');
-
-    const callerObj = (lastMembers || []).find(function (u) { return u.pid === d.fromPid; }) || {
-      pid: d.fromPid, nick: d.fromNick, avatarColor: d.fromColor, avatarImg: d.fromAva, online: true
-    };
-    inDirectCall = true;
-    directCallPartner = callerObj;
-    currentVoiceChannel = d.callChannel || ('__dm__' + [myPid || myNick, d.fromPid].sort().join('_'));
-    activeVoiceRoom = DEFAULT_ROOM;
-
-    openDirectChatWithUser(callerObj);
-    await ensureVoiceConnected();
-    updateVoicePanelUI();
-    renderServerChannels();
-
-    if (d.peerId) connectToExistingVoicePeers([d.peerId]);
-    fetch('/api/direct-call', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        uid: myUid, targetPid: d.fromPid, action: 'accept',
-        peerId: myPeerId, callRoom: DEFAULT_ROOM, callChannel: currentVoiceChannel
-      })
-    }).catch(function () {});
-    incomingCallData = null;
-  };
-
-  // Заголовок в нижней панели во время активного звонка (показывает либо имя собеседника 1-на-1, либо канал)
-  updateVoicePanelUI = function () {
-    const titleEl = document.getElementById('voice-panel-title');
-    if (titleEl) {
-      if (inDirectCall && directCallPartner) {
-        titleEl.textContent = '📞 Личный звонок: ' + directCallPartner.nick;
-      } else if (String(currentVoiceChannel || '').startsWith('__dm__')) {
-        titleEl.textContent = '📞 Личный звонок 1-на-1';
-      } else {
-        titleEl.textContent = currentVoiceChannel;
-      }
-    }
-    updateVoiceControlsUI();
-  };
-
-  // При завершении звонка сбрасываем и режим личного вызова
-  const origToggleVoiceCall = toggleVoiceCall;
-  toggleVoiceCall = async function () {
-    if (inVoice) {
-      inDirectCall = false;
-      directCallPartner = null;
-    }
-    await origToggleVoiceCall();
-    renderServerChannels();
-  };
 
   applyNickUI(); renderKeybindsUI(); applyAppearanceFromStorage(); renderServersRail(); renderServerChannels(); connectEventStream();
   if (!myVerified) openAuthModal(true);
