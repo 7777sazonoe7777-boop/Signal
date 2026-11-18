@@ -68,6 +68,7 @@ function ensureServer(room, name, desc, icon) {
   serversMeta[r].textChannels.forEach(ch => { if (!rooms[r][ch]) rooms[r][ch] = []; });
   return serversMeta[r];
 }
+
 ensureServer(DEFAULT_ROOM, 'Ночной клуб', 'Игры, идеи и разговоры после полуночи', 'НК');
 ensureServer('hc-node', 'Кибер Узел', 'Технологии, код и ночные эфиры', 'HC');
 ensureServer('ma-club', 'Мастерская', 'Музыка, творчество и совместные проекты', 'MA');
@@ -86,7 +87,6 @@ const safeVoiceChannel = (r, c) => {
   return m.voiceChannels.includes(s) ? s : String(s || m.voiceChannels[0]).trim().slice(0, 40);
 };
 const getRoom = r => (ensureServer(r), rooms[r]);
-
 async function tgApi(method, body) {
   if (!TELEGRAM_BOT_TOKEN) return null;
   const res = await fetch('https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/' + method, {
@@ -887,7 +887,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
         <div class="media-stage-dock" id="media-stage-dock">
           <div class="msd-header">
-            <span class="msd-title">📹 ТРАНСЛЯЦИИ В КАНАЛЕ (ТЯНИТЕ ПОЛОСУ СНИЗУ ДЛЯ РАЗМЕРА)</span>
+            <span class="msd-title">📹 ТРАНСЛЯЦИИ В КАНАЛЕ</span>
             <div style="display:flex;gap:6px;">
               <button class="msd-layout-btn active" id="btn-stage-grid" onclick="setStageLayout('grid')">⊞ Сетка</button>
               <button class="msd-layout-btn" id="btn-stage-spot" onclick="setStageLayout('spotlight')">⊡ Фокус</button>
@@ -1223,8 +1223,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   <div class="modal-backdrop" id="create-channel-modal" onclick="if(event.target===this)closeCreateChannelModal()">
     <div class="modal-box"><h3 id="create-ch-title" style="color:var(--brand);font-size:16px;margin-bottom:6px;">◈ СОЗДАТЬ КАНАЛ</h3><p id="create-ch-sub" style="font-size:12px;color:var(--text-normal);margin-bottom:10px;"></p><input type="text" id="new-ch-name" placeholder="название-канала" maxlength="28"><button class="btn-cyan" style="width:100%;margin-bottom:6px;" onclick="submitCreateChannel()">СОЗДАТЬ</button><button class="btn-login-mini" style="width:100%;" onclick="closeCreateChannelModal()">ОТМЕНА</button></div>
-  </div>
-<script>
+  </div><script>
   const params = new URLSearchParams(window.location.search);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function () {});
 
@@ -1898,20 +1897,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('banner-desc').textContent = 'КАНАЛ #' + ch.toUpperCase();
     document.getElementById('chat-input').placeholder = 'Написать в #' + ch + '...';
     document.querySelectorAll('.ch-btn').forEach(function (i) { i.classList.toggle('active', !activeDmPartner && i.getAttribute('data-ch') === ch); });
-  }
-  
-  function updateVoicePanelUI() {
-    const titleEl = document.getElementById('voice-panel-title');
-    if (titleEl) {
-      if (inDirectCall && directCallPartner) {
-        titleEl.textContent = '📞 Личный звонок: ' + directCallPartner.nick;
-      } else if (String(currentVoiceChannel || '').startsWith('__dm__')) {
-        titleEl.textContent = '📞 Личный звонок 1-на-1';
-      } else {
-        titleEl.textContent = currentVoiceChannel;
-      }
-    }
-    updateVoiceControlsUI();
   }
 
   async function switchServer(roomId) {
@@ -2748,14 +2733,171 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     updateVoiceControlsUI();
   }
 
-  function createSilentAudioTrack() {
-    try {
-      const ctx = audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)());
-      const dst = ctx.createMediaStreamDestination(), track = dst.stream.getAudioTracks()[0];
-      if (track) track.enabled = false;
-      return track;
-    } catch (e) { return null; }
+  function toggleStageCollapse() {
+    const dock = document.getElementById('media-stage-dock'), btn = document.getElementById('btn-stage-collapse');
+    if (!dock) return;
+    const isCol = dock.classList.toggle('collapsed');
+    if (btn) btn.textContent = isCol ? '▼ Развернуть' : '▲ Свернуть';
   }
+
+  (function initStageResizerAndSwipes() {
+    const handle = document.getElementById('stage-resize-bar'), dock = document.getElementById('media-stage-dock');
+    if (handle && dock) {
+      let startY = 0, startH = 250, dragging = false;
+      const onStart = function (y) { dragging = true; startY = y; dock.classList.remove('collapsed'); startH = dock.getBoundingClientRect().height; };
+      const onMove = function (y) { if (!dragging) return; dock.style.setProperty('--stage-height', Math.round(Math.max(85, Math.min(window.innerHeight * 0.72, startH + (y - startY)))) + 'px'); };
+      const onEnd = function () { dragging = false; };
+      handle.addEventListener('mousedown', function (e) { e.preventDefault(); onStart(e.clientY); });
+      window.addEventListener('mousemove', function (e) { onMove(e.clientY); });
+      window.addEventListener('mouseup', onEnd);
+      handle.addEventListener('touchstart', function (e) { if (e.touches[0]) onStart(e.touches[0].clientY); }, { passive: true });
+      window.addEventListener('touchmove', function (e) { if (dragging && e.touches[0]) onMove(e.touches[0].clientY); }, { passive: true });
+      window.addEventListener('touchend', onEnd);
+    }
+
+    let tx = 0, ty = 0;
+    document.addEventListener('touchstart', function (e) { if (e.touches && e.touches.length === 1) { tx = e.touches[0].clientX; ty = e.touches[0].clientY; } }, { passive: true });
+    document.addEventListener('touchend', function (e) {
+      if (window.innerWidth > 900 || !e.changedTouches || !e.changedTouches.length) return;
+      const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+      const lOpen = document.body.classList.contains('mob-left-open'), rOpen = document.body.classList.contains('mob-right-open'), pOpen = document.getElementById('view-profile-drawer').classList.contains('open');
+      if (dx < -60) {
+        if (lOpen) closeMobileDrawers();
+        else if (!rOpen && !pOpen && tx > window.innerWidth * 0.65) toggleMobileRight();
+      } else if (dx > 60) {
+        if (pOpen) closeViewProfileModal();
+        else if (rOpen) closeMobileDrawers();
+        else if (!lOpen && tx < window.innerWidth * 0.35) toggleMobileLeft();
+      }
+    }, { passive: true });
+  })();
+
+  function setStageLayout(mode) {
+    stageLayoutMode = mode === 'spotlight' ? 'spotlight' : 'grid';
+    const grid = document.getElementById('screen-grid'); if (!grid) return;
+    grid.classList.toggle('spotlight-mode', stageLayoutMode === 'spotlight');
+    document.getElementById('btn-stage-grid').classList.toggle('active', stageLayoutMode === 'grid');
+    document.getElementById('btn-stage-spot').classList.toggle('active', stageLayoutMode === 'spotlight');
+    if (stageLayoutMode === 'spotlight' && !grid.querySelector('.featured-tile') && grid.firstElementChild) grid.firstElementChild.classList.add('featured-tile');
+  }
+  function updateMediaStageVisibility() {
+    const grid = document.getElementById('screen-grid'), dock = document.getElementById('media-stage-dock');
+    if (grid && dock) dock.classList.toggle('show', grid.children.length > 0);
+  }
+  function toggleMediaNsfwShield(card, btn) { if (!card) return; const m = card.classList.toggle('nsfw-masked'); if (btn) btn.textContent = m ? '👁️ Показать' : '🛡️ 18+'; }
+
+  function renderMediaTile(id, stream, title, isLocal, kind) {
+    const grid = document.getElementById('screen-grid'); let card = document.getElementById('media-tile-' + id);
+    const icon = kind === 'cam' ? '📷 ' : '🖥️ ';
+    if (!card) {
+      card = el('div', 'screen-card'); card.id = 'media-tile-' + id;
+      card.onclick = function (ev) {
+        if (ev.target.tagName === 'BUTTON') return;
+        grid.querySelectorAll('.screen-card').forEach(function (c) { c.classList.remove('featured-tile'); });
+        card.classList.add('featured-tile'); setStageLayout('spotlight');
+      };
+      const head = el('div', 'screen-card-head'), left = el('div', ''), right = el('div', ''); right.style.cssText = 'display:flex;gap:5px;align-items:center;';
+      left.appendChild(el('span', '', icon + title)); left.appendChild(el('span', 'screen-live-pill' + (kind === 'cam' ? ' cam' : ''), kind === 'cam' ? 'КАМЕРА' : 'СТРИМ'));
+      const sBtn = el('button', 'btn-fs', '🛡️ 18+'); sBtn.onclick = function () { toggleMediaNsfwShield(card, sBtn); }; right.appendChild(sBtn);
+      const fsBtn = el('button', 'btn-fs', '⛶'); fsBtn.onclick = function () { const v = card.querySelector('video'); if (v && v.requestFullscreen) v.requestFullscreen(); }; right.appendChild(fsBtn);
+      if (isLocal) { const stBtn = el('button', 'btn-fs', '✕'); stBtn.style.background = '#ff1e56'; stBtn.style.color = '#fff'; stBtn.onclick = function () { if (kind === 'cam') stopWebcam(false); else stopScreenShare(false); }; right.appendChild(stBtn); }
+      head.appendChild(left); head.appendChild(right);
+      const wrap = el('div', 'screen-video-wrap'), vid = document.createElement('video'); vid.autoplay = true; vid.playsInline = true; if (isLocal) vid.muted = true;
+      const shield = el('div', 'media-nsfw-shield'); shield.innerHTML = '<div>🔞 Скрыто фильтром 18+</div><span class="btn-cyan" style="padding:4px 10px;font-size:10px;">👁️ Показать</span>';
+      shield.onclick = function () { toggleMediaNsfwShield(card, sBtn); };
+      wrap.appendChild(vid); wrap.appendChild(shield); card.appendChild(head); card.appendChild(wrap); grid.appendChild(card);
+    }
+    const vEl = card.querySelector('video'); if (vEl && vEl.srcObject !== stream) { vEl.srcObject = stream; vEl.play().catch(function () {}); }
+    updateMediaStageVisibility();
+  }
+  function removeMediaTile(id) { const c = document.getElementById('media-tile-' + id); if (c) c.remove(); updateMediaStageVisibility(); }
+
+  function toggleMute() {
+    if (!localStream) return; isMuted = !isMuted;
+    localStream.getAudioTracks().forEach(function (t) { t.enabled = !isMuted; });
+    playUiBeep(isMuted ? 380 : 640, 0.05); updateVoiceControlsUI();
+  }
+  function toggleDeafen() { isDeafened = !isDeafened; playUiBeep(isDeafened ? 320 : 680, 0.05); applyOutputVolumeToAll(); updateVoiceControlsUI(); }
+
+  function playStream(id, stream) {
+    let a = document.getElementById('aud-' + id);
+    if (!a) {
+      a = document.createElement('audio'); a.id = 'aud-' + id; a.autoplay = true; a.playsInline = true;
+      document.getElementById('audio-box').appendChild(a);
+    }
+    if (a.srcObject !== stream) a.srcObject = stream;
+    if (appSettings.spkDeviceId && typeof a.setSinkId === 'function') a.setSinkId(appSettings.spkDeviceId).catch(function () {});
+    try {
+      const actx = audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+      if (actx.state === 'suspended') actx.resume().catch(function () {});
+      if (!peerGainNodes[id]) {
+        const src = actx.createMediaStreamSource(stream), gain = actx.createGain();
+        src.connect(gain); gain.connect(actx.destination);
+        peerGainNodes[id] = { gainNode: gain };
+        a.volume = 0.001;
+      }
+    } catch (e) {}
+    const member = (lastMembers || []).find(function (u) { return u.peerId === id; });
+    applyIndividualPeerVolume(id, member ? member.pid : null);
+    a.play().catch(function () {});
+  }
+  function removeAudio(id) { const a = document.getElementById('aud-' + id); if (a) a.remove(); delete peerGainNodes[id]; }
+
+  document.addEventListener('keydown', function (e) {
+    if (recordingAction) {
+      e.preventDefault(); e.stopPropagation();
+      if (e.key === 'Escape') { recordingAction = null; renderKeybindsUI(); return; }
+      const combo = eventToComboString(e);
+      if (combo && !['Ctrl', 'Alt', 'Shift'].includes(combo)) {
+        userKeybinds[recordingAction] = combo;
+        try { localStorage.setItem('cyber_keybinds', JSON.stringify(userKeybinds)); } catch (err) {}
+        recordingAction = null; renderKeybindsUI();
+      }
+      return;
+    }
+    if (e.key === 'Escape') { closeSettingsModal(); closeViewProfileModal(); closeInviteModal(); closeMobileDrawers(); return; }
+    const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    const pressed = eventToComboString(e);
+    if (!pressed) return;
+    if (pressed === userKeybinds.mute) { e.preventDefault(); if (inVoice) toggleMute(); else toggleVoiceCall(); }
+    else if (pressed === userKeybinds.deafen) { e.preventDefault(); if (inVoice) toggleDeafen(); }
+    else if (pressed === userKeybinds.cam) { e.preventDefault(); toggleWebcam(); }
+    else if (pressed === userKeybinds.screen) { e.preventDefault(); toggleScreenShare(); }
+  });
+
+  setInterval(async function () {
+    if (!evtSource || evtSource.readyState === 2) connectEventStream();
+    if (!myVerified || !myUid) return;
+    try {
+      const res = await fetch('/api/ping', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, inVoice: inVoice, inScreen: inScreen, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel, voiceRoom: activeVoiceRoom })
+      });
+      const d = await res.json();
+      if (d && Array.isArray(d.users)) {
+        renderUsers(d.users); renderDmLeftList();
+        const activeCamPeers = new Set(d.users.filter(function (u) { return u.online && u.inCam && u.peerId; }).map(function (u) { return u.peerId; }));
+        const activeScreenPeers = new Set(d.users.filter(function (u) { return u.online && u.inScreen && u.peerId; }).map(function (u) { return u.peerId; }));
+        document.querySelectorAll('#screen-grid .screen-card').forEach(function (card) {
+          const cid = card.id || '';
+          if (cid.startsWith('media-tile-cam-') && cid !== 'media-tile-cam-local') {
+            const pid = cid.replace('media-tile-cam-', ''); if (!activeCamPeers.has(pid)) removeMediaTile('cam-' + pid);
+          } else if (cid.startsWith('media-tile-screen-') && cid !== 'media-tile-screen-local') {
+            const pid = cid.replace('media-tile-screen-', ''); if (!activeScreenPeers.has(pid)) removeMediaTile('screen-' + pid);
+          }
+        });
+        if (inVoice && peer && myPeerId) {
+          const peersInMyVoice = d.users.filter(function (u) { return u.online && u.inVoice && u.peerId && u.peerId !== myPeerId && u.voiceChannel === currentVoiceChannel; }).map(function (u) { return u.peerId; });
+          connectToExistingVoicePeers(peersInMyVoice);
+        }
+      }
+    } catch (e) {}
+  }, 8000);
+
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) connectEventStream(); });
+  window.addEventListener('online', function () { connectEventStream(); });
 
   applyNickUI(); renderKeybindsUI(); applyAppearanceFromStorage(); renderServersRail(); renderServerChannels(); connectEventStream();
   if (!myVerified) openAuthModal(true);
