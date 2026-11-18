@@ -78,8 +78,12 @@ if (!rooms[DEFAULT_ROOM]['игровая-комната'].length) {
     text: 'Добро пожаловать в GEEK // CYBER.NET! Личные чаты, прямые звонки, индикатор голоса и синхронизация активны.'
   });
 }
-
-const safeChannel = (r, c) => { const m = ensureServer(r); return m.textChannels.includes(String(c || '').trim()) ? String(c).trim() : m.textChannels[0]; };
+const safeVoiceChannel = (r, c) => {
+  const s = String(c || '').trim();
+  if (s.startsWith('__dm__')) return s.slice(0, 64);
+  const m = ensureServer(r);
+  return m.voiceChannels.includes(s) ? s : String(s || m.voiceChannels[0]).trim().slice(0, 40);
+};
 const safeVoiceChannel = (r, c) => { const m = ensureServer(r); return m.voiceChannels.includes(String(c || '').trim()) ? String(c).trim() : String(c || m.voiceChannels[0]).trim().slice(0, 40); };
 const getRoom = r => (ensureServer(r), rooms[r]);
 
@@ -770,6 +774,68 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     .settings-content { padding:14px; }
     .settings-grid-2,.photo-upload-bar,.fx-bundle-card,.fxb-left { grid-template-columns:1fr; flex-direction:column; align-items:flex-start; }
     .fx-bundle-card button { width:100%; }
+  }
+/* СКРЫТИЕ НИЖНЕЙ ПАНЕЛИ «ВОЙТИ», ПОКА НЕТ АКТИВНОГО ЗВОНКА */
+  .sidebar-voice-dock {
+    display: none !important;
+  }
+  body.voice-live .sidebar-voice-dock {
+    display: flex !important;
+  }
+
+  /* УЧАСТНИКИ ПОД КОНКРЕТНЫМ ГОЛОСОВЫМ КАНАЛОМ */
+  .voice-ch-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 3px;
+  }
+  .voice-ch-peers {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 3px 0 6px 18px;
+  }
+  .voice-ch-peers:empty {
+    display: none;
+  }
+
+  /* ЭФФЕКТ ПРОБЕГАЮЩЕЙ ЗЕЛЁНОЙ МОЛНИИ ПО НАЗВАНИЮ КАНАЛА ПРИ НАВЕДЕНИИ МЫШИ */
+  @keyframes greenLightningRun {
+    0% { left: -45%; opacity: 0; transform: skewX(-25deg) scaleY(0.9); }
+    15% { opacity: 1; }
+    50% { opacity: 1; transform: skewX(-25deg) scaleY(1.1); }
+    85% { opacity: 1; }
+    100% { left: 115%; opacity: 0; transform: skewX(-25deg) scaleY(0.9); }
+  }
+  .ch-btn, .voice-ch-box {
+    position: relative;
+    overflow: hidden;
+  }
+  .ch-btn::after, .voice-ch-box::after {
+    content: '⚡';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -45%;
+    width: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: #10b981;
+    text-shadow: 0 0 8px #10b981, 0 0 16px #10b981, 0 0 24px #6ee7b7;
+    background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.38), rgba(110, 231, 183, 0.7), rgba(16, 185, 129, 0.38), transparent);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 3;
+  }
+  .ch-btn:hover::after, .voice-ch-box:hover::after {
+    animation: greenLightningRun 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .ch-btn:hover .ch-name-txt, .voice-ch-box:hover .ch-name-txt {
+    color: #6ee7b7;
+    text-shadow: 0 0 8px rgba(16, 185, 129, 0.65);
+    transition: color 0.18s, text-shadow 0.18s;
   }
 </style>
 </head>
@@ -2866,6 +2932,247 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   document.addEventListener('visibilitychange', function () { if (!document.hidden) connectEventStream(); });
   window.addEventListener('online', function () { connectEventStream(); });
+// Флаг: находимся ли мы в личном звонке 1-на-1 (отдельно от голосовых каналов сервера)
+  let inDirectCall = false;
+  let directCallPartner = null;
+
+  // Убираем старый общий контейнер под всеми каналами
+  const oldGlobalVoiceBox = document.getElementById('sidebar-voice-peers');
+  if (oldGlobalVoiceBox) oldGlobalVoiceBox.style.display = 'none';
+
+  // Возвращает участников КОНКРЕТНОГО голосового канала на текущем сервере (без личных звонков!)
+  function getMembersForSpecificVoiceChannel(vch) {
+    const list = (lastMembers || []).filter(function (u) {
+      if (!u || !u.online || !u.inVoice) return false;
+      // Если человек в личном звонке (__dm__), не показываем его в голосовых каналах сервера
+      if (!u.voiceChannel || String(u.voiceChannel).startsWith('__dm__')) return false;
+      if (isMeUser(u) && (inDirectCall || activeVoiceRoom !== currentRoom)) return false;
+      return u.voiceChannel === vch;
+    });
+
+    if (inVoice && !inDirectCall && activeVoiceRoom === currentRoom && currentVoiceChannel === vch) {
+      if (!list.some(function (u) { return isMeUser(u); })) {
+        list.unshift({
+          pid: myPid, nick: myNick, online: true, inVoice: true,
+          inCam: inWebcam, inScreen: inScreen, voiceChannel: vch,
+          interests: myProfile.interests, avatarColor: myProfile.avatarColor,
+          avatarImg: myProfile.avatarImg, bannerImg: myProfile.bannerImg
+        });
+      }
+    }
+    return list;
+  }
+
+  // Отрисовка каналов: каждый голосовой канал имеет свой собственный блок участников прямо под ним
+  renderServerChannels = function () {
+    const sName = currentServerMeta.name || currentRoom;
+    if (!isFriendsHubMode) document.getElementById('srv-title-label').textContent = sName;
+    const nodeLbl = document.getElementById('tt-node-label');
+    if (nodeLbl) nodeLbl.textContent = currentRoom;
+
+    const tList = currentServerMeta.textChannels || ['общий'];
+    if (!tList.includes(currentChannel)) currentChannel = tList[0] || 'общий';
+    const vList = currentServerMeta.voiceChannels || ['Ночной эфир'];
+
+    const tBox = document.getElementById('text-channels-list');
+    tBox.innerHTML = '';
+    tList.forEach(function (ch) {
+      const row = el('div', 'ch-btn' + (!activeDmPartner && !isFriendsHubMode && ch === currentChannel ? ' active' : ''));
+      row.setAttribute('data-ch', ch);
+      const left = el('div', 'ch-left');
+      left.appendChild(el('span', 'ch-hash', ch.startsWith('голос-') ? '🔊' : '#'));
+      left.appendChild(el('span', 'ch-name-txt', ch));
+      row.appendChild(left);
+      const unread = unreadByChannel[ch] || 0;
+      if (unread > 0 && (activeDmPartner || ch !== currentChannel)) {
+        row.appendChild(el('span', 'ch-unread-badge', String(unread)));
+      }
+      row.onclick = function () { setChannel(ch); };
+      tBox.appendChild(row);
+    });
+
+    const vBox = document.getElementById('voice-channels-list');
+    vBox.innerHTML = '';
+    vList.forEach(function (vch) {
+      const isAct = inVoice && !inDirectCall && activeVoiceRoom === currentRoom && currentVoiceChannel === vch;
+      const group = el('div', 'voice-ch-group');
+
+      const row = el('div', 'voice-ch-box' + (isAct ? ' active' : ''));
+      const left = el('div', 'ch-left');
+      left.appendChild(el('span', 'ch-hash', '🔊'));
+      left.appendChild(el('span', 'ch-name-txt', vch));
+      row.appendChild(left);
+
+      const chMembers = getMembersForSpecificVoiceChannel(vch);
+      const badgeText = isAct ? 'LIVE' : (chMembers.length ? String(chMembers.length) : '');
+      row.appendChild(el('span', 'off-badge' + (isAct || chMembers.length ? ' on' : ''), badgeText));
+      row.onclick = function () { selectVoiceChannel(vch); };
+      group.appendChild(row);
+
+      // Контейнер участников именно этого голосового канала
+      const peersBox = el('div', 'voice-ch-peers');
+      peersBox.setAttribute('data-vch-peers', vch);
+      group.appendChild(peersBox);
+      vBox.appendChild(group);
+    });
+
+    if (!activeDmPartner && !isFriendsHubMode) applyChannelUI(currentChannel);
+    renderDmLeftList();
+    updateVoicePanelUI();
+  };
+
+  // Отрисовка участников строго под тем голосовым каналом, в котором они сидят
+  renderSidebarVoicePeers = function () {
+    const prevSpeaking = new Set();
+    document.querySelectorAll('.vc-user-row.is-speaking').forEach(function (r) {
+      prevSpeaking.add(r.getAttribute('data-nick'));
+    });
+
+    document.querySelectorAll('[data-vch-peers]').forEach(function (peersBox) {
+      const vch = peersBox.getAttribute('data-vch-peers');
+      peersBox.innerHTML = '';
+      const members = getMembersForSpecificVoiceChannel(vch);
+      members.forEach(function (u) {
+        const setKey = getUserFxSet(u);
+        const r = el('div', 'vc-user-row' + (prevSpeaking.has(u.nick) ? ' is-speaking' : ''));
+        r.setAttribute('data-nick', u.nick);
+        const avaHolder = document.createElement('div');
+        const aImg = (isMeUser(u) ? myProfile.avatarImg : u.avatarImg) || '';
+        avaHolder.innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 28, '', aImg);
+        r.appendChild(avaHolder.firstChild);
+        r.appendChild(el('span', '', u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '')));
+        const ind = el('span', 'vc-speak-indicator');
+        ind.innerHTML = '<span class="vc-speak-bar"></span><span class="vc-speak-bar"></span><span class="vc-speak-bar"></span>';
+        r.appendChild(ind);
+        r.onclick = function (ev) { ev.stopPropagation(); openVoiceParticipantPopover(u, r); };
+        peersBox.appendChild(r);
+      });
+    });
+  };
+
+  // Обновляем подсветку речи по всем голосовым каналам
+  markUserSpeaking = function (nick, speaking) {
+    if (!nick) return;
+    document.querySelectorAll('.voice-ch-peers .vc-user-row').forEach(function (row) {
+      if (row.getAttribute('data-nick') === nick) row.classList.toggle('is-speaking', !!speaking);
+    });
+  };
+
+  // При входе в голосовой канал сервера — выходим из режима личного звонка
+  selectVoiceChannel = async function (vch) {
+    if (!myVerified) { openAuthModal(true); return; }
+    inDirectCall = false;
+    directCallPartner = null;
+    currentVoiceChannel = vch;
+    activeVoiceRoom = currentRoom;
+    updateVoicePanelUI();
+    renderServerChannels();
+    closeMobileDrawers();
+
+    const vChat = voiceChatChannelKey(vch);
+    if (!currentServerMeta.textChannels.includes(vChat)) {
+      try {
+        await fetch('/api/channel/create', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: myUid, room: currentRoom, type: 'text', name: vChat })
+        });
+      } catch (e) {}
+      if (!currentServerMeta.textChannels.includes(vChat)) currentServerMeta.textChannels.push(vChat);
+    }
+    setChannel(vChat);
+
+    if (!inVoice) {
+      await ensureVoiceConnected();
+    } else {
+      const d = await postVoiceState({
+        inVoice: true, inScreen: inScreen, inCam: inWebcam,
+        peerId: myPeerId, voiceChannel: currentVoiceChannel, voiceRoom: activeVoiceRoom
+      });
+      if (d && Array.isArray(d.peers)) connectToExistingVoicePeers(d.peers);
+    }
+  };
+
+  // ЛИЧНЫЙ ЗВОНОК 1-НА-1: полностью изолирован от голосовых каналов сервера
+  startDirectCallToUser = async function (u) {
+    if (!myVerified) return openAuthModal(true);
+    if (!u || !u.pid || isMeUser(u)) return;
+    closeViewProfileModal();
+
+    inDirectCall = true;
+    directCallPartner = u;
+    const dmVoiceKey = '__dm__' + [myPid || myNick, u.pid].sort().join('_');
+    currentVoiceChannel = dmVoiceKey;
+    activeVoiceRoom = DEFAULT_ROOM;
+
+    openDirectChatWithUser(u);
+    await ensureVoiceConnected();
+    updateVoicePanelUI();
+    renderServerChannels();
+
+    await fetch('/api/direct-call', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid: myUid, targetPid: u.pid, action: 'ring',
+        peerId: myPeerId, callRoom: DEFAULT_ROOM, callChannel: dmVoiceKey
+      })
+    }).catch(function () {});
+  };
+
+  acceptDirectCall = async function () {
+    if (!incomingCallData) return;
+    const d = incomingCallData;
+    stopIncomingRingtone();
+    document.getElementById('incoming-call-toast').classList.remove('show');
+
+    const callerObj = (lastMembers || []).find(function (u) { return u.pid === d.fromPid; }) || {
+      pid: d.fromPid, nick: d.fromNick, avatarColor: d.fromColor, avatarImg: d.fromAva, online: true
+    };
+    inDirectCall = true;
+    directCallPartner = callerObj;
+    currentVoiceChannel = d.callChannel || ('__dm__' + [myPid || myNick, d.fromPid].sort().join('_'));
+    activeVoiceRoom = DEFAULT_ROOM;
+
+    openDirectChatWithUser(callerObj);
+    await ensureVoiceConnected();
+    updateVoicePanelUI();
+    renderServerChannels();
+
+    if (d.peerId) connectToExistingVoicePeers([d.peerId]);
+    fetch('/api/direct-call', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid: myUid, targetPid: d.fromPid, action: 'accept',
+        peerId: myPeerId, callRoom: DEFAULT_ROOM, callChannel: currentVoiceChannel
+      })
+    }).catch(function () {});
+    incomingCallData = null;
+  };
+
+  // Заголовок в нижней панели во время активного звонка (показывает либо имя собеседника 1-на-1, либо канал)
+  updateVoicePanelUI = function () {
+    const titleEl = document.getElementById('voice-panel-title');
+    if (titleEl) {
+      if (inDirectCall && directCallPartner) {
+        titleEl.textContent = '📞 Личный звонок: ' + directCallPartner.nick;
+      } else if (String(currentVoiceChannel || '').startsWith('__dm__')) {
+        titleEl.textContent = '📞 Личный звонок 1-на-1';
+      } else {
+        titleEl.textContent = currentVoiceChannel;
+      }
+    }
+    updateVoiceControlsUI();
+  };
+
+  // При завершении звонка сбрасываем и режим личного вызова
+  const origToggleVoiceCall = toggleVoiceCall;
+  toggleVoiceCall = async function () {
+    if (inVoice) {
+      inDirectCall = false;
+      directCallPartner = null;
+    }
+    await origToggleVoiceCall();
+    renderServerChannels();
+  };
 
   applyNickUI(); renderKeybindsUI(); applyAppearanceFromStorage(); renderServersRail(); renderServerChannels(); connectEventStream();
   if (!myVerified) openAuthModal(true);
