@@ -87,6 +87,7 @@ const safeVoiceChannel = (r, c) => {
   return m.voiceChannels.includes(s) ? s : String(s || m.voiceChannels[0]).trim().slice(0, 40);
 };
 const getRoom = r => (ensureServer(r), rooms[r]);
+const getRoom = r => (ensureServer(r), rooms[r]);
 async function tgApi(method, body) {
   if (!TELEGRAM_BOT_TOKEN) return null;
   const res = await fetch('https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/' + method, {
