@@ -69,6 +69,23 @@ function ensureServer(room, name, desc, icon) {
   return serversMeta[r];
 }
 
+function getRoom(r) {
+  ensureServer(r);
+  return rooms[r];
+}
+
+function safeChannel(r, c) {
+  const m = ensureServer(r);
+  return m.textChannels.includes(String(c || '').trim()) ? String(c).trim() : m.textChannels[0];
+}
+
+function safeVoiceChannel(r, c) {
+  const s = String(c || '').trim();
+  if (s.startsWith('__dm__')) return s.slice(0, 64);
+  const m = ensureServer(r);
+  return m.voiceChannels.includes(s) ? s : String(s || m.voiceChannels[0]).trim().slice(0, 40);
+}
+
 ensureServer(DEFAULT_ROOM, 'Ночной клуб', 'Игры, идеи и разговоры после полуночи', 'НК');
 ensureServer('hc-node', 'Кибер Узел', 'Технологии, код и ночные эфиры', 'HC');
 ensureServer('ma-club', 'Мастерская', 'Музыка, творчество и совместные проекты', 'MA');
@@ -79,18 +96,6 @@ if (!rooms[DEFAULT_ROOM]['игровая-комната'].length) {
   });
 }
 
-const safeChannel = (r, c) => { const m = ensureServer(r); return m.textChannels.includes(String(c || '').trim()) ? String(c).trim() : m.textChannels[0]; };
-const safeVoiceChannel = (r, c) => {
-  const s = String(c || '').trim();
-  if (s.startsWith('__dm__')) return s.slice(0, 64);
-  const m = ensureServer(r);
-  return m.voiceChannels.includes(s) ? s : String(s || m.voiceChannels[0]).trim().slice(0, 40);
-};
-function getRoom(r) {
-  ensureServer(r);
-  return rooms[r];
-}
-const getRoom = r => (ensureServer(r), rooms[r]);
 async function tgApi(method, body) {
   if (!TELEGRAM_BOT_TOKEN) return null;
   const res = await fetch('https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/' + method, {
@@ -386,6 +391,7 @@ setInterval(() => {
   });
   Object.keys(rooms).forEach(r => broadcastUsers(r));
 }, 15000);
+
 const HTML_PAGE = String.raw`<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -416,17 +422,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   @keyframes eqPulse { 0%,100%{transform:scaleY(0.25);opacity:0.45;} 50%{transform:scaleY(1);opacity:1;} }
   @keyframes badgeFlow { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
   @keyframes speakWave { 0%,100%{transform:scaleY(0.35);opacity:0.6;} 50%{transform:scaleY(1.15);opacity:1;} }
+  @keyframes greenLightningRun { 0%{left:-45%;opacity:0;transform:skewX(-25deg) scaleY(0.9);} 15%{opacity:1;} 50%{opacity:1;transform:skewX(-25deg) scaleY(1.1);} 85%{opacity:1;} 100%{left:115%;opacity:0;transform:skewX(-25deg) scaleY(0.9);} }
 
   * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
-  html, body {
-    font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,sans-serif;
-    background-color:var(--bg-darkest); background-image:var(--pcb); color:var(--text-main);
-    width:100%; height:100vh; height:100dvh; display:flex; flex-direction:column;
-    overflow:hidden; user-select:none; overscroll-behavior:none;
-    padding-top:env(safe-area-inset-top, 0px);
-  }
+  html, body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,sans-serif; background-color:var(--bg-darkest); background-image:var(--pcb); color:var(--text-main); width:100%; height:100vh; height:100dvh; display:flex; flex-direction:column; overflow:hidden; user-select:none; overscroll-behavior:none; padding-top:env(safe-area-inset-top, 0px); }
 
-  /* ЖЁСТКАЯ ПРОПОРЦИОНАЛЬНОСТЬ ВСЕХ РАМОК АВАТАРА И ПРОФИЛЯ */
   .hex-wrap { position:relative; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0 !important; aspect-ratio:1 / 1 !important; overflow:visible !important; }
   .hex-border { position:relative; width:100%; height:100%; clip-path:var(--hex-regular); background:rgba(0,240,255,0.35); display:flex; align-items:center; justify-content:center; padding:2px; overflow:hidden; z-index:1; }
   .hex-wrap.has-custom-frame .hex-border { width:54%; height:58%; margin-right:5%; margin-top:4%; clip-path:var(--hex-inner-hole); padding:0; background:transparent; }
@@ -447,13 +447,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .cyber-badge.b-set2 { background-image:linear-gradient(90deg,#ff6a00,#fcee09,#00f0ff); color:#04120c; box-shadow:0 0 8px rgba(255,106,0,0.65); }
   .cyber-badge.b-set3 { background-image:linear-gradient(90deg,#ff003c,#ff5500,#ff003c); color:#fff; box-shadow:0 0 8px rgba(255,0,60,0.7); }
 
-  /* ЖЁСТКИЕ ПРОПОРЦИИ КАРТОЧКИ ПРОФИЛЯ */
   .profile-surface { position:relative; background:#060a12; border:1px solid var(--border); border-radius:14px !important; overflow:hidden; transition:0.25s; background-size:cover; background-position:center; }
-  #preview-surface, .profile-slide-drawer .profile-surface {
-    width:100% !important; max-width:360px !important; aspect-ratio:360 / 515 !important;
-    height:auto !important; max-height:525px !important; margin:0 auto !important;
-    flex:0 0 auto !important; display:flex !important; flex-direction:column !important;
-  }
+  #preview-surface, .profile-slide-drawer .profile-surface { width:100% !important; max-width:360px !important; aspect-ratio:360 / 515 !important; height:auto !important; max-height:525px !important; margin:0 auto !important; flex:0 0 auto !important; display:flex !important; flex-direction:column !important; }
   .profile-custom-bg { position:absolute; inset:0; width:100%; height:100%; background-size:cover; background-position:center; opacity:0.45; pointer-events:none; z-index:1; }
   .profile-frame-overlay { position:absolute; inset:0; width:100%; height:100%; background-image:url('/profile_frames_3sets.jpg'); background-repeat:no-repeat; background-size:300% 100% !important; mix-blend-mode:screen; pointer-events:none; z-index:2 !important; opacity:0; transition:opacity 0.2s; }
   .profile-surface.theme-set1 .profile-frame-overlay { opacity:1; background-position:0% 0%; }
@@ -474,7 +469,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .dp-bio { font-size:11px !important; line-height:1.28 !important; color:#eef8ff !important; white-space:pre-wrap; max-height:42px; overflow:hidden; }
   .dp-tags { display:flex; gap:4px; flex-wrap:wrap; margin-top:2px; max-height:24px; overflow:hidden; }
   .dp-tag { background:rgba(0,240,255,0.12); border:1px solid var(--border); color:var(--brand); padding:1.5px 6px; border-radius:4px; font-size:10px; font-weight:700; }
-
   .profile-surface.theme-set1 .dp-sec:nth-of-type(2), .profile-surface.theme-set1 .dp-sec:nth-of-type(3), .profile-surface.theme-set1 .dp-actions-col { margin-left:100px !important; border-color:rgba(184,41,255,0.45) !important; }
   .profile-surface.theme-set2 .dp-sec:nth-of-type(1), .profile-surface.theme-set2 .dp-sec:nth-of-type(2), .profile-surface.theme-set2 .dp-sec:nth-of-type(3) { margin-right:84px !important; border-color:rgba(255,123,0,0.45) !important; }
   .profile-surface.theme-set3 .dp-sec:nth-of-type(2), .profile-surface.theme-set3 .dp-sec:nth-of-type(3) { margin-left:54px !important; margin-right:68px !important; border-color:rgba(255,0,60,0.45) !important; }
@@ -532,15 +526,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .btn-create-ch-wide { width:100%; background:rgba(0,240,255,0.05); border:1px solid var(--border); color:var(--text-main); font-size:11px; font-weight:800; padding:8px 10px; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; margin:6px 0 10px; }
   .cat-header { display:flex; align-items:center; justify-content:space-between; padding:8px 4px 5px; font-size:10.5px; font-weight:800; text-transform:uppercase; color:var(--text-muted); }
   .cat-add-btn { background:rgba(0,240,255,0.08); border:1px solid var(--border); color:var(--brand); width:22px; height:22px; border-radius:4px; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-  
-  /* ЭФФЕКТ ЗЕЛЁНОЙ МОЛНИИ ПРИ НАВЕДЕНИИ НА КАНАЛ */
-  @keyframes greenLightningRun {
-    0% { left: -45%; opacity: 0; transform: skewX(-25deg) scaleY(0.9); }
-    15% { opacity: 1; }
-    50% { opacity: 1; transform: skewX(-25deg) scaleY(1.1); }
-    85% { opacity: 1; }
-    100% { left: 115%; opacity: 0; transform: skewX(-25deg) scaleY(0.9); }
-  }
+
   .ch-btn,.voice-ch-box { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:6px; font-size:13px; font-weight:600; color:var(--text-normal); cursor:pointer; margin-bottom:3px; border:1px solid transparent; position:relative; overflow:hidden; }
   .ch-btn::after,.voice-ch-box::after { content:'⚡'; position:absolute; top:0; bottom:0; left:-45%; width:48px; display:flex; align-items:center; justify-content:center; font-size:13px; color:#10b981; text-shadow:0 0 8px #10b981, 0 0 16px #10b981, 0 0 24px #6ee7b7; background:linear-gradient(90deg,transparent,rgba(16,185,129,0.38),rgba(110,231,183,0.7),rgba(16,185,129,0.38),transparent); pointer-events:none; opacity:0; z-index:3; }
   .ch-btn:hover::after,.voice-ch-box:hover::after { animation:greenLightningRun 0.55s cubic-bezier(0.22,1,0.36,1) forwards; }
@@ -555,7 +541,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .off-badge { font-size:9px; color:var(--text-muted); font-weight:800; }
   .off-badge.on { color:var(--green); }
 
-  /* СКРЫТИЕ КАНАЛОВ СЕРВЕРА ВО ВКЛАДКЕ ДРУЗЕЙ И НАОБОРОТ */
   body.friends-hub-active #server-channels-section, body.friends-hub-active .packet-card, body.friends-hub-active .srv-badge-open { display:none !important; }
   body:not(.friends-hub-active) #dm-left-section { display:none !important; }
 
@@ -566,7 +551,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .dm-item-nick { font-size:13px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .dm-item-sub { font-size:10px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-  /* УЧАСТНИКИ СТРОГО ПОД СВОИМ ГОЛОСОВЫМ КАНАЛОМ */
   .voice-ch-group { display:flex; flex-direction:column; margin-bottom:3px; }
   .voice-ch-peers { display:flex; flex-direction:column; gap:5px; padding:3px 0 6px 18px; }
   .voice-ch-peers:empty { display:none; }
@@ -590,9 +574,18 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .vup-btn { width:100%; text-align:left; padding:7px 10px; background:rgba(0,240,255,0.08); border:1px solid var(--border); color:var(--text-main); border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:7px; }
   .vup-btn:hover { background:var(--bg-active); border-color:var(--brand); color:#fff; }
 
-  /* СКРЫТИЕ ПУСТОЙ НИЖНЕЙ ПАНЕЛИ «ВОЙТИ», ПОКА НЕТ АКТИВНОГО ЭФИРА */
-  .sidebar-voice-dock { display:none !important; }
+  .sidebar-voice-dock { display:none !important; background:rgba(6,16,26,0.96); border-top:1px solid var(--cyan-border); padding:9px 10px; flex-direction:column; gap:7px; flex-shrink:0; }
   body.voice-live .sidebar-voice-dock { display:flex !important; }
+  .svd-top { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+  .svd-state-row { font-size:10.5px; font-weight:800; color:var(--green); text-transform:uppercase; }
+  .svd-state-row.idle { color:var(--text-muted); }
+  .svd-channel-name { font-size:12px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .svd-hangup-btn { background:rgba(255,42,133,0.22); border:1px solid var(--pink); color:#ff80a0; padding:5px 9px; border-radius:5px; font-size:11px; font-weight:800; cursor:pointer; }
+  .svd-connect-btn { background:var(--brand); border:none; color:#031518; padding:5px 10px; border-radius:5px; font-size:10.5px; font-weight:800; cursor:pointer; }
+  .svd-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .svd-btn { background:#0d1829; border:1px solid var(--border); color:var(--text-normal); padding:6px 4px; border-radius:5px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; }
+  .svd-btn.active-cam { background:rgba(16,185,129,0.25); border-color:var(--green); color:#6ee7b7; }
+  .svd-btn.active-screen { background:rgba(255,42,133,0.25); border-color:var(--pink); color:#ffaec2; }
 
   .user-bar { height:58px; padding:0 10px; background:var(--bg-userbar); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:6px; flex-shrink:0; overflow:visible; }
   .user-info { display:flex; align-items:center; gap:12px; padding:4px 6px; border-radius:6px; cursor:pointer; flex:1; min-width:0; overflow:visible; }
@@ -1030,14 +1023,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           <input type="file" id="inp-bg-file" accept="image/*" style="display:none;" onchange="handleCustomImageUpload(event, 'banner')">
           <div class="photo-upload-bar">
             <div class="pub-col">
-              <span class="pub-title">📷 Фото аватара (в шестиугольник)</span>
+              <span class="pub-title">📷 Фото аватара</span>
               <div style="display:flex;gap:6px;">
-                <button type="button" class="btn-cyan" style="flex:1;" onclick="document.getElementById('inp-ava-file').click()">ЗАГРУЗИТЬ СВОЁ ФОТО</button>
+                <button type="button" class="btn-cyan" style="flex:1;" onclick="document.getElementById('inp-ava-file').click()">ЗАГРУЗИТЬ ФОТО</button>
                 <button type="button" class="btn-login-mini" onclick="clearCustomImage('avatar')">✕ Сброс</button>
               </div>
             </div>
             <div class="pub-col">
-              <span class="pub-title">🖼️ Картинка фона профиля</span>
+              <span class="pub-title">🖼️ Фон профиля</span>
               <div style="display:flex;gap:6px;">
                 <button type="button" class="btn-cyan" style="flex:1;" onclick="document.getElementById('inp-bg-file').click()">ЗАГРУЗИТЬ ФОН</button>
                 <button type="button" class="btn-login-mini" onclick="clearCustomImage('banner')">✕ Сброс</button>
@@ -1049,7 +1042,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div class="profile-custom-bg" id="preview-custom-bg"></div>
             <div class="profile-frame-overlay"></div>
             <div class="dp-body">
-              <div class="cyber-diode-scene" id="preview-hero-stage" title="Нажмите, чтобы выбрать своё фото аватара" onclick="document.getElementById('inp-ava-file').click()"></div>
+              <div class="cyber-diode-scene" id="preview-hero-stage" onclick="document.getElementById('inp-ava-file').click()"></div>
               <div class="dp-nick-line"><span class="dp-nick" id="preview-nick">Гость</span><span id="preview-badge-slot"></span></div>
               <div class="dp-status" id="preview-status"></div>
               <div class="dp-sec"><div class="dp-sec-title">ОБО МНЕ // ДОСЬЕ</div><div class="dp-bio" id="preview-bio"></div></div>
@@ -1068,45 +1061,24 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div><label class="field-label">Интересы (через запятую)</label><input type="text" id="prof-interests-inp" maxlength="140" oninput="updateProfilePreview()"></div>
             <div class="settings-grid-2">
               <div><label class="field-label">Цвет подсветки</label><div class="color-swatches"><div class="color-swatch" style="background:#00f0ff;" onclick="selectBannerColor('#00f0ff')"></div><div class="color-swatch" style="background:#ff2a85;" onclick="selectBannerColor('#ff2a85')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectBannerColor('#10b981')"></div><div class="color-swatch" style="background:#fcee09;" onclick="selectBannerColor('#fcee09')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectBannerColor('#b829ff')"></div></div></div>
-              <div><label class="field-label">Цвет 6-угольника (если без фото)</label><div class="color-swatches"><div class="color-swatch" style="background:#3b82f6;" onclick="selectAvatarColor('#3b82f6')"></div><div class="color-swatch" style="background:#ff2a85;" onclick="selectAvatarColor('#ff2a85')"></div><div class="color-swatch" style="background:#00f0ff;" onclick="selectAvatarColor('#00f0ff')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectAvatarColor('#10b981')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectAvatarColor('#b829ff')"></div></div></div>
+              <div><label class="field-label">Цвет 6-угольника</label><div class="color-swatches"><div class="color-swatch" style="background:#3b82f6;" onclick="selectAvatarColor('#3b82f6')"></div><div class="color-swatch" style="background:#ff2a85;" onclick="selectAvatarColor('#ff2a85')"></div><div class="color-swatch" style="background:#00f0ff;" onclick="selectAvatarColor('#00f0ff')"></div><div class="color-swatch" style="background:#10b981;" onclick="selectAvatarColor('#10b981')"></div><div class="color-swatch" style="background:#b829ff;" onclick="selectAvatarColor('#b829ff')"></div></div></div>
             </div>
           </div>
         </div>
 
         <div class="settings-pane" id="pane-fx">
-          <div class="settings-head">
-            <h3>✨ Эффекты (Все 3 оригинальные рамки аватара + 3 рамки профиля)</h3>
-            <button class="btn-login-mini" id="btn-disable-fx" onclick="selectEffectSet('')">Отключить</button>
-          </div>
+          <div class="settings-head"><h3>✨ Эффекты (3 набора)</h3><button class="btn-login-mini" id="btn-disable-fx" onclick="selectEffectSet('')">Отключить</button></div>
           <div class="fx-sets-grid">
             <div class="fx-bundle-card set1-card">
-              <div class="fxb-left">
-                <div class="fxb-preview-pair"><div id="fx-demo-slot-1"></div><div class="fxb-prof-thumb" style="background-position:0% 0%;"></div></div>
-                <div>
-                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:15px;font-weight:900;color:#00f0ff;">Набор 1: Люси Кушинада // Edgerunners S1</span><span class="cyber-badge b-set1">🌙 LUCY NET</span></div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Оригинальная неоновая рамка аватара с Люси + фиолетовая неоновая рамка профиля с Луной и портретом Люси.</div>
-                </div>
-              </div>
+              <div class="fxb-left"><div class="fxb-preview-pair"><div id="fx-demo-slot-1"></div><div class="fxb-prof-thumb" style="background-position:0% 0%;"></div></div><div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:15px;font-weight:900;color:#00f0ff;">Набор 1: Люси Кушинада // Edgerunners S1</span><span class="cyber-badge b-set1">🌙 LUCY NET</span></div><div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Неоновая рамка аватара с Люси + фиолетовая рамка профиля с Луной.</div></div></div>
               <button class="btn-cyan" id="btn-fx-set1" onclick="selectEffectSet('set1')">🎁 ЗАБРАТЬ</button>
             </div>
             <div class="fx-bundle-card set2-card">
-              <div class="fxb-left">
-                <div class="fxb-preview-pair"><div id="fx-demo-slot-2"></div><div class="fxb-prof-thumb" style="background-position:50% 0%;"></div></div>
-                <div>
-                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:15px;font-weight:900;color:#fcee09;">Набор 2: Edgerunners // Граффити «ОПАСНО» (Сезон 2)</span><span class="cyber-badge b-set2">⚠️ EDGERUN</span></div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Оригинальная огненно-жёлтая рамка аватара «CYBER» + граффити-рамка профиля с черепом в короне и колючей проволокой.</div>
-                </div>
-              </div>
+              <div class="fxb-left"><div class="fxb-preview-pair"><div id="fx-demo-slot-2"></div><div class="fxb-prof-thumb" style="background-position:50% 0%;"></div></div><div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:15px;font-weight:900;color:#fcee09;">Набор 2: Edgerunners // Граффити «ОПАСНО»</span><span class="cyber-badge b-set2">⚠️ EDGERUN</span></div><div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Огненно-жёлтая рамка аватара «CYBER» + граффити-рамка профиля.</div></div></div>
               <button class="btn-cyan" id="btn-fx-set2" onclick="selectEffectSet('set2')">🎁 ЗАБРАТЬ</button>
             </div>
             <div class="fx-bundle-card set3-card">
-              <div class="fxb-left">
-                <div class="fxb-preview-pair"><div id="fx-demo-slot-3"></div><div class="fxb-prof-thumb" style="background-position:100% 0%;"></div></div>
-                <div>
-                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:15px;font-weight:900;color:#ff4d79;">Набор 3: Джонни Сильверхенд // SAMURAI (Cyberpunk 2077)</span><span class="cyber-badge b-set3">🔥 SAMURAI</span></div>
-                  <div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Оригинальная стальная рамка аватара «SAMURAI» с Джонни Сильверхендом + рамка профиля с цепями и горящей гитарой.</div>
-                </div>
-              </div>
+              <div class="fxb-left"><div class="fxb-preview-pair"><div id="fx-demo-slot-3"></div><div class="fxb-prof-thumb" style="background-position:100% 0%;"></div></div><div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:15px;font-weight:900;color:#ff4d79;">Набор 3: Джонни Сильверхенд // SAMURAI</span><span class="cyber-badge b-set3">🔥 SAMURAI</span></div><div style="font-size:12px;color:var(--text-normal);margin-top:4px;">Стальная рамка аватара «SAMURAI» + рамка профиля с цепями и гитарой.</div></div></div>
               <button class="btn-cyan" id="btn-fx-set3" onclick="selectEffectSet('set3')">🎁 ЗАБРАТЬ</button>
             </div>
           </div>
@@ -1165,16 +1137,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div class="settings-pane" id="pane-account">
           <div class="settings-head"><h3>🔑 Учётная запись (ПК и Телефон)</h3></div>
           <div class="settings-card">
-            <div class="field-label">Быстрый вход в этот же аккаунт на телефоне</div>
-            <p style="font-size:12px;color:var(--text-normal);">Нажмите кнопку ниже, чтобы получить 4-значный код, затем откройте приложение на телефоне и введите его во вкладке «📲 КОД ПК/ТЕЛ»:</p>
+            <div class="field-label">Быстрый вход на телефоне</div>
             <div style="display:flex;gap:10px;align-items:center;">
               <button class="btn-cyan" onclick="generateDeviceLinkCode()">📲 ПОЛУЧИТЬ КОД ДЛЯ ТЕЛЕФОНА</button>
               <span id="device-link-code-box" style="font-size:20px;font-weight:900;color:var(--yellow);letter-spacing:4px;font-family:monospace;"></span>
             </div>
           </div>
           <div class="settings-card">
-            <div class="field-label">Установить или обновить пароль для входа по позывному</div>
-            <p style="font-size:12px;color:var(--text-normal);">Позывной: <b id="acc-current-nick" style="color:var(--brand);"></b></p>
+            <div class="field-label">Пароль для входа по позывному (<b id="acc-current-nick" style="color:var(--brand);"></b>)</div>
             <div style="display:flex;gap:8px;">
               <input type="password" id="acc-new-pass-inp" placeholder="Новый пароль (от 4 символов)" maxlength="64" style="flex:1;">
               <button class="btn-cyan" onclick="saveAccountPassword()">СОХРАНИТЬ ПАРОЛЬ</button>
@@ -1182,8 +1152,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           </div>
           <div class="settings-card">
             <div class="settings-grid-2">
-              <button class="btn-login-mini" onclick="closeSettingsModal();openAuthModal(false)">🔄 ВОЙТИ В ДРУГОЙ АККАУНТ</button>
-              <button class="btn-danger" onclick="logoutAccount()">ВЫЙТИ ИЗ АККАУНТА</button>
+              <button class="btn-login-mini" onclick="closeSettingsModal();openAuthModal(false)">🔄 ДРУГОЙ АККАУНТ</button>
+              <button class="btn-danger" onclick="logoutAccount()">ВЫЙТИ</button>
             </div>
           </div>
         </div>
@@ -1227,7 +1197,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   <div class="modal-backdrop" id="create-channel-modal" onclick="if(event.target===this)closeCreateChannelModal()">
     <div class="modal-box"><h3 id="create-ch-title" style="color:var(--brand);font-size:16px;margin-bottom:6px;">◈ СОЗДАТЬ КАНАЛ</h3><p id="create-ch-sub" style="font-size:12px;color:var(--text-normal);margin-bottom:10px;"></p><input type="text" id="new-ch-name" placeholder="название-канала" maxlength="28"><button class="btn-cyan" style="width:100%;margin-bottom:6px;" onclick="submitCreateChannel()">СОЗДАТЬ</button><button class="btn-login-mini" style="width:100%;" onclick="closeCreateChannelModal()">ОТМЕНА</button></div>
-  </div><script>
+  </div>
+<script>
+  const DEFAULT_ROOM = 'cy-4371';
   const params = new URLSearchParams(window.location.search);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function () {});
 
@@ -1258,7 +1230,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     myVerified = false;
   }
 
-  let currentRoom = params.get('room') || params.get('server') || localStorage.getItem('cyber_last_room') || 'cy-4371';
+  let currentRoom = params.get('room') || params.get('server') || localStorage.getItem('cyber_last_room') || DEFAULT_ROOM;
   let currentChannel = params.get('channel') || 'общий', currentVoiceChannel = 'Ночной эфир';
   let myNick = myVerified ? (localStorage.getItem('cyber_nick') || getPersistCookie('cyber_nick') || 'Оператор') : 'Гость';
   let authLocked = !myVerified;
@@ -1267,8 +1239,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   const FX_SETS_META = {
     set1: { code: '⚡FX:SET1', avaClass: 'fx-set1', badgeClass: 'b-set1', badgeText: '🌙 LUCY NET', surfaceClass: 'theme-set1', frameImgUrl: '/variant1_lucy_avatar_frame.jpg', title: 'Набор 1: Люси Кушинада // Edgerunners S1' },
-    set2: { code: '⚡FX:SET2', avaClass: 'fx-set2', badgeClass: 'b-set2', badgeText: '⚠️ EDGERUN', surfaceClass: 'theme-set2', frameImgUrl: '/variant2_edgerunner_avatar_frame.jpg', title: 'Набор 2: Edgerunners // Граффити «ОПАСНО» (Сезон 2)' },
-    set3: { code: '⚡FX:SET3', avaClass: 'fx-set3', badgeClass: 'b-set3', badgeText: '🔥 SAMURAI', surfaceClass: 'theme-set3', frameImgUrl: '/variant3_johnny_avatar_frame.jpg', title: 'Набор 3: Джонни Сильверхенд // SAMURAI (Cyberpunk 2077)' }
+    set2: { code: '⚡FX:SET2', avaClass: 'fx-set2', badgeClass: 'b-set2', badgeText: '⚠️ EDGERUN', surfaceClass: 'theme-set2', frameImgUrl: '/variant2_edgerunner_avatar_frame.jpg', title: 'Набор 2: Edgerunners // Граффити «ОПАСНО»' },
+    set3: { code: '⚡FX:SET3', avaClass: 'fx-set3', badgeClass: 'b-set3', badgeText: '🔥 SAMURAI', surfaceClass: 'theme-set3', frameImgUrl: '/variant3_johnny_avatar_frame.jpg', title: 'Набор 3: Джонни Сильверхенд // SAMURAI' }
   };
 
   let myProfile = { bio: '', interests: '', customStatus: '', presence: 'online', bannerColor: '#00f0ff', avatarColor: '#3b82f6', fxSet: 'set1', avatarImg: '', bannerImg: '' };
@@ -1292,8 +1264,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         if (kind === 'avatar') {
           const size = 240; canvas.width = size; canvas.height = size;
           const minSide = Math.min(img.width, img.height);
-          const sx = Math.floor((img.width - minSide) / 2), sy = Math.floor((img.height - minSide) / 2);
-          ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+          ctx.drawImage(img, Math.floor((img.width - minSide) / 2), Math.floor((img.height - minSide) / 2), minSide, minSide, 0, 0, size, size);
         } else {
           const ratio = Math.min(520 / img.width, 700 / img.height, 1);
           canvas.width = Math.max(1, Math.round(img.width * ratio));
@@ -1326,27 +1297,18 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const innerHTML = buildAvatarInnerContent(letters, avaImg);
     const bgStyle = 'font-size:' + (m ? Math.max(8, fSize - 1) : fSize) + 'px;background:' + escapeHtml(avaColor || '#3b82f6') + ';';
     if (!m) {
-      return '<div class="hex-wrap" style="width:' + sz + 'px;height:' + sz + 'px;">' +
-        '<div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div>' +
-        (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') + '</div>';
+      return '<div class="hex-wrap" style="width:' + sz + 'px;height:' + sz + 'px;"><div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div>' + (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') + '</div>';
     }
-    return '<div class="hex-wrap has-custom-frame ' + m.avaClass + '" style="width:' + sz + 'px;height:' + sz + 'px;">' +
-      '<div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div>' +
-      '<img class="mini-frame-overlay" src="' + m.frameImgUrl + '" alt="">' +
-      (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') + '</div>';
+    return '<div class="hex-wrap has-custom-frame ' + m.avaClass + '" style="width:' + sz + 'px;height:' + sz + 'px;"><div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div><img class="mini-frame-overlay" src="' + m.frameImgUrl + '" alt="">' + (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') + '</div>';
   }
 
   function buildHeroHexMedallionHTML(letters, avaColor, setKey, statusCls, avaImg) {
     const m = FX_SETS_META[setKey], innerHTML = buildAvatarInnerContent(letters, avaImg);
     const bgStyle = 'font-size:18px;background:' + escapeHtml(avaColor || '#3b82f6') + ';';
     if (!m) {
-      return '<div class="hex-wrap" style="width:84px;height:84px;">' +
-        '<div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div>' +
-        (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') + '</div>';
+      return '<div class="hex-wrap" style="width:84px;height:84px;"><div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div>' + (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') + '</div>';
     }
-    return '<div class="cds-user-core" style="' + bgStyle + '">' + innerHTML + '</div>' +
-      '<img class="cds-frame-img" src="' + m.frameImgUrl + '" alt="Frame">' +
-      (statusCls ? '<span class="hex-status-dot ' + statusCls + '" style="right:18px;bottom:10px;"></span>' : '');
+    return '<div class="cds-user-core" style="' + bgStyle + '">' + innerHTML + '</div><img class="cds-frame-img" src="' + m.frameImgUrl + '" alt="Frame">' + (statusCls ? '<span class="hex-status-dot ' + statusCls + '" style="right:18px;bottom:10px;"></span>' : '');
   }
 
   function detectFxSetFromInterests(raw) {
@@ -1499,8 +1461,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       bgWorker = new Worker(URL.createObjectURL(new Blob(['setInterval(function(){postMessage(1);},1000);'], { type: 'application/javascript' })));
       bgWorker.onmessage = function () {
         if (!inVoice) return;
-        const tStr = formatCallTime(Math.floor((Date.now() - callStartTime) / 1000));
-        const stEl = document.getElementById('svd-state-text'); if (stEl) stEl.textContent = '🟢 В ЭФИРЕ • ' + tStr;
+        const stEl = document.getElementById('svd-state-text');
+        if (stEl) stEl.textContent = '🟢 В ЭФИРЕ • ' + formatCallTime(Math.floor((Date.now() - callStartTime) / 1000));
       };
     } catch (e) {}
     updateVoiceControlsUI();
@@ -1556,15 +1518,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       if (isMeUser(u) && (inDirectCall || activeVoiceRoom !== currentRoom)) return false;
       return u.voiceChannel === vch;
     });
-
     if (inVoice && !inDirectCall && activeVoiceRoom === currentRoom && currentVoiceChannel === vch) {
       if (!list.some(function (u) { return isMeUser(u); })) {
-        list.unshift({
-          pid: myPid, nick: myNick, online: true, inVoice: true,
-          inCam: inWebcam, inScreen: inScreen, voiceChannel: vch,
-          interests: myProfile.interests, avatarColor: myProfile.avatarColor,
-          avatarImg: myProfile.avatarImg, bannerImg: myProfile.bannerImg
-        });
+        list.unshift({ pid: myPid, nick: myNick, online: true, inVoice: true, inCam: inWebcam, inScreen: inScreen, voiceChannel: vch, interests: myProfile.interests, avatarColor: myProfile.avatarColor, avatarImg: myProfile.avatarImg, bannerImg: myProfile.bannerImg });
       }
     }
     return list;
@@ -1572,15 +1528,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function renderSidebarVoicePeers() {
     const prevSpeaking = new Set();
-    document.querySelectorAll('.vc-user-row.is-speaking').forEach(function (r) {
-      prevSpeaking.add(r.getAttribute('data-nick'));
-    });
-
+    document.querySelectorAll('.vc-user-row.is-speaking').forEach(function (r) { prevSpeaking.add(r.getAttribute('data-nick')); });
     document.querySelectorAll('[data-vch-peers]').forEach(function (peersBox) {
       const vch = peersBox.getAttribute('data-vch-peers');
       peersBox.innerHTML = '';
-      const members = getMembersForSpecificVoiceChannel(vch);
-      members.forEach(function (u) {
+      getMembersForSpecificVoiceChannel(vch).forEach(function (u) {
         const setKey = getUserFxSet(u);
         const r = el('div', 'vc-user-row' + (prevSpeaking.has(u.nick) ? ' is-speaking' : ''));
         r.setAttribute('data-nick', u.nick);
@@ -1624,16 +1576,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
     document.getElementById('vup-btn-dm').style.display = isSelf ? 'none' : 'flex';
     document.getElementById('vup-btn-dm').onclick = function () { pop.classList.remove('open'); openDirectChatWithUser(u); };
-
     document.getElementById('vup-btn-call').style.display = isSelf ? 'none' : 'flex';
     document.getElementById('vup-btn-call').onclick = function () { pop.classList.remove('open'); startDirectCallToUser(u); };
-
     document.getElementById('vup-btn-prof').onclick = function () { pop.classList.remove('open'); openUserProfileCard(u); };
 
     const fBtn = document.getElementById('vup-btn-friend'), isFriend = (social.friends || []).some(function (f) { return f.pid === u.pid; });
-    if (isSelf) {
-      fBtn.style.display = 'none';
-    } else {
+    if (isSelf) { fBtn.style.display = 'none'; }
+    else {
       fBtn.style.display = 'flex';
       fBtn.textContent = isFriend ? '✕ Удалить из друзей' : '➕ Добавить в друзья';
       fBtn.onclick = function () { pop.classList.remove('open'); friendAction(isFriend ? 'remove' : 'request', u.pid); };
@@ -1641,10 +1590,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
     pop.classList.add('open');
     const rect = anchorEl ? anchorEl.getBoundingClientRect() : { left: 80, top: 200, right: 220 };
-    const leftPos = Math.min(window.innerWidth - 265, Math.max(10, rect.right + 8));
-    const topPos = Math.min(window.innerHeight - 270, Math.max(10, rect.top - 20));
-    pop.style.left = (window.innerWidth <= 640 ? 68 : leftPos) + 'px';
-    pop.style.top = topPos + 'px';
+    pop.style.left = (window.innerWidth <= 640 ? 68 : Math.min(window.innerWidth - 265, Math.max(10, rect.right + 8))) + 'px';
+    pop.style.top = Math.min(window.innerHeight - 270, Math.max(10, rect.top - 20)) + 'px';
   }
 
   document.addEventListener('pointerdown', function (ev) {
@@ -1657,10 +1604,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const masterOut = isDeafened ? 0 : ((appSettings.outVolume || 100) / 100);
     const effective = (volPercent / 100) * masterOut;
     const aud = document.getElementById('aud-' + peerId);
-    if (aud) {
-      aud.muted = isDeafened || volPercent === 0;
-      aud.volume = peerGainNodes[peerId] ? 0.001 : Math.min(1, Math.max(0, effective));
-    }
+    if (aud) { aud.muted = isDeafened || volPercent === 0; aud.volume = peerGainNodes[peerId] ? 0.001 : Math.min(1, Math.max(0, effective)); }
     if (peerGainNodes[peerId]) peerGainNodes[peerId].gainNode.gain.value = isDeafened ? 0 : Math.max(0, effective);
   }
 
@@ -1669,6 +1613,16 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (ubMic) { ubMic.classList.toggle('off', isMuted); ubMic.textContent = isMuted ? '🔇' : '🎤'; }
     if (ubDeaf) { ubDeaf.classList.toggle('off', isDeafened); ubDeaf.textContent = isDeafened ? '🔇' : '🎧'; }
     renderSidebarVoicePeers();
+  }
+
+  function updateVoicePanelUI() {
+    const titleEl = document.getElementById('voice-panel-title');
+    if (titleEl) {
+      if (inDirectCall && directCallPartner) titleEl.textContent = '📞 Личный звонок: ' + directCallPartner.nick;
+      else if (String(currentVoiceChannel || '').startsWith('__dm__')) titleEl.textContent = '📞 Личный звонок 1-на-1';
+      else titleEl.textContent = currentVoiceChannel;
+    }
+    updateVoiceControlsUI();
   }
 
   function openFriendsAndDmHub() {
@@ -1695,21 +1649,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
     const card = el('div', 'settings-card');
     card.innerHTML = '<div style="font-size:13px;font-weight:800;color:var(--brand);">◈ МОИ ДРУЗЬЯ (' + friends.length + ')</div>';
-    if (!friends.length) {
-      card.innerHTML += '<div style="font-size:12px;color:var(--text-muted);">Список друзей пока пуст. Добавьте участников из списка ниже!</div>';
-    }
+    if (!friends.length) card.innerHTML += '<div style="font-size:12px;color:var(--text-muted);">Список друзей пока пуст. Добавьте участников ниже!</div>';
     friends.forEach(function (u) {
       const live = (lastMembers || []).find(function (x) { return x.pid === u.pid; }) || u;
       const row = el('div', 'dm-item-btn'), setKey = getUserFxSet(live);
-      row.innerHTML =
-        '<div class="dm-item-left">' +
-          buildMiniHexAvatarHTML(String(live.nick || '?').slice(0, 2).toUpperCase(), live.avatarColor || '#3b82f6', setKey, 36, live.online ? 'online' : 'off', live.avatarImg) +
-          '<div><div class="dm-item-nick">' + escapeHtml(live.nick) + '</div><div class="dm-item-sub">' + (live.online ? '🟢 В сети' : '⚪ Не в сети') + '</div></div>' +
-        '</div>' +
-        '<div style="display:flex;gap:6px;">' +
-          '<button class="btn-cyan" style="padding:5px 10px;font-size:10.5px;">💬 Чат</button>' +
-          '<button class="btn-login-mini" style="padding:5px 9px;">📞 Звонок</button>' +
-        '</div>';
+      row.innerHTML = '<div class="dm-item-left">' + buildMiniHexAvatarHTML(String(live.nick || '?').slice(0, 2).toUpperCase(), live.avatarColor || '#3b82f6', setKey, 36, live.online ? 'online' : 'off', live.avatarImg) + '<div><div class="dm-item-nick">' + escapeHtml(live.nick) + '</div><div class="dm-item-sub">' + (live.online ? '🟢 В сети' : '⚪ Не в сети') + '</div></div></div><div style="display:flex;gap:6px;"><button class="btn-cyan" style="padding:5px 10px;font-size:10.5px;">💬 Чат</button><button class="btn-login-mini" style="padding:5px 9px;">📞 Звонок</button></div>';
       const btns = row.querySelectorAll('button');
       btns[0].onclick = function (ev) { ev.stopPropagation(); openDirectChatWithUser(live); };
       btns[1].onclick = function (ev) { ev.stopPropagation(); startDirectCallToUser(live); };
@@ -1720,19 +1664,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
     if (others.length) {
       const otherCard = el('div', 'settings-card');
-      otherCard.innerHTML = '<div style="font-size:12px;font-weight:800;color:var(--text-normal);">👥 ДРУГИЕ УЧАСТНИКИ (МОЖНО НАПИСАТЬ ИЛИ ДОБАВИТЬ В ДРУЗЬЯ)</div>';
+      otherCard.innerHTML = '<div style="font-size:12px;font-weight:800;color:var(--text-normal);">👥 ДРУГИЕ УЧАСТНИКИ</div>';
       others.forEach(function (u) {
         const row = el('div', 'dm-item-btn'), setKey = getUserFxSet(u);
-        row.innerHTML =
-          '<div class="dm-item-left">' +
-            buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 34, u.online ? 'online' : 'off', u.avatarImg) +
-            '<div><div class="dm-item-nick">' + escapeHtml(u.nick) + '</div><div class="dm-item-sub">' + (u.online ? '🟢 В сети' : '⚪ Не в сети') + '</div></div>' +
-          '</div>' +
-          '<div style="display:flex;gap:6px;">' +
-            '<button class="btn-login-mini" style="padding:5px 9px;">💬 ЛС</button>' +
-            '<button class="btn-login-mini" style="padding:5px 9px;">📞</button>' +
-            '<button class="btn-cyan" style="padding:5px 9px;font-size:10.5px;">+ Друг</button>' +
-          '</div>';
+        row.innerHTML = '<div class="dm-item-left">' + buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 34, u.online ? 'online' : 'off', u.avatarImg) + '<div><div class="dm-item-nick">' + escapeHtml(u.nick) + '</div><div class="dm-item-sub">' + (u.online ? '🟢 В сети' : '⚪ Не в сети') + '</div></div></div><div style="display:flex;gap:6px;"><button class="btn-login-mini" style="padding:5px 9px;">💬 ЛС</button><button class="btn-login-mini" style="padding:5px 9px;">📞</button><button class="btn-cyan" style="padding:5px 9px;font-size:10.5px;">+ Друг</button></div>';
         const btns = row.querySelectorAll('button');
         btns[0].onclick = function (ev) { ev.stopPropagation(); openDirectChatWithUser(u); };
         btns[1].onclick = function (ev) { ev.stopPropagation(); startDirectCallToUser(u); };
@@ -1748,10 +1683,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     listEl.innerHTML = '';
     const map = new Map();
     (social.friends || []).forEach(function (f) { if (f && f.pid && !isMeUser(f)) map.set(f.pid, f); });
-    Object.keys(dmConversations).forEach(function (pid) {
-      const cu = dmConversations[pid] && dmConversations[pid].user;
-      if (cu && !isMeUser(cu)) map.set(pid, cu);
-    });
+    Object.keys(dmConversations).forEach(function (pid) { const cu = dmConversations[pid] && dmConversations[pid].user; if (cu && !isMeUser(cu)) map.set(pid, cu); });
     (lastMembers || []).forEach(function (m) { if (m && m.pid && !isMeUser(m) && !map.has(m.pid)) map.set(m.pid, m); });
 
     let totalUnread = 0;
@@ -1761,21 +1693,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const isAct = activeDmPartner && activeDmPartner.pid === u.pid;
       const item = el('div', 'dm-item-btn' + (isAct ? ' active' : ''));
       const liveMember = (lastMembers || []).find(function (x) { return x.pid === u.pid; }) || u;
-      const setKey = getUserFxSet(liveMember);
-      const isFr = (social.friends || []).some(function (f) { return f.pid === u.pid; });
-      item.innerHTML =
-        '<div class="dm-item-left">' +
-          buildMiniHexAvatarHTML(String(liveMember.nick || '?').slice(0, 2).toUpperCase(), liveMember.avatarColor || '#3b82f6', setKey, 32, liveMember.online ? 'online' : 'off', liveMember.avatarImg) +
-          '<div style="min-width:0;flex:1;">' +
-            '<div class="dm-item-nick">' + escapeHtml(liveMember.nick) + '</div>' +
-            '<div class="dm-item-sub">' + (isFr ? '◈ Друг • ' : '') + (liveMember.online ? 'В сети' : 'Не в сети') + '</div>' +
-          '</div>' +
-        '</div>' +
-        (conv.unread > 0 ? '<span class="ch-unread-badge">' + conv.unread + '</span>' : '');
+      const setKey = getUserFxSet(liveMember), isFr = (social.friends || []).some(function (f) { return f.pid === u.pid; });
+      item.innerHTML = '<div class="dm-item-left">' + buildMiniHexAvatarHTML(String(liveMember.nick || '?').slice(0, 2).toUpperCase(), liveMember.avatarColor || '#3b82f6', setKey, 32, liveMember.online ? 'online' : 'off', liveMember.avatarImg) + '<div style="min-width:0;flex:1;"><div class="dm-item-nick">' + escapeHtml(liveMember.nick) + '</div><div class="dm-item-sub">' + (isFr ? '◈ Друг • ' : '') + (liveMember.online ? 'В сети' : 'Не в сети') + '</div></div></div>' + (conv.unread > 0 ? '<span class="ch-unread-badge">' + conv.unread + '</span>' : '');
       item.onclick = function () { openDirectChatWithUser(liveMember); };
       listEl.appendChild(item);
     });
-    if (!map.size) listEl.innerHTML = '<div style="font-size:11.5px;color:var(--text-muted);padding:8px 6px;">Список друзей пока пуст. Пригласите друга по ссылке!</div>';
+    if (!map.size) listEl.innerHTML = '<div style="font-size:11.5px;color:var(--text-muted);padding:8px 6px;">Список друзей пока пуст.</div>';
     const badge = document.getElementById('dm-total-badge');
     if (badge) { badge.textContent = String(totalUnread); badge.style.display = totalUnread > 0 ? 'inline-block' : 'none'; }
   }
@@ -1875,19 +1798,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const isAct = inVoice && !inDirectCall && activeVoiceRoom === currentRoom && currentVoiceChannel === vch;
       const group = el('div', 'voice-ch-group');
       const row = el('div', 'voice-ch-box' + (isAct ? ' active' : ''));
-      const left = el('div', 'ch-left');
-      left.appendChild(el('span', 'ch-hash', '🔊'));
-      left.appendChild(el('span', 'ch-name-txt', vch));
-      row.appendChild(left);
+      const left = el('div', 'ch-left'); left.appendChild(el('span', 'ch-hash', '🔊')); left.appendChild(el('span', 'ch-name-txt', vch)); row.appendChild(left);
       const chMembers = getMembersForSpecificVoiceChannel(vch);
-      const badgeText = isAct ? 'LIVE' : (chMembers.length ? String(chMembers.length) : '');
-      row.appendChild(el('span', 'off-badge' + (isAct || chMembers.length ? ' on' : ''), badgeText));
+      row.appendChild(el('span', 'off-badge' + (isAct || chMembers.length ? ' on' : ''), isAct ? 'LIVE' : (chMembers.length ? String(chMembers.length) : '')));
       row.onclick = function () { selectVoiceChannel(vch); };
       group.appendChild(row);
-
-      const peersBox = el('div', 'voice-ch-peers');
-      peersBox.setAttribute('data-vch-peers', vch);
-      group.appendChild(peersBox);
+      const peersBox = el('div', 'voice-ch-peers'); peersBox.setAttribute('data-vch-peers', vch); group.appendChild(peersBox);
       vBox.appendChild(group);
     });
     if (!activeDmPartner && !isFriendsHubMode) applyChannelUI(currentChannel);
@@ -1987,9 +1903,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         if (isFriendsHubMode && !activeDmPartner) renderFriendsCenterDashboard();
         saveLocalVault();
       } else if (data.type === 'voice-join') {
-        if (inVoice && peer && localStream && myPeerId && data.payload.peerId !== myPeerId && data.payload.voiceChannel === currentVoiceChannel) {
-          connectToExistingVoicePeers([data.payload.peerId]);
-        }
+        if (inVoice && peer && localStream && myPeerId && data.payload.peerId !== myPeerId && data.payload.voiceChannel === currentVoiceChannel) connectToExistingVoicePeers([data.payload.peerId]);
       } else if (data.type === 'media-stop') {
         const pid = data.payload && data.payload.peerId, kind = data.payload && data.payload.kind;
         if (pid) {
@@ -2025,9 +1939,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function buildMessageBodyHTML(text, violations) {
     const s = String(text || '').trim();
     if (s.startsWith('data:image/')) return '<img class="chat-inline-media" src="' + escapeHtml(s) + '" alt="Фото">';
-    if (s.startsWith('data:video/') || /^https?:\/\/[^\s"'<>]+\.(?:mp4|webm)(?:\?[^\s"'<>]*)?$/i.test(s)) {
-      return '<video class="chat-inline-video" src="' + escapeHtml(s) + '" controls playsinline preload="metadata"></video>';
-    }
+    if (s.startsWith('data:video/') || /^https?:\/\/[^\s"'<>]+\.(?:mp4|webm)(?:\?[^\s"'<>]*)?$/i.test(s)) return '<video class="chat-inline-video" src="' + escapeHtml(s) + '" controls playsinline preload="metadata"></video>';
     const safeText = escapeHtml(s).replace(ANY_URL_RX, '<a href="$1" target="_blank" rel="noopener">$1</a>');
     const imgMatch = s.match(IMAGE_URL_RX);
     let inner = '<div>' + safeText + '</div>';
@@ -2045,12 +1957,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const setKey = getUserFxSet(memberObj), avaCol = (memberObj && memberObj.avatarColor) || '#3b82f6';
     const avaImg = (memberObj && (isMeUser(memberObj) ? myProfile.avatarImg : memberObj.avatarImg)) || '';
     const div = el('div', 'msg-item');
-    div.innerHTML =
-      '<div style="cursor:pointer;margin-top:2px;">' + buildMiniHexAvatarHTML(author.slice(0, 2).toUpperCase(), avaCol, setKey, 40, '', avaImg) + '</div>' +
-      '<div style="flex:1;min-width:0;">' +
-        '<div class="msg-head-line"><span class="msg-author">' + escapeHtml(author) + '</span>' + getBadgeHTML(setKey) + '<span class="msg-time">' + escapeHtml(m.time) + '</span></div>' +
-        '<div class="msg-text">' + buildMessageBodyHTML(m.text, viol) + '</div>' +
-      '</div>';
+    div.innerHTML = '<div style="cursor:pointer;margin-top:2px;">' + buildMiniHexAvatarHTML(author.slice(0, 2).toUpperCase(), avaCol, setKey, 40, '', avaImg) + '</div><div style="flex:1;min-width:0;"><div class="msg-head-line"><span class="msg-author">' + escapeHtml(author) + '</span>' + getBadgeHTML(setKey) + '<span class="msg-time">' + escapeHtml(m.time) + '</span></div><div class="msg-text">' + buildMessageBodyHTML(m.text, viol) + '</div></div>';
     div.querySelector('.hex-wrap').onclick = function () { openUserProfileCard(memberObj); };
     div.querySelector('.msg-author').onclick = function () { openUserProfileCard(memberObj); };
     box.appendChild(div);
@@ -2058,14 +1965,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function handleChatMediaUpload(ev) {
-    const file = ev.target && ev.target.files && ev.target.files[0];
-    if (!file) return;
+    const file = ev.target && ev.target.files && ev.target.files[0]; if (!file) return;
     if (!myVerified) { openAuthModal(true); ev.target.value = ''; return; }
     if (file.type.startsWith('video/')) {
-      if (file.size > 4.5 * 1024 * 1024) { alert('Видео до 4.5 МБ для мгновенной отправки.'); ev.target.value = ''; return; }
-      const reader = new FileReader();
-      reader.onload = function (e) { sendRawMediaMessage(e.target.result); };
-      reader.readAsDataURL(file);
+      if (file.size > 4.5 * 1024 * 1024) { alert('Видео до 4.5 МБ.'); ev.target.value = ''; return; }
+      const reader = new FileReader(); reader.onload = function (e) { sendRawMediaMessage(e.target.result); }; reader.readAsDataURL(file);
     } else if (file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onload = function (e) {
@@ -2084,10 +1988,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function sendRawMediaMessage(dataUrl) {
-    if (activeDmPartner) {
-      fetch('/api/dm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: activeDmPartner.pid, text: dataUrl }) }).catch(function () {});
-      return;
-    }
+    if (activeDmPartner) { fetch('/api/dm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: activeDmPartner.pid, text: dataUrl }) }).catch(function () {}); return; }
     fetch('/api/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, channel: currentChannel, author: myNick, text: dataUrl }) }).catch(function () {});
   }
 
@@ -2099,8 +2000,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function renderMemberRow(u, friendPids) {
     const d = el('div', 'online-user-item' + (u.online ? ' is-online' : '')); if (!u.online) d.style.opacity = '0.55';
-    const isSelf = isMeUser(u);
-    const setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
+    const isSelf = isMeUser(u), setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
     const avaHolder = document.createElement('div');
     const aImg = (isSelf ? myProfile.avatarImg : u.avatarImg) || '';
     avaHolder.innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 36, u.online ? (u.presence || 'online') : 'off', aImg);
@@ -2115,22 +2015,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     d.appendChild(col);
 
     if (!isSelf && u.pid) {
-      const dmBtn = el('button', 'mini-btn', '💬');
-      dmBtn.title = 'Личный чат с ' + u.nick;
-      dmBtn.onclick = function (ev) { ev.stopPropagation(); openDirectChatWithUser(u); };
-      d.appendChild(dmBtn);
-
-      const callBtn = el('button', 'mini-btn', '📞');
-      callBtn.title = 'Позвонить лично ' + u.nick;
-      callBtn.onclick = function (ev) { ev.stopPropagation(); startDirectCallToUser(u); };
-      d.appendChild(callBtn);
-
+      const dmBtn = el('button', 'mini-btn', '💬'); dmBtn.onclick = function (ev) { ev.stopPropagation(); openDirectChatWithUser(u); }; d.appendChild(dmBtn);
+      const callBtn = el('button', 'mini-btn', '📞'); callBtn.onclick = function (ev) { ev.stopPropagation(); startDirectCallToUser(u); }; d.appendChild(callBtn);
       if (friendPids.includes(u.pid)) d.appendChild(el('span', 'friend-tag', 'друг'));
-      else if ((social.incoming || []).some(function (i) { return i.pid === u.pid; })) {
-        const b = el('button', 'mini-btn', '✓'); b.onclick = function (ev) { ev.stopPropagation(); friendAction('accept', u.pid); }; d.appendChild(b);
-      } else if (!(social.outgoing || []).includes(u.pid)) {
-        const b = el('button', 'mini-btn', '+'); b.onclick = function (ev) { ev.stopPropagation(); friendAction('request', u.pid); }; d.appendChild(b);
-      }
+      else if ((social.incoming || []).some(function (i) { return i.pid === u.pid; })) { const b = el('button', 'mini-btn', '✓'); b.onclick = function (ev) { ev.stopPropagation(); friendAction('accept', u.pid); }; d.appendChild(b); }
+      else if (!(social.outgoing || []).includes(u.pid)) { const b = el('button', 'mini-btn', '+'); b.onclick = function (ev) { ev.stopPropagation(); friendAction('request', u.pid); }; d.appendChild(b); }
     }
     d.onclick = function () { openUserProfileCard(u); };
     return d;
@@ -2167,14 +2056,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function openUserProfileCard(u) {
     if (!u) return;
     closeMobileDrawers();
-    const isSelf = isMeUser(u);
-    const setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
+    const isSelf = isMeUser(u), setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
     document.getElementById('vp-surface').className = 'profile-surface' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
     const customBgEl = document.getElementById('vp-custom-bg');
-    if (customBgEl) {
-      const bImg = (isSelf ? myProfile.bannerImg : u.bannerImg) || '';
-      customBgEl.style.backgroundImage = bImg ? 'url(\'' + bImg + '\')' : 'none';
-    }
+    if (customBgEl) { const bImg = (isSelf ? myProfile.bannerImg : u.bannerImg) || ''; customBgEl.style.backgroundImage = bImg ? 'url(\'' + bImg + '\')' : 'none'; }
     const aImg = (isSelf ? myProfile.avatarImg : u.avatarImg) || '';
     document.getElementById('vp-hero-stage').innerHTML = buildHeroHexMedallionHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, u.online ? (u.presence || 'online') : 'off', aImg);
     document.getElementById('vp-nick').textContent = u.nick || 'Участник';
@@ -2187,28 +2072,18 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     cleanInterestsForDisplay(u.interests).forEach(function (tg) { tb.appendChild(el('span', 'dp-tag', tg)); });
     if (!tb.childNodes.length) tb.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">Интересы не указаны</span>';
 
-    const commRow = document.getElementById('vp-comm-btns-row');
-    const mBtn = document.getElementById('vp-mention-btn');
-    const cBtn = document.getElementById('vp-call-btn');
-    if (isSelf) {
-      if (commRow) commRow.style.display = 'none';
-    } else {
+    const commRow = document.getElementById('vp-comm-btns-row'), mBtn = document.getElementById('vp-mention-btn'), cBtn = document.getElementById('vp-call-btn');
+    if (isSelf) { if (commRow) commRow.style.display = 'none'; }
+    else {
       if (commRow) commRow.style.display = 'grid';
       if (mBtn) mBtn.onclick = function () { openDirectChatWithUser(u); };
       if (cBtn) cBtn.onclick = function () { startDirectCallToUser(u); };
     }
 
     const fBtn = document.getElementById('vp-friend-btn'), friendPids = (social.friends || []).map(function (f) { return f.pid; });
-    if (isSelf) {
-      fBtn.textContent = '📷 Настроить мой профиль и фото'; fBtn.className = 'btn-cyan';
-      fBtn.onclick = function () { closeViewProfileModal(); openSettingsModal('profile'); };
-    } else if (friendPids.includes(u.pid)) {
-      fBtn.textContent = '✕ Удалить из друзей'; fBtn.className = 'btn-danger';
-      fBtn.onclick = function () { friendAction('remove', u.pid); closeViewProfileModal(); };
-    } else {
-      fBtn.textContent = '+ Добавить в друзья'; fBtn.className = 'btn-cyan';
-      fBtn.onclick = function () { friendAction('request', u.pid); closeViewProfileModal(); };
-    }
+    if (isSelf) { fBtn.textContent = '📷 Настроить мой профиль и фото'; fBtn.className = 'btn-cyan'; fBtn.onclick = function () { closeViewProfileModal(); openSettingsModal('profile'); }; }
+    else if (friendPids.includes(u.pid)) { fBtn.textContent = '✕ Удалить из друзей'; fBtn.className = 'btn-danger'; fBtn.onclick = function () { friendAction('remove', u.pid); closeViewProfileModal(); }; }
+    else { fBtn.textContent = '+ Добавить в друзья'; fBtn.className = 'btn-cyan'; fBtn.onclick = function () { friendAction('request', u.pid); closeViewProfileModal(); }; }
     document.getElementById('view-profile-backdrop').classList.add('open');
     document.getElementById('view-profile-drawer').classList.add('open');
   }
@@ -2252,14 +2127,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const st = document.getElementById('prof-status-inp').value.trim().slice(0, 60);
     const bio = document.getElementById('prof-bio-inp').value.trim().slice(0, 220);
     const rawIntr = document.getElementById('prof-interests-inp').value.trim().slice(0, 130);
-    const cleanTags = cleanInterestsForDisplay(rawIntr);
-    const curSet = myProfile.fxSet || detectFxSetFromInterests(myProfile.interests), fxMeta = FX_SETS_META[curSet];
+    const cleanTags = cleanInterestsForDisplay(rawIntr), curSet = myProfile.fxSet || detectFxSetFromInterests(myProfile.interests), fxMeta = FX_SETS_META[curSet];
     if (fxMeta) cleanTags.push(fxMeta.code);
     const finalIntr = cleanTags.join(', ');
 
     document.getElementById('preview-surface').className = 'profile-surface' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
-    const prevBg = document.getElementById('preview-custom-bg');
-    if (prevBg) prevBg.style.backgroundImage = myProfile.bannerImg ? 'url(\'' + myProfile.bannerImg + '\')' : 'none';
+    const prevBg = document.getElementById('preview-custom-bg'); if (prevBg) prevBg.style.backgroundImage = myProfile.bannerImg ? 'url(\'' + myProfile.bannerImg + '\')' : 'none';
     document.getElementById('preview-hero-stage').innerHTML = buildHeroHexMedallionHTML(n.slice(0, 2).toUpperCase(), myProfile.avatarColor || '#3b82f6', curSet, pr, myProfile.avatarImg);
     document.getElementById('preview-nick').textContent = n;
     document.getElementById('preview-badge-slot').innerHTML = getBadgeHTML(curSet);
@@ -2309,7 +2182,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const res = await fetch('/api/set-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, password: pw }) });
     const d = await res.json(); if (d.error) return alert(d.error);
     document.getElementById('acc-new-pass-inp').value = '';
-    alert('Пароль сохранён! Теперь вы можете входить по позывному "' + myNick + '" и этому паролю с телефона и ПК.');
+    alert('Пароль сохранён!');
   }
 
   async function refreshMediaDevices() {
@@ -2338,9 +2211,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (sSel) appSettings.spkDeviceId = sSel.value;
     if (cSel) appSettings.camDeviceId = cSel.value;
     saveAudioVideoSettings();
-    if (sSel && sSel.value) {
-      document.querySelectorAll('#audio-box audio').forEach(function (a) { if (typeof a.setSinkId === 'function') a.setSinkId(sSel.value).catch(function () {}); });
-    }
+    if (sSel && sSel.value) document.querySelectorAll('#audio-box audio').forEach(function (a) { if (typeof a.setSinkId === 'function') a.setSinkId(sSel.value).catch(function () {}); });
     if (inVoice && mSel && mSel.value) {
       try {
         const newSt = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: mSel.value } } });
@@ -2369,15 +2240,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
   function applyOutputVolumeToAll() {
     document.querySelectorAll('#audio-box audio').forEach(function (a) {
-      const peerId = a.id.replace('aud-', '');
-      const member = (lastMembers || []).find(function (u) { return u.peerId === peerId; });
+      const peerId = a.id.replace('aud-', ''), member = (lastMembers || []).find(function (u) { return u.peerId === peerId; });
       applyIndividualPeerVolume(peerId, member ? member.pid : null);
     });
   }
-  function saveAudioVideoSettings() {
-    try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
-    applyOutputVolumeToAll(); updateVoiceControlsUI();
-  }
+  function saveAudioVideoSettings() { try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {} applyOutputVolumeToAll(); updateVoiceControlsUI(); }
 
   async function toggleMicTest() {
     if (micTestTimer) { stopMicTest(); return; }
@@ -2439,12 +2306,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     cachedMessages = roomMessagesCache[ch] || []; rerenderChatMessages(); closeMobileDrawers();
   }
 
-  function jumpToActiveVoiceChannel() {
-    closeMobileDrawers(); setMobActiveTab('mob-tab-voice');
-    selectVoiceChannel(currentVoiceChannel || 'Ночной эфир');
-  }
+  function jumpToActiveVoiceChannel() { closeMobileDrawers(); setMobActiveTab('mob-tab-voice'); selectVoiceChannel(currentVoiceChannel || 'Ночной эфир'); }
 
-  selectVoiceChannel = async function (vch) {
+  async function selectVoiceChannel(vch) {
     if (!myVerified) { openAuthModal(true); return; }
     inDirectCall = false; directCallPartner = null;
     currentVoiceChannel = vch; activeVoiceRoom = currentRoom;
@@ -2457,15 +2321,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     }
     setChannel(vChat);
 
-    if (!inVoice) {
-      await ensureVoiceConnected();
-    } else {
+    if (!inVoice) await ensureVoiceConnected();
+    else {
       const d = await postVoiceState({ inVoice: true, inScreen: inScreen, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel, voiceRoom: activeVoiceRoom });
       if (d && Array.isArray(d.peers)) connectToExistingVoicePeers(d.peers);
     }
-  };
+  }
 
-  startDirectCallToUser = async function (u) {
+  async function startDirectCallToUser(u) {
     if (!myVerified) return openAuthModal(true);
     if (!u || !u.pid || isMeUser(u)) return;
     closeViewProfileModal();
@@ -2479,13 +2342,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     updateVoicePanelUI(); renderServerChannels();
 
     await fetch('/api/direct-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: u.pid, action: 'ring', peerId: myPeerId, callRoom: DEFAULT_ROOM, callChannel: dmVoiceKey }) }).catch(function () {});
-  };
+  }
 
-  acceptDirectCall = async function () {
+  async function acceptDirectCall() {
     if (!incomingCallData) return;
     const d = incomingCallData;
     stopIncomingRingtone(); document.getElementById('incoming-call-toast').classList.remove('show');
-    if (d.callRoom && d.callRoom !== currentRoom) await switchServer(d.callRoom);
 
     const callerObj = (lastMembers || []).find(function (u) { return u.pid === d.fromPid; }) || { pid: d.fromPid, nick: d.fromNick, avatarColor: d.fromColor, avatarImg: d.fromAva, online: true };
     inDirectCall = true; directCallPartner = callerObj;
@@ -2499,20 +2361,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (d.peerId) connectToExistingVoicePeers([d.peerId]);
     fetch('/api/direct-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: d.fromPid, action: 'accept', peerId: myPeerId, callRoom: DEFAULT_ROOM, callChannel: currentVoiceChannel }) }).catch(function () {});
     incomingCallData = null;
-  };
+  }
 
   function declineDirectCall() {
     if (incomingCallData) { fetch('/api/direct-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: incomingCallData.fromPid, action: 'decline' }) }).catch(function () {}); }
     stopIncomingRingtone(); document.getElementById('incoming-call-toast').classList.remove('show'); incomingCallData = null;
   }
   function stopIncomingRingtone() { if (ringtoneTimer) { clearInterval(ringtoneTimer); ringtoneTimer = null; } }
-
-  const origToggleVoiceCall = toggleVoiceCall;
-  toggleVoiceCall = async function () {
-    if (inVoice) { inDirectCall = false; directCallPartner = null; }
-    await origToggleVoiceCall();
-    renderServerChannels();
-  };
 
   function openCreateServerModal() { if (!myVerified) return openAuthModal(true); closeMobileDrawers(); document.getElementById('create-server-modal').classList.add('open'); }
   function closeCreateServerModal() { document.getElementById('create-server-modal').classList.remove('open'); }
@@ -2588,11 +2443,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function postVoiceState(st) { return fetch('/api/voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ id: clientId, voiceRoom: activeVoiceRoom || currentRoom }, st)) }).then(function (r) { return r.json(); }).catch(function () { return {}; }); }
-
-  function resolveNickByPeerId(pid) {
-    const f = (lastMembers || []).find(function (u) { return u.peerId === pid; });
-    return f ? f.nick : 'Собеседник';
-  }
+  function resolveNickByPeerId(pid) { const f = (lastMembers || []).find(function (u) { return u.peerId === pid; }); return f ? f.nick : 'Собеседник'; }
 
   function bindAudioCallEvents(pid, call, fallbackNick) {
     activeAudioCalls[pid] = call;
@@ -2615,6 +2466,15 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       if (inWebcam && webcamStream) callPeerWithWebcam(pid);
       if (inScreen && screenStream) callPeerWithScreen(pid);
     });
+  }
+
+  function createSilentAudioTrack() {
+    try {
+      const ctx = audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+      const dst = ctx.createMediaStreamDestination(), track = dst.stream.getAudioTracks()[0];
+      if (track) track.enabled = false;
+      return track;
+    } catch (e) { return null; }
   }
 
   async function ensureVoiceConnected() {
@@ -2660,6 +2520,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   async function toggleVoiceCall() {
     if (inVoice) {
+      inDirectCall = false; directCallPartner = null;
       if (inScreen) stopScreenShare(true); if (inWebcam) stopWebcam(true);
       await postVoiceState({ inVoice: false, inScreen: false, inCam: false, peerId: myPeerId, voiceRoom: activeVoiceRoom });
       if (rawMicStream) rawMicStream.getTracks().forEach(function (t) { t.stop(); });
@@ -3026,10 +2887,7 @@ const server = http.createServer(async (req, res) => {
       const dmKey = 'dm_' + [me.pid, targetPid].sort().join('_');
       const rm = getRoom(DEFAULT_ROOM);
       if (!rm[dmKey]) rm[dmKey] = [];
-
-      if (body.action === 'history') {
-        return sendJson(res, 200, { ok: true, dmKey, messages: rm[dmKey] });
-      }
+      if (body.action === 'history') return sendJson(res, 200, { ok: true, dmKey, messages: rm[dmKey] });
 
       const text = String(body.text || '').trim().slice(0, 600000);
       if (!text) return sendJson(res, 400, { error: 'Пусто' });
@@ -3134,9 +2992,7 @@ const server = http.createServer(async (req, res) => {
 
       req.on('close', () => {
         clients = clients.filter(c => c !== client);
-        if (client.peerId && (client.inCam || client.inScreen || client.inVoice)) {
-          broadcast(client.voiceRoom || client.room, 'media-stop', { peerId: client.peerId, kind: 'all' });
-        }
+        if (client.peerId && (client.inCam || client.inScreen || client.inVoice)) broadcast(client.voiceRoom || client.room, 'media-stop', { peerId: client.peerId, kind: 'all' });
         if (users[uid] && users[uid].verified) { notifyAllRoomsOfUser(uid); notifyFriendsOf(uid); }
       });
       return;
