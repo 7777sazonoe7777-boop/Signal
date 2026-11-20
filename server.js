@@ -41,6 +41,14 @@ const cleanImgData = (v, maxLen = 550000) => {
   return (s && (s.startsWith('data:image/') || s.startsWith('https://') || s.startsWith('/')) && s.length <= maxLen) ? s : '';
 };
 
+function defaultRoles() {
+  return [
+    { id: 'admin', name: 'Администратор', color: '#ff2a85', perms: { admin: true, manageServer: true, manageChannels: true, manageRoles: true } },
+    { id: 'mod', name: 'Модератор', color: '#00f0ff', perms: { admin: false, manageServer: false, manageChannels: true, manageRoles: false } },
+    { id: 'member', name: 'Участник', color: '#b4cde0', perms: { admin: false, manageServer: false, manageChannels: false, manageRoles: false } }
+  ];
+}
+
 function hashPassword(pw, salt) {
   const s = salt || crypto.randomBytes(16).toString('hex');
   return s + ':' + crypto.scryptSync(String(pw), s, 32).toString('hex');
@@ -52,7 +60,7 @@ function verifyPassword(pw, stored) {
   return crypto.timingSafeEqual(Buffer.from(parts[1], 'hex'), Buffer.from(test, 'hex'));
 }
 
-function ensureServer(room, name, desc, icon) {
+function ensureServer(room, name, desc, icon, ownerUid) {
   const r = safeRoom(room);
   if (!serversMeta[r]) {
     const title = String(name || (r === DEFAULT_ROOM ? 'Ночной клуб' : r)).trim().slice(0, 28) || r;
@@ -60,13 +68,31 @@ function ensureServer(room, name, desc, icon) {
       id: r, name: title,
       icon: String(icon || title.slice(0, 2)).trim().toUpperCase().slice(0, 3) || 'GK',
       desc: String(desc || 'Игры, идеи и разговоры после полуночи').trim().slice(0, 80),
+      ownerUid: ownerUid || '',
       textChannels: DEFAULT_TEXT_CHANNELS.slice(),
-      voiceChannels: DEFAULT_VOICE_CHANNELS.slice()
+      voiceChannels: DEFAULT_VOICE_CHANNELS.slice(),
+      roles: defaultRoles(),
+      memberRoles: Object.create(null)
     };
   }
+  if (!Array.isArray(serversMeta[r].roles) || !serversMeta[r].roles.length) serversMeta[r].roles = defaultRoles();
+  if (!serversMeta[r].memberRoles || typeof serversMeta[r].memberRoles !== 'object') serversMeta[r].memberRoles = Object.create(null);
   if (!rooms[r]) rooms[r] = Object.create(null);
   serversMeta[r].textChannels.forEach(ch => { if (!rooms[r][ch]) rooms[r][ch] = []; });
   return serversMeta[r];
+}
+
+function hasServerPerm(room, uid, perm) {
+  const meta = ensureServer(room);
+  const u = users[uid];
+  if (!u || !u.verified) return false;
+  if (!meta.ownerUid) { meta.ownerUid = uid; meta.memberRoles[u.pid] = ['admin']; scheduleSave(); }
+  if (meta.ownerUid === uid) return true;
+  const rIds = meta.memberRoles[u.pid] || [];
+  return rIds.some(rid => {
+    const role = (meta.roles || []).find(x => x.id === rid);
+    return role && role.perms && (role.perms.admin || role.perms[perm]);
+  });
 }
 
 function getRoom(r) {
@@ -92,7 +118,7 @@ ensureServer('ma-club', 'Мастерская', 'Музыка, творчест�
 if (!rooms[DEFAULT_ROOM]['игровая-комната'].length) {
   rooms[DEFAULT_ROOM]['игровая-комната'].push({
     author: 'СИСТЕМА GEEK', time: '00:00',
-    text: 'Добро пожаловать в GEEK // CYBER.NET! Личные чаты, прямые звонки, индикатор голоса и синхронизация активны.'
+    text: 'Добро пожаловать в GEEK // CYBER.NET! Настройки сервера, роли, переименование каналов и P2P-связь активны.'
   });
 }
 
@@ -197,9 +223,15 @@ function applyData(d) {
   if (!d || typeof d !== 'object') return;
   Object.keys(d.servers || {}).forEach(r => {
     if (safeRoom(r) !== r) return;
-    const sm = d.servers[r] || {}, meta = ensureServer(r, sm.name, sm.desc, sm.icon);
-    (sm.textChannels || []).map(cleanChannelName).filter(Boolean).forEach(c => { if (!meta.textChannels.includes(c) && meta.textChannels.length < MAX_CHANNELS) meta.textChannels.push(c); });
-    (sm.voiceChannels || []).map(v => String(v || '').trim().slice(0, 28)).filter(Boolean).forEach(c => { if (!meta.voiceChannels.includes(c) && meta.voiceChannels.length < MAX_CHANNELS) meta.voiceChannels.push(c); });
+    const sm = d.servers[r] || {}, meta = ensureServer(r, sm.name, sm.desc, sm.icon, sm.ownerUid);
+    if (sm.name) meta.name = String(sm.name).trim().slice(0, 28);
+    if (sm.desc !== undefined) meta.desc = String(sm.desc).trim().slice(0, 80);
+    if (sm.icon) meta.icon = String(sm.icon).trim().toUpperCase().slice(0, 3);
+    if (sm.ownerUid) meta.ownerUid = String(sm.ownerUid);
+    if (Array.isArray(sm.roles) && sm.roles.length) meta.roles = sm.roles;
+    if (sm.memberRoles && typeof sm.memberRoles === 'object') meta.memberRoles = Object.assign(Object.create(null), sm.memberRoles);
+    if (Array.isArray(sm.textChannels) && sm.textChannels.length) meta.textChannels = sm.textChannels.map(cleanChannelName).filter(Boolean).slice(0, MAX_CHANNELS);
+    if (Array.isArray(sm.voiceChannels) && sm.voiceChannels.length) meta.voiceChannels = sm.voiceChannels.map(v => String(v || '').trim().slice(0, 28)).filter(Boolean).slice(0, MAX_CHANNELS);
     meta.textChannels.forEach(ch => { if (!rooms[r][ch]) rooms[r][ch] = []; });
   });
   Object.keys(d.users || {}).forEach(uid => {
@@ -416,7 +448,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     --border:rgba(0,240,255,0.16); --pink-border:rgba(255,42,133,0.48); --cyan-border:rgba(0,240,255,0.4);
     --chat-font-size:14px;
     --hex-regular:polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%);
-    --hex-inner-hole:polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
     --pcb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='none' stroke='%2300f0ff' stroke-width='0.8' stroke-opacity='0.05'%3E%3Cpath d='M0 20h30l15 15v30l15 15h40l20-20h20M20 0v25l20 20h35l15-15h50M0 95h25l20 20v25M80 140v-25l20-20h40'/%3E%3C/g%3E%3C/svg%3E");
   }
   @keyframes eqPulse { 0%,100%{transform:scaleY(0.25);opacity:0.45;} 50%{transform:scaleY(1);opacity:1;} }
@@ -427,19 +458,20 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
   html, body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,sans-serif; background-color:var(--bg-darkest); background-image:var(--pcb); color:var(--text-main); width:100%; height:100vh; height:100dvh; display:flex; flex-direction:column; overflow:hidden; user-select:none; overscroll-behavior:none; padding-top:env(safe-area-inset-top, 0px); }
 
+  /* РАМКИ АВАТАРА СТРОГО ПО КРАЮ */
   .hex-wrap { position:relative; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0 !important; aspect-ratio:1 / 1 !important; overflow:visible !important; }
   .hex-border { position:relative; width:100%; height:100%; clip-path:var(--hex-regular); background:rgba(0,240,255,0.35); display:flex; align-items:center; justify-content:center; padding:2px; overflow:hidden; z-index:1; }
-  .hex-wrap.has-custom-frame .hex-border { width:54%; height:58%; margin-right:5%; margin-top:4%; clip-path:var(--hex-inner-hole); padding:0; background:transparent; }
+  .hex-wrap.has-custom-frame .hex-border { width:82% !important; height:82% !important; margin:0 !important; clip-path:var(--hex-regular) !important; padding:0; background:transparent; }
   .hex-core { position:relative; z-index:1; width:100%; height:100%; clip-path:inherit; background:linear-gradient(145deg,#14253d,#08111e); color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; overflow:hidden; background-size:cover !important; background-position:center !important; }
   .hex-core img.ava-custom-img, .cds-user-core img.ava-custom-img { width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; }
-  .mini-frame-overlay { position:absolute; width:146% !important; height:146% !important; left:-23% !important; top:-23% !important; aspect-ratio:1 / 1 !important; object-fit:contain !important; mix-blend-mode:screen; pointer-events:none; z-index:4; }
+  .mini-frame-overlay { position:absolute; width:118% !important; height:118% !important; left:-9% !important; top:-9% !important; aspect-ratio:1 / 1 !important; object-fit:contain !important; mix-blend-mode:screen; pointer-events:none; z-index:4; }
   .hex-status-dot { position:absolute; right:-2px; bottom:-2px; width:10px; height:10px; clip-path:var(--hex-regular); background:var(--green); border:1.5px solid #04070d; z-index:6; }
   .hex-status-dot.idle { background:var(--yellow); }
   .hex-status-dot.dnd { background:var(--red); }
   .hex-status-dot.invisible,.hex-status-dot.offline,.hex-status-dot.off { background:var(--text-dim); }
 
   .cyber-diode-scene { position:relative; width:104px !important; height:104px !important; aspect-ratio:1 / 1 !important; margin:0 auto 4px auto; display:flex; align-items:center; justify-content:center; flex-shrink:0 !important; overflow:visible; cursor:pointer; }
-  .cds-user-core { position:absolute; left:22.4%; top:24.8%; width:50.2%; height:56.8%; clip-path:var(--hex-inner-hole); background:#070d19; background-size:cover !important; background-position:center !important; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:900; color:#fff; z-index:1; border:1px solid rgba(0,240,255,0.35); box-shadow:inset 0 0 16px rgba(0,240,255,0.3); overflow:hidden; }
+  .cds-user-core { position:absolute; left:11% !important; top:11% !important; width:78% !important; height:78% !important; clip-path:var(--hex-regular) !important; background:#070d19; background-size:cover !important; background-position:center !important; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:900; color:#fff; z-index:1; border:1px solid rgba(0,240,255,0.35); box-shadow:inset 0 0 16px rgba(0,240,255,0.3); overflow:hidden; }
   .cds-frame-img { position:absolute; inset:0; width:100% !important; height:100% !important; aspect-ratio:1 / 1 !important; object-fit:contain !important; mix-blend-mode:screen; pointer-events:none; z-index:3; }
 
   .cyber-badge { display:inline-flex; align-items:center; gap:3px; padding:1.5px 6px; border-radius:4px; font-size:9px; font-weight:900; letter-spacing:0.5px; text-transform:uppercase; white-space:nowrap; flex-shrink:0; background-size:200% 200%; animation:badgeFlow 2.5s ease infinite; }
@@ -447,10 +479,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .cyber-badge.b-set2 { background-image:linear-gradient(90deg,#ff6a00,#fcee09,#00f0ff); color:#04120c; box-shadow:0 0 8px rgba(255,106,0,0.65); }
   .cyber-badge.b-set3 { background-image:linear-gradient(90deg,#ff003c,#ff5500,#ff003c); color:#fff; box-shadow:0 0 8px rgba(255,0,60,0.7); }
 
+  /* РАМКА ПРОФИЛЯ СТРОГО ПО ВНЕШНЕМУ КРАЮ */
   .profile-surface { position:relative; background:#060a12; border:1px solid var(--border); border-radius:14px !important; overflow:hidden; transition:0.25s; background-size:cover; background-position:center; }
   #preview-surface, .profile-slide-drawer .profile-surface { width:100% !important; max-width:360px !important; aspect-ratio:360 / 515 !important; height:auto !important; max-height:525px !important; margin:0 auto !important; flex:0 0 auto !important; display:flex !important; flex-direction:column !important; }
   .profile-custom-bg { position:absolute; inset:0; width:100%; height:100%; background-size:cover; background-position:center; opacity:0.45; pointer-events:none; z-index:1; }
-  .profile-frame-overlay { position:absolute; inset:0; width:100%; height:100%; background-image:url('/profile_frames_3sets.jpg'); background-repeat:no-repeat; background-size:300% 100% !important; mix-blend-mode:screen; pointer-events:none; z-index:2 !important; opacity:0; transition:opacity 0.2s; }
+  .profile-frame-overlay { position:absolute; inset:0 !important; width:100%; height:100%; border-radius:14px !important; background-image:url('/profile_frames_3sets.jpg'); background-repeat:no-repeat; background-size:300% 100% !important; mix-blend-mode:screen; pointer-events:none; z-index:2 !important; opacity:0; transition:opacity 0.2s; -webkit-mask-image:radial-gradient(circle at center, transparent 58%, black 100%); mask-image:radial-gradient(circle at center, transparent 58%, black 100%); }
   .profile-surface.theme-set1 .profile-frame-overlay { opacity:1; background-position:0% 0%; }
   .profile-surface.theme-set2 .profile-frame-overlay { opacity:1; background-position:50% 0%; }
   .profile-surface.theme-set3 .profile-frame-overlay { opacity:1; background-position:100% 0%; }
@@ -458,9 +491,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .profile-surface.theme-set2 { border:1px solid rgba(255,120,0,0.55); box-shadow:0 0 26px rgba(255,120,0,0.35); background-color:#060911; }
   .profile-surface.theme-set3 { border:1px solid rgba(255,0,60,0.6); box-shadow:0 0 26px rgba(255,0,60,0.4); background-color:#090508; }
 
-  .dp-body { padding:24px 24px 18px 24px; position:relative; z-index:6 !important; flex:1; display:flex; flex-direction:column; gap:6px; overflow:hidden; }
-  .profile-surface[class*="theme-set"] .dp-body { padding:112px 40px 18px 40px !important; }
-  .profile-surface[class*="theme-set"] .cyber-diode-scene { width:100px !important; height:100px !important; margin:-16px auto 0 auto !important; }
+  .dp-body { padding:22px 22px 18px 22px !important; position:relative; z-index:6 !important; flex:1; display:flex; flex-direction:column; gap:6px; overflow:hidden; }
   .dp-nick-line { display:flex; align-items:center; justify-content:center; gap:7px; flex-wrap:wrap; text-align:center; }
   .dp-nick { font-size:17px; font-weight:900; color:#fff; text-shadow:0 2px 6px #000; }
   .dp-status { font-size:11.5px; color:var(--brand); text-align:center; text-shadow:0 1px 4px #000; }
@@ -469,13 +500,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .dp-bio { font-size:11px !important; line-height:1.28 !important; color:#eef8ff !important; white-space:pre-wrap; max-height:42px; overflow:hidden; }
   .dp-tags { display:flex; gap:4px; flex-wrap:wrap; margin-top:2px; max-height:24px; overflow:hidden; }
   .dp-tag { background:rgba(0,240,255,0.12); border:1px solid var(--border); color:var(--brand); padding:1.5px 6px; border-radius:4px; font-size:10px; font-weight:700; }
-  .profile-surface.theme-set1 .dp-sec:nth-of-type(2), .profile-surface.theme-set1 .dp-sec:nth-of-type(3), .profile-surface.theme-set1 .dp-actions-col { margin-left:100px !important; border-color:rgba(184,41,255,0.45) !important; }
-  .profile-surface.theme-set2 .dp-sec:nth-of-type(1), .profile-surface.theme-set2 .dp-sec:nth-of-type(2), .profile-surface.theme-set2 .dp-sec:nth-of-type(3) { margin-right:84px !important; border-color:rgba(255,123,0,0.45) !important; }
-  .profile-surface.theme-set3 .dp-sec:nth-of-type(2), .profile-surface.theme-set3 .dp-sec:nth-of-type(3) { margin-left:54px !important; margin-right:68px !important; border-color:rgba(255,0,60,0.45) !important; }
   .dp-actions-col { display:flex; flex-direction:column; gap:6px; margin-top:auto; padding-top:4px; position:relative; z-index:10 !important; }
   .status-pill { font-size:9.5px; padding:2px 6px; border-radius:4px; font-weight:800; }
   .status-pill.on { background:rgba(16,185,129,0.18); color:var(--green); }
   .status-pill.off { background:rgba(255,255,255,0.06); color:var(--text-muted); }
+
+  .ch-edit-btn { opacity:0; background:transparent; border:none; color:var(--brand); font-size:12px; cursor:pointer; padding:2px 4px; margin-left:4px; transition:opacity 0.15s; z-index:4; }
+  .ch-btn:hover .ch-edit-btn, .voice-ch-box:hover .ch-edit-btn { opacity:1; }
+  .role-pill { display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:800; padding:1.5px 6px; border-radius:4px; border:1px solid currentColor; background:rgba(0,0,0,0.45); }
 
   .photo-upload-bar { display:grid; grid-template-columns:1fr 1fr; gap:10px; background:rgba(0,240,255,0.06); border:1.5px dashed var(--cyan-border); border-radius:10px; padding:12px; }
   .pub-col { display:flex; flex-direction:column; gap:6px; }
@@ -812,7 +844,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       <div class="channels-panel">
         <div class="srv-header">
           <div style="min-width:0;"><div class="srv-sub-label" id="srv-sub-label">ОТКРЫТЫЙ УЗЕЛ</div><div class="srv-title" id="srv-title-label">Ночной клуб</div></div>
-          <span class="srv-badge-open" onclick="openInviteModal()">Ссылка</span>
+          <div style="display:flex;gap:5px;align-items:center;">
+            <span class="srv-badge-open" id="btn-srv-settings" onclick="openServerSettingsModal()" title="Настройки сервера">⚙️</span>
+            <span class="srv-badge-open" onclick="openInviteModal()">Ссылка</span>
+          </div>
         </div>
         <div class="packet-card">
           <div><div class="pk-label">ОЧЕРЕДЬ ПАКЕТОВ</div><div class="pk-val">108.4 FM // P2P</div></div>
@@ -1161,6 +1196,36 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     </div>
   </div>
 
+  <div class="modal-backdrop" id="server-settings-modal" onclick="if(event.target===this)closeServerSettingsModal()">
+    <div class="settings-modal-box">
+      <div class="settings-nav">
+        <div class="settings-nav-label">Настройки сервера</div>
+        <div class="settings-nav-btn active" data-spane="overview" onclick="switchServerSettingsPane('overview')">⬢ Обзор сервера</div>
+        <div class="settings-nav-btn" data-spane="roles" onclick="switchServerSettingsPane('roles')">🛡️ Роли и права</div>
+        <div class="settings-nav-btn" data-spane="members" onclick="switchServerSettingsPane('members')">👥 Выдача ролей</div>
+        <div style="margin-top:auto;padding-top:10px;"><button class="btn-login-mini" style="width:100%;" onclick="closeServerSettingsModal()">✕ ЗАКРЫТЬ</button></div>
+      </div>
+      <div class="settings-content">
+        <div class="settings-pane active" id="spane-overview">
+          <div class="settings-head"><h3>⬢ Обзор сервера</h3><button class="btn-cyan" onclick="saveServerOverview()">СОХРАНИТЬ</button></div>
+          <div class="settings-card">
+            <div><label class="field-label">Название сервера (группы)</label><input type="text" id="ss-srv-name" maxlength="28"></div>
+            <div><label class="field-label">Иконка (2–3 буквы)</label><input type="text" id="ss-srv-icon" maxlength="3"></div>
+            <div><label class="field-label">Описание</label><input type="text" id="ss-srv-desc" maxlength="80"></div>
+          </div>
+        </div>
+        <div class="settings-pane" id="spane-roles">
+          <div class="settings-head"><h3>🛡️ Роли и разрешения</h3><button class="btn-cyan" onclick="createNewRoleUI()">+ НОВАЯ РОЛЬ</button></div>
+          <div id="ss-roles-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+        <div class="settings-pane" id="spane-members">
+          <div class="settings-head"><h3>👥 Назначение ролей участникам</h3></div>
+          <div id="ss-members-roles-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="invite-modal" onclick="if(event.target===this)closeInviteModal()">
     <div class="modal-box"><h3 style="color:var(--brand);font-size:16px;margin-bottom:8px;">⚡ ПРИГЛАСИТЬ ДРУГА</h3><a class="link-box" id="public-invite-url" href="#" target="_blank"></a><button class="btn-cyan" style="width:100%;margin-bottom:6px;" onclick="copyInviteLink()">СКОПИРОВАТЬ ССЫЛКУ</button><button class="btn-login-mini" style="width:100%;" onclick="closeInviteModal()">ЗАКРЫТЬ</button></div>
   </div>
@@ -1415,7 +1480,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   let clientId = Math.random().toString(36).substring(2, 10), evtSource = null, tgSessionToken = '', tgBotUsername = '', tgPollTimer = null;
   let roomMessagesCache = {}, unreadByChannel = {}, cachedMessages = [], profileSyncTimer = null;
-  let serversList = [], currentServerMeta = { id: currentRoom, name: 'Ночной клуб', icon: 'НК', desc: 'Игры и разговоры', textChannels: ['игровая-комната', 'общий', 'знакомства', 'музыка'], voiceChannels: ['Ночной эфир'] };
+  let serversList = [], currentServerMeta = { id: currentRoom, name: 'Ночной клуб', icon: 'НК', desc: 'Игры и разговоры', textChannels: ['игровая-комната', 'общий', 'знакомства', 'музыка'], voiceChannels: ['Ночной эфир'], roles: [], memberRoles: {} };
   let rawMicStream = null, localStream = null, micGainNode = null, audioCtx = null;
   let screenStream = null, webcamStream = null, peer = null, myPeerId = null;
   let inVoice = false, inScreen = false, inWebcam = false, isMuted = false, isDeafened = false;
@@ -1433,6 +1498,152 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
   function playUiBeep(freq, dur) { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(), o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = freq || 580; g.gain.value = 0.05; o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + (dur || 0.06)); } catch (e) {} }
   function formatCallTime(sec) { return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'); }
+
+  function iHavePerm(perm) {
+    if (!currentServerMeta) return false;
+    if (!currentServerMeta.ownerUid) return true;
+    const roles = currentServerMeta.roles || [];
+    const myRoles = (currentServerMeta.memberRoles && myPid && currentServerMeta.memberRoles[myPid]) || [];
+    return myRoles.some(function (rid) {
+      const r = roles.find(function (x) { return x.id === rid; });
+      return r && r.perms && (r.perms.admin || r.perms[perm]);
+    });
+  }
+
+  function getUserPrimaryRole(pid) {
+    if (!currentServerMeta || !pid) return null;
+    const rIds = (currentServerMeta.memberRoles && currentServerMeta.memberRoles[pid]) || [];
+    const roles = currentServerMeta.roles || [];
+    for (let i = 0; i < rIds.length; i++) {
+      const found = roles.find(function (r) { return r.id === rIds[i]; });
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function openServerSettingsModal() {
+    if (!myVerified) return openAuthModal(true);
+    closeMobileDrawers();
+    document.getElementById('ss-srv-name').value = currentServerMeta.name || '';
+    document.getElementById('ss-srv-icon').value = currentServerMeta.icon || '';
+    document.getElementById('ss-srv-desc').value = currentServerMeta.desc || '';
+    renderServerRolesEditor();
+    renderServerMembersRoles();
+    switchServerSettingsPane('overview');
+    document.getElementById('server-settings-modal').classList.add('open');
+  }
+  function closeServerSettingsModal() { document.getElementById('server-settings-modal').classList.remove('open'); }
+  function switchServerSettingsPane(p) {
+    document.querySelectorAll('#server-settings-modal .settings-nav-btn').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-spane') === p); });
+    document.querySelectorAll('#server-settings-modal .settings-pane').forEach(function (elPane) { elPane.classList.toggle('active', elPane.id === 'spane-' + p); });
+  }
+
+  async function saveServerOverview() {
+    const res = await fetch('/api/server/update', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid: myUid, room: currentRoom,
+        name: document.getElementById('ss-srv-name').value.trim(),
+        icon: document.getElementById('ss-srv-icon').value.trim(),
+        desc: document.getElementById('ss-srv-desc').value.trim()
+      })
+    });
+    const d = await res.json();
+    if (d.error) return alert(d.error);
+    alert('Настройки сервера сохранены!');
+  }
+
+  function renderServerRolesEditor() {
+    const box = document.getElementById('ss-roles-list'); if (!box) return;
+    box.innerHTML = '';
+    (currentServerMeta.roles || []).forEach(function (role) {
+      const card = el('div', 'settings-card');
+      card.innerHTML =
+        '<div style="display:flex;gap:8px;align-items:center;">' +
+          '<input type="text" value="' + escapeHtml(role.name) + '" class="r-name-inp" style="flex:1;margin:0;">' +
+          '<input type="color" value="' + escapeHtml(role.color || '#00f0ff') + '" class="r-col-inp" style="width:42px;height:36px;background:none;border:none;cursor:pointer;">' +
+          '<button class="btn-cyan r-save-btn">СОХРАНИТЬ</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text-normal);">' +
+          '<label><input type="checkbox" class="rp-srv" ' + (role.perms && role.perms.manageServer ? 'checked' : '') + '> Настройка сервера</label>' +
+          '<label><input type="checkbox" class="rp-ch" ' + (role.perms && role.perms.manageChannels ? 'checked' : '') + '> Менять каналы</label>' +
+          '<label><input type="checkbox" class="rp-rl" ' + (role.perms && role.perms.manageRoles ? 'checked' : '') + '> Управлять ролями</label>' +
+        '</div>';
+      card.querySelector('.r-save-btn').onclick = async function () {
+        const res = await fetch('/api/server/role-save', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uid: myUid, room: currentRoom, roleId: role.id,
+            name: card.querySelector('.r-name-inp').value.trim(),
+            color: card.querySelector('.r-col-inp').value,
+            perms: {
+              admin: role.id === 'admin',
+              manageServer: card.querySelector('.rp-srv').checked,
+              manageChannels: card.querySelector('.rp-ch').checked,
+              manageRoles: card.querySelector('.rp-rl').checked
+            }
+          })
+        });
+        const d = await res.json();
+        if (d.error) return alert(d.error);
+        alert('Роль «' + card.querySelector('.r-name-inp').value.trim() + '» сохранена!');
+      };
+      box.appendChild(card);
+    });
+  }
+
+  async function createNewRoleUI() {
+    const name = prompt('Название новой роли (например: Стример):');
+    if (!name) return;
+    const res = await fetch('/api/server/role-save', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid: myUid, room: currentRoom, name: name, color: '#10b981', perms: { manageChannels: true } })
+    });
+    const d = await res.json();
+    if (d.error) return alert(d.error);
+    if (d.roles) { currentServerMeta.roles = d.roles; renderServerRolesEditor(); renderServerMembersRoles(); }
+  }
+
+  function renderServerMembersRoles() {
+    const box = document.getElementById('ss-members-roles-list'); if (!box) return;
+    box.innerHTML = '';
+    const roles = currentServerMeta.roles || [];
+    const mRoles = currentServerMeta.memberRoles || {};
+    (lastMembers || []).forEach(function (u) {
+      const row = el('div', 'settings-card');
+      const uRoles = mRoles[u.pid] || [];
+      let html = '<div style="font-weight:800;color:#fff;margin-bottom:4px;">' + escapeHtml(u.nick) + '</div><div style="display:flex;gap:8px;flex-wrap:wrap;">';
+      roles.forEach(function (r) {
+        const has = uRoles.includes(r.id);
+        html += '<label style="font-size:12px;color:' + escapeHtml(r.color) + ';cursor:pointer;"><input type="checkbox" data-pid="' + u.pid + '" data-rid="' + r.id + '" ' + (has ? 'checked' : '') + '> ' + escapeHtml(r.name) + '</label>';
+      });
+      row.innerHTML = html + '</div>';
+      row.querySelectorAll('input[type="checkbox"]').forEach(function (chk) {
+        chk.onchange = async function () {
+          const res = await fetch('/api/server/role-assign', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: myUid, room: currentRoom, targetPid: chk.getAttribute('data-pid'), roleId: chk.getAttribute('data-rid'), assign: chk.checked })
+          });
+          const d = await res.json();
+          if (d.error) { alert(d.error); chk.checked = !chk.checked; }
+        };
+      });
+      box.appendChild(row);
+    });
+  }
+
+  async function promptRenameChannel(type, oldName) {
+    const newName = prompt('Новое название канала «' + oldName + '»:', oldName);
+    if (!newName || newName.trim() === oldName) return;
+    const res = await fetch('/api/channel/rename', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid: myUid, room: currentRoom, type: type, oldName: oldName, newName: newName.trim() })
+    });
+    const d = await res.json();
+    if (d.error) return alert(d.error);
+    if (type === 'text' && currentChannel === oldName && d.newName) currentChannel = d.newName;
+    if (type === 'voice' && currentVoiceChannel === oldName && d.newName) currentVoiceChannel = d.newName;
+  }
 
   function getSubsonicWavUrl() {
     if (subsonicWavUrl) return subsonicWavUrl;
@@ -1784,12 +1995,18 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const nodeLbl = document.getElementById('tt-node-label'); if (nodeLbl) nodeLbl.textContent = currentRoom;
     const tList = currentServerMeta.textChannels || ['общий']; if (!tList.includes(currentChannel)) currentChannel = tList[0] || 'общий';
     const vList = currentServerMeta.voiceChannels || ['Ночной эфир']; if (!inVoice && !vList.includes(currentVoiceChannel)) currentVoiceChannel = vList[0] || 'Ночной эфир';
+    const canEditCh = iHavePerm('manageChannels');
 
     const tBox = document.getElementById('text-channels-list'); tBox.innerHTML = '';
     tList.forEach(function (ch) {
       const row = el('div', 'ch-btn' + (!activeDmPartner && !isFriendsHubMode && ch === currentChannel ? ' active' : '')); row.setAttribute('data-ch', ch);
       const left = el('div', 'ch-left'); left.appendChild(el('span', 'ch-hash', ch.startsWith('голос-') ? '🔊' : '#')); left.appendChild(el('span', 'ch-name-txt', ch)); row.appendChild(left);
       const unread = unreadByChannel[ch] || 0; if (unread > 0 && (activeDmPartner || ch !== currentChannel)) row.appendChild(el('span', 'ch-unread-badge', String(unread)));
+      if (canEditCh) {
+        const ed = el('button', 'ch-edit-btn', '✏️'); ed.title = 'Переименовать канал';
+        ed.onclick = function (ev) { ev.stopPropagation(); promptRenameChannel('text', ch); };
+        row.appendChild(ed);
+      }
       row.onclick = function () { setChannel(ch); }; tBox.appendChild(row);
     });
 
@@ -1801,6 +2018,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const left = el('div', 'ch-left'); left.appendChild(el('span', 'ch-hash', '🔊')); left.appendChild(el('span', 'ch-name-txt', vch)); row.appendChild(left);
       const chMembers = getMembersForSpecificVoiceChannel(vch);
       row.appendChild(el('span', 'off-badge' + (isAct || chMembers.length ? ' on' : ''), isAct ? 'LIVE' : (chMembers.length ? String(chMembers.length) : '')));
+      if (canEditCh) {
+        const ed = el('button', 'ch-edit-btn', '✏️'); ed.title = 'Переименовать канал';
+        ed.onclick = function (ev) { ev.stopPropagation(); promptRenameChannel('voice', vch); };
+        row.appendChild(ed);
+      }
       row.onclick = function () { selectVoiceChannel(vch); };
       group.appendChild(row);
       const peersBox = el('div', 'voice-ch-peers'); peersBox.setAttribute('data-vch-peers', vch); group.appendChild(peersBox);
@@ -1861,7 +2083,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         if (myVerified) pushLocalVaultToServer();
       } else if (data.type === 'servers') {
         serversList = data.payload.list || []; const f = serversList.find(function (s) { return s.id === currentRoom; }); if (f) currentServerMeta = f;
-        renderServersRail(); renderServerChannels(); saveLocalVault();
+        renderServersRail(); renderServerChannels(); renderUsers(lastMembers);
+        if (document.getElementById('server-settings-modal').classList.contains('open')) { renderServerRolesEditor(); renderServerMembersRoles(); }
+        saveLocalVault();
       } else if (data.type === 'msg') {
         const ch = data.payload.channel, msg = data.payload.msg;
         if (!roomMessagesCache[ch]) roomMessagesCache[ch] = []; roomMessagesCache[ch].push(msg); saveLocalVault();
@@ -1899,7 +2123,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         });
         const det = detectFxSetFromInterests(myProfile.interests); if (det) myProfile.fxSet = det;
         try { localStorage.setItem('cyber_profile', JSON.stringify(myProfile)); } catch (err) {}
-        applyNickUI(); renderSocial(); renderUsers(lastMembers); renderDmLeftList();
+        applyNickUI(); renderSocial(); renderUsers(lastMembers); renderServerChannels(); renderDmLeftList();
         if (isFriendsHubMode && !activeDmPartner) renderFriendsCenterDashboard();
         saveLocalVault();
       } else if (data.type === 'voice-join') {
@@ -1956,8 +2180,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const memberObj = (lastMembers || []).find(function (u) { return u.nick === author; }) || (author === myNick ? getMyMemberObject() : { nick: author });
     const setKey = getUserFxSet(memberObj), avaCol = (memberObj && memberObj.avatarColor) || '#3b82f6';
     const avaImg = (memberObj && (isMeUser(memberObj) ? myProfile.avatarImg : memberObj.avatarImg)) || '';
+    const role = memberObj && memberObj.pid ? getUserPrimaryRole(memberObj.pid) : null;
+    const roleHtml = role ? '<span class="role-pill" style="color:' + escapeHtml(role.color) + ';">' + escapeHtml(role.name) + '</span>' : '';
     const div = el('div', 'msg-item');
-    div.innerHTML = '<div style="cursor:pointer;margin-top:2px;">' + buildMiniHexAvatarHTML(author.slice(0, 2).toUpperCase(), avaCol, setKey, 40, '', avaImg) + '</div><div style="flex:1;min-width:0;"><div class="msg-head-line"><span class="msg-author">' + escapeHtml(author) + '</span>' + getBadgeHTML(setKey) + '<span class="msg-time">' + escapeHtml(m.time) + '</span></div><div class="msg-text">' + buildMessageBodyHTML(m.text, viol) + '</div></div>';
+    div.innerHTML = '<div style="cursor:pointer;margin-top:2px;">' + buildMiniHexAvatarHTML(author.slice(0, 2).toUpperCase(), avaCol, setKey, 40, '', avaImg) + '</div><div style="flex:1;min-width:0;"><div class="msg-head-line"><span class="msg-author" style="' + (role ? 'color:' + escapeHtml(role.color) + ';' : '') + '">' + escapeHtml(author) + '</span>' + roleHtml + getBadgeHTML(setKey) + '<span class="msg-time">' + escapeHtml(m.time) + '</span></div><div class="msg-text">' + buildMessageBodyHTML(m.text, viol) + '</div></div>';
     div.querySelector('.hex-wrap').onclick = function () { openUserProfileCard(memberObj); };
     div.querySelector('.msg-author').onclick = function () { openUserProfileCard(memberObj); };
     box.appendChild(div);
@@ -2001,6 +2227,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function renderMemberRow(u, friendPids) {
     const d = el('div', 'online-user-item' + (u.online ? ' is-online' : '')); if (!u.online) d.style.opacity = '0.55';
     const isSelf = isMeUser(u), setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
+    const role = getUserPrimaryRole(u.pid);
     const avaHolder = document.createElement('div');
     const aImg = (isSelf ? myProfile.avatarImg : u.avatarImg) || '';
     avaHolder.innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 36, u.online ? (u.presence || 'online') : 'off', aImg);
@@ -2008,10 +2235,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
     const col = el('div', 'member-text-col'), nr = el('div', 'member-nick-row');
     const nickTxt = el('span', '', u.nick + (u.inVoice ? ' 🔊' : '') + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : ''));
-    nickTxt.style.cssText = 'overflow:hidden;text-overflow:ellipsis;'; nr.appendChild(nickTxt);
+    nickTxt.style.cssText = 'overflow:hidden;text-overflow:ellipsis;' + (role ? 'color:' + role.color + ';' : '');
+    nr.appendChild(nickTxt);
     if (fxMeta) { const bs = document.createElement('span'); bs.innerHTML = getBadgeHTML(setKey); if (bs.firstChild) nr.appendChild(bs.firstChild); }
     col.appendChild(nr);
-    if (u.customStatus && !checkContentViolation(u.customStatus).length) col.appendChild(el('div', 'member-status-sub', u.customStatus));
+    const subText = role ? role.name : (u.customStatus && !checkContentViolation(u.customStatus).length ? u.customStatus : '');
+    if (subText) col.appendChild(el('div', 'member-status-sub', subText));
     d.appendChild(col);
 
     if (!isSelf && u.pid) {
@@ -2104,8 +2333,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function closeSettingsModal() { recordingAction = null; stopMicTest(); document.getElementById('settings-modal').classList.remove('open'); setMobActiveTab('mob-tab-chat'); }
   function switchSettingsPane(pId) {
     recordingAction = null; renderKeybindsUI();
-    document.querySelectorAll('.settings-nav-btn').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-pane') === pId); });
-    document.querySelectorAll('.settings-pane').forEach(function (p) { p.classList.toggle('active', p.id === 'pane-' + pId); });
+    document.querySelectorAll('#settings-modal .settings-nav-btn').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-pane') === pId); });
+    document.querySelectorAll('#settings-modal .settings-pane').forEach(function (p) { p.classList.toggle('active', p.id === 'pane-' + pId); });
     if (pId !== 'voice') stopMicTest();
   }
 
@@ -2721,7 +2950,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       }
       return;
     }
-    if (e.key === 'Escape') { closeSettingsModal(); closeViewProfileModal(); closeInviteModal(); closeMobileDrawers(); return; }
+    if (e.key === 'Escape') { closeSettingsModal(); closeServerSettingsModal(); closeViewProfileModal(); closeInviteModal(); closeMobileDrawers(); return; }
     const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     const pressed = eventToComboString(e);
@@ -2860,6 +3089,77 @@ const server = http.createServer(async (req, res) => {
         });
       }
       return sendJson(res, 200, { ok: true, users: memberList(room) });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/server/update') {
+      const body = await readBody(req), uid = body.uid, room = safeRoom(body.room);
+      if (!hasServerPerm(room, uid, 'manageServer')) return sendJson(res, 403, { error: 'Нет прав на настройку сервера!' });
+      const meta = ensureServer(room);
+      if (body.name) meta.name = String(body.name).trim().slice(0, 28) || meta.name;
+      if (body.desc !== undefined) meta.desc = String(body.desc).trim().slice(0, 80);
+      if (body.icon) meta.icon = String(body.icon).trim().toUpperCase().slice(0, 3) || meta.icon;
+      scheduleSave(room); broadcastServers();
+      return sendJson(res, 200, { ok: true, current: meta });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/channel/rename') {
+      const body = await readBody(req), uid = body.uid, room = safeRoom(body.room);
+      if (!hasServerPerm(room, uid, 'manageChannels')) return sendJson(res, 403, { error: 'Нет прав на изменение каналов!' });
+      const meta = ensureServer(room), type = body.type === 'voice' ? 'voice' : 'text', oldName = String(body.oldName || '').trim();
+      if (type === 'text') {
+        const newName = cleanChannelName(body.newName).toLowerCase();
+        if (!newName) return sendJson(res, 400, { error: 'Некорректное имя канала' });
+        const idx = meta.textChannels.indexOf(oldName);
+        if (idx === -1) return sendJson(res, 404, { error: 'Канал не найден' });
+        if (meta.textChannels.includes(newName)) return sendJson(res, 400, { error: 'Такое имя уже занято' });
+        meta.textChannels[idx] = newName;
+        rooms[room][newName] = rooms[room][oldName] || [];
+        delete rooms[room][oldName];
+        scheduleSave(room); broadcastServers();
+        return sendJson(res, 200, { ok: true, newName });
+      } else {
+        const newName = String(body.newName || '').trim().slice(0, 28);
+        if (!newName) return sendJson(res, 400, { error: 'Введите новое имя' });
+        const idx = meta.voiceChannels.indexOf(oldName);
+        if (idx === -1) return sendJson(res, 404, { error: 'Канал не найден' });
+        meta.voiceChannels[idx] = newName;
+        clients.forEach(c => { if ((c.voiceRoom || c.room) === room && c.voiceChannel === oldName) c.voiceChannel = newName; });
+        scheduleSave(room); broadcastServers(); broadcastUsers(room);
+        return sendJson(res, 200, { ok: true, newName });
+      }
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/server/role-save') {
+      const body = await readBody(req), uid = body.uid, room = safeRoom(body.room);
+      if (!hasServerPerm(room, uid, 'manageRoles')) return sendJson(res, 403, { error: 'Нет прав на управление ролями!' });
+      const meta = ensureServer(room);
+      const rId = String(body.roleId || '').trim() || ('role_' + crypto.randomBytes(3).toString('hex'));
+      const rName = String(body.name || 'Новая роль').trim().slice(0, 24);
+      const rColor = cleanColor(body.color, '#00f0ff');
+      const perms = {
+        admin: !!(body.perms && body.perms.admin),
+        manageServer: !!(body.perms && body.perms.manageServer),
+        manageChannels: !!(body.perms && body.perms.manageChannels),
+        manageRoles: !!(body.perms && body.perms.manageRoles)
+      };
+      const ex = meta.roles.find(x => x.id === rId);
+      if (ex) { ex.name = rName; ex.color = rColor; if (ex.id !== 'admin') ex.perms = perms; }
+      else { meta.roles.push({ id: rId, name: rName, color: rColor, perms }); }
+      scheduleSave(room); broadcastServers();
+      return sendJson(res, 200, { ok: true, roles: meta.roles });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/server/role-assign') {
+      const body = await readBody(req), uid = body.uid, room = safeRoom(body.room);
+      if (!hasServerPerm(room, uid, 'manageRoles')) return sendJson(res, 403, { error: 'Нет прав на выдачу ролей!' });
+      const meta = ensureServer(room), targetPid = String(body.targetPid || '').trim(), roleId = String(body.roleId || '').trim();
+      if (!validPid(targetPid)) return sendJson(res, 400, { error: 'Неверный участник' });
+      const cur = meta.memberRoles[targetPid] || [];
+      if (body.assign) { if (!cur.includes(roleId)) cur.push(roleId); }
+      else { const i = cur.indexOf(roleId); if (i >= 0) cur.splice(i, 1); }
+      meta.memberRoles[targetPid] = cur;
+      scheduleSave(room); broadcastServers(); broadcastUsers(room);
+      return sendJson(res, 200, { ok: true });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/direct-call') {
@@ -3060,10 +3360,12 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/server/create') {
       const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Сначала войдите!' });
-      ensureUser(uid, body.nick || 'Участник', true);
+      const u = ensureUser(uid, body.nick || 'Участник', true);
       const name = String(body.name || '').trim().slice(0, 28); if (!name) return sendJson(res, 400, { error: 'Введите название сервера!' });
       const newId = 'cy-' + crypto.randomBytes(2).toString('hex');
-      ensureServer(newId, name, String(body.desc || '').trim().slice(0, 80)); addMember(newId, uid);
+      const meta = ensureServer(newId, name, String(body.desc || '').trim().slice(0, 80), '', uid);
+      meta.memberRoles[u.pid] = ['admin'];
+      addMember(newId, uid);
       rooms[newId]['игровая-комната'].push({ author: 'СИСТЕМА GEEK', time: '00:00', text: 'Сервер «' + name + '» создан!' });
       scheduleSave(newId); broadcastServers();
       return sendJson(res, 200, { ok: true, serverId: newId });
@@ -3073,6 +3375,8 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Сначала войдите!' });
       ensureUser(uid, body.nick || 'Участник', true);
       const room = safeRoom(body.room), meta = ensureServer(room), type = body.type === 'voice' ? 'voice' : 'text';
+      const isAutoVoiceChat = type === 'text' && String(body.name || '').trim().toLowerCase().startsWith('голос-');
+      if (!isAutoVoiceChat && !hasServerPerm(room, uid, 'manageChannels')) return sendJson(res, 403, { error: 'Нет прав на создание каналов!' });
       if (type === 'text') {
         const ch = cleanChannelName(body.name).toLowerCase(); if (!ch) return sendJson(res, 400, { error: 'Неверное имя!' });
         if (!meta.textChannels.includes(ch)) meta.textChannels.push(ch); if (!rooms[room][ch]) rooms[room][ch] = [];
