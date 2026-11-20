@@ -663,6 +663,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .stage-resize-handle { height:10px; width:100%; cursor:ns-resize; display:flex; align-items:center; justify-content:center; background:rgba(0,240,255,0.06); border-top:1px solid var(--border); flex-shrink:0; touch-action:none; }
   .stage-resize-handle::after { content:''; width:44px; height:4px; border-radius:4px; background:var(--brand); opacity:0.65; }
 
+  /* ЧИСТЫЙ ПОЛНОЭКРАННЫЙ РЕЖИМ БЕЗ ГОСТИНГА МЫШКИ */
+  .screen-video-wrap:fullscreen, .screen-video-wrap:-webkit-full-screen { width:100vw !important; height:100vh !important; max-height:100vh !important; background:#000 !important; display:flex !important; align-items:center !important; justify-content:center !important; padding:0 !important; margin:0 !important; }
+  .screen-video-wrap:fullscreen video, .screen-video-wrap:-webkit-full-screen video { width:100% !important; height:100% !important; max-height:100vh !important; object-fit:contain !important; background:#000 !important; transform:none !important; filter:none !important; }
+
   .chat-scroll-area { flex:1; overflow-y:auto; padding:8px 12px; display:flex; flex-direction:column; gap:6px; min-height:0; }
   .messages-container { display:flex; flex-direction:column; gap:8px; }
   .msg-item { display:flex; gap:14px; padding:10px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; overflow:visible; }
@@ -1846,6 +1850,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     renderDmLeftList();
     if (window.innerWidth <= 900 && !document.body.classList.contains('mob-left-open')) toggleMobileLeft();
     renderFriendsCenterDashboard();
+    updateMediaStageVisibility();
   }
 
   function renderFriendsCenterDashboard() {
@@ -1942,6 +1947,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     } catch (e) {}
     cachedMessages = dmConversations[u.pid].messages || [];
     rerenderChatMessages();
+    updateMediaStageVisibility();
   }
 
   function switchAuthTab(m) {
@@ -2047,7 +2053,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.body.classList.remove('friends-hub-active');
     const subLbl = document.getElementById('srv-sub-label'); if (subLbl) subLbl.textContent = 'ОТКРЫТЫЙ УЗЕЛ';
     const hubPill = document.getElementById('friends-hub-pill'); if (hubPill) hubPill.classList.remove('active');
-    if (!clean || clean === currentRoom) { renderServersRail(); renderServerChannels(); closeMobileDrawers(); return; }
+    if (!clean || clean === currentRoom) { renderServersRail(); renderServerChannels(); closeMobileDrawers(); updateMediaStageVisibility(); return; }
     currentRoom = clean; unreadByChannel = {}; roomMessagesCache = {};
     try { localStorage.setItem('cyber_last_room', currentRoom); } catch (e) {}
     const found = serversList.find(function (s) { return s.id === currentRoom; });
@@ -2055,7 +2061,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       currentServerMeta = found; currentChannel = found.textChannels[0] || 'общий';
       if (!inVoice) currentVoiceChannel = found.voiceChannels[0] || 'Ночной эфир';
     }
-    updateBrowserUrl(); renderServersRail(); renderServerChannels(); closeMobileDrawers();
+    updateBrowserUrl(); renderServersRail(); renderServerChannels(); closeMobileDrawers(); updateMediaStageVisibility();
     try {
       const res = await fetch('/api/switch-room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, nick: myNick }) });
       const data = await res.json();
@@ -2533,6 +2539,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     currentChannel = ch; unreadByChannel[ch] = 0;
     updateBrowserUrl(); renderServersRail(); applyChannelUI(ch); renderServerChannels();
     cachedMessages = roomMessagesCache[ch] || []; rerenderChatMessages(); closeMobileDrawers();
+    updateMediaStageVisibility();
   }
 
   function jumpToActiveVoiceChannel() { closeMobileDrawers(); setMobActiveTab('mob-tab-voice'); selectVoiceChannel(currentVoiceChannel || 'Ночной эфир'); }
@@ -2555,6 +2562,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const d = await postVoiceState({ inVoice: true, inScreen: inScreen, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel, voiceRoom: activeVoiceRoom });
       if (d && Array.isArray(d.peers)) connectToExistingVoicePeers(d.peers);
     }
+    updateMediaStageVisibility();
   }
 
   async function startDirectCallToUser(u) {
@@ -2568,7 +2576,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
     openDirectChatWithUser(u);
     await ensureVoiceConnected();
-    updateVoicePanelUI(); renderServerChannels();
+    updateVoicePanelUI(); renderServerChannels(); updateMediaStageVisibility();
 
     await fetch('/api/direct-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: u.pid, action: 'ring', peerId: myPeerId, callRoom: DEFAULT_ROOM, callChannel: dmVoiceKey }) }).catch(function () {});
   }
@@ -2585,7 +2593,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
     openDirectChatWithUser(callerObj);
     await ensureVoiceConnected();
-    updateVoicePanelUI(); renderServerChannels();
+    updateVoicePanelUI(); renderServerChannels(); updateMediaStageVisibility();
 
     if (d.peerId) connectToExistingVoicePeers([d.peerId]);
     fetch('/api/direct-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: d.fromPid, action: 'accept', peerId: myPeerId, callRoom: DEFAULT_ROOM, callChannel: currentVoiceChannel }) }).catch(function () {});
@@ -2875,10 +2883,20 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('btn-stage-spot').classList.toggle('active', stageLayoutMode === 'spotlight');
     if (stageLayoutMode === 'spotlight' && !grid.querySelector('.featured-tile') && grid.firstElementChild) grid.firstElementChild.classList.add('featured-tile');
   }
+
   function updateMediaStageVisibility() {
     const grid = document.getElementById('screen-grid'), dock = document.getElementById('media-stage-dock');
-    if (grid && dock) dock.classList.toggle('show', grid.children.length > 0);
+    if (!grid || !dock) return;
+    if (!grid.children.length) { dock.classList.remove('show'); return; }
+    let shouldShow = false;
+    if (inDirectCall && directCallPartner) {
+      shouldShow = !!(isFriendsHubMode && activeDmPartner && activeDmPartner.pid === directCallPartner.pid);
+    } else if (inVoice) {
+      shouldShow = !isFriendsHubMode && !activeDmPartner && (activeVoiceRoom === currentRoom);
+    }
+    dock.classList.toggle('show', shouldShow);
   }
+
   function toggleMediaNsfwShield(card, btn) { if (!card) return; const m = card.classList.toggle('nsfw-masked'); if (btn) btn.textContent = m ? '👁️ Показать' : '🛡️ 18+'; }
 
   function renderMediaTile(id, stream, title, isLocal, kind) {
@@ -2893,13 +2911,28 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       };
       const head = el('div', 'screen-card-head'), left = el('div', ''), right = el('div', ''); right.style.cssText = 'display:flex;gap:5px;align-items:center;';
       left.appendChild(el('span', '', icon + title)); left.appendChild(el('span', 'screen-live-pill' + (kind === 'cam' ? ' cam' : ''), kind === 'cam' ? 'КАМЕРА' : 'СТРИМ'));
-      const sBtn = el('button', 'btn-fs', '🛡️ 18+'); sBtn.onclick = function () { toggleMediaNsfwShield(card, sBtn); }; right.appendChild(sBtn);
-      const fsBtn = el('button', 'btn-fs', '⛶'); fsBtn.onclick = function () { const v = card.querySelector('video'); if (v && v.requestFullscreen) v.requestFullscreen(); }; right.appendChild(fsBtn);
-      if (isLocal) { const stBtn = el('button', 'btn-fs', '✕'); stBtn.style.background = '#ff1e56'; stBtn.style.color = '#fff'; stBtn.onclick = function () { if (kind === 'cam') stopWebcam(false); else stopScreenShare(false); }; right.appendChild(stBtn); }
+      const sBtn = el('button', 'btn-fs', '🛡️ 18+'); sBtn.onclick = function (ev) { ev.stopPropagation(); toggleMediaNsfwShield(card, sBtn); }; right.appendChild(sBtn);
+      const fsBtn = el('button', 'btn-fs', '⛶');
+      fsBtn.onclick = function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const wrapEl = card.querySelector('.screen-video-wrap');
+        if (!wrapEl) return;
+        const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+        if (fsEl) {
+          if (document.exitFullscreen) document.exitFullscreen().catch(function () {});
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } else {
+          if (wrapEl.requestFullscreen) wrapEl.requestFullscreen().catch(function () {});
+          else if (wrapEl.webkitRequestFullscreen) wrapEl.webkitRequestFullscreen();
+        }
+      };
+      right.appendChild(fsBtn);
+      if (isLocal) { const stBtn = el('button', 'btn-fs', '✕'); stBtn.style.background = '#ff1e56'; stBtn.style.color = '#fff'; stBtn.onclick = function (ev) { ev.stopPropagation(); if (kind === 'cam') stopWebcam(false); else stopScreenShare(false); }; right.appendChild(stBtn); }
       head.appendChild(left); head.appendChild(right);
       const wrap = el('div', 'screen-video-wrap'), vid = document.createElement('video'); vid.autoplay = true; vid.playsInline = true; if (isLocal) vid.muted = true;
       const shield = el('div', 'media-nsfw-shield'); shield.innerHTML = '<div>🔞 Скрыто фильтром 18+</div><span class="btn-cyan" style="padding:4px 10px;font-size:10px;">👁️ Показать</span>';
-      shield.onclick = function () { toggleMediaNsfwShield(card, sBtn); };
+      shield.onclick = function (ev) { ev.stopPropagation(); toggleMediaNsfwShield(card, sBtn); };
       wrap.appendChild(vid); wrap.appendChild(shield); card.appendChild(head); card.appendChild(wrap); grid.appendChild(card);
     }
     const vEl = card.querySelector('video'); if (vEl && vEl.srcObject !== stream) { vEl.srcObject = stream; vEl.play().catch(function () {}); }
