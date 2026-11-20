@@ -95,16 +95,8 @@ function hasServerPerm(room, uid, perm) {
   });
 }
 
-function getRoom(r) {
-  ensureServer(r);
-  return rooms[r];
-}
-
-function safeChannel(r, c) {
-  const m = ensureServer(r);
-  return m.textChannels.includes(String(c || '').trim()) ? String(c).trim() : m.textChannels[0];
-}
-
+function getRoom(r) { ensureServer(r); return rooms[r]; }
+function safeChannel(r, c) { const m = ensureServer(r); return m.textChannels.includes(String(c || '').trim()) ? String(c).trim() : m.textChannels[0]; }
 function safeVoiceChannel(r, c) {
   const s = String(c || '').trim();
   if (s.startsWith('__dm__')) return s.slice(0, 64);
@@ -118,7 +110,7 @@ ensureServer('ma-club', 'Мастерская', 'Музыка, творчест�
 if (!rooms[DEFAULT_ROOM]['игровая-комната'].length) {
   rooms[DEFAULT_ROOM]['игровая-комната'].push({
     author: 'СИСТЕМА GEEK', time: '00:00',
-    text: 'Добро пожаловать в GEEK // CYBER.NET! Настройки сервера, роли, переименование каналов и P2P-связь активны.'
+    text: 'Добро пожаловать в GEEK // CYBER.NET! Темы, режим стримера, поиск, роли и P2P-связь активны.'
   });
 }
 
@@ -446,10 +438,16 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     --brand:#00f0ff; --brand-hover:#66f7ff; --pink:#ff2a85; --green:#10b981; --red:#ff1e56; --yellow:#fcee09;
     --text-main:#e6f7ff; --text-normal:#b4cde0; --text-muted:#63809b; --text-dim:#3b536b;
     --border:rgba(0,240,255,0.16); --pink-border:rgba(255,42,133,0.48); --cyan-border:rgba(0,240,255,0.4);
-    --chat-font-size:14px;
+    --chat-font-size:14px; --msg-gap:8px;
     --hex-regular:polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%);
     --pcb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='none' stroke='%2300f0ff' stroke-width='0.8' stroke-opacity='0.05'%3E%3Cpath d='M0 20h30l15 15v30l15 15h40l20-20h20M20 0v25l20 20h35l15-15h50M0 95h25l20 20v25M80 140v-25l20-20h40'/%3E%3C/g%3E%3C/svg%3E");
   }
+  :root[data-theme="edgerunner"] { --bg-darkest:#08070f; --bg-channels:#0d0b18; --bg-chat:#100d1e; --bg-card:rgba(20,16,36,0.92); --brand:#fcee09; --pink:#ff2a85; --border:rgba(252,238,9,0.22); --cyan-border:rgba(252,238,9,0.45); --bg-hover:rgba(252,238,9,0.1); --bg-active:rgba(252,238,9,0.18); }
+  :root[data-theme="samurai"]    { --bg-darkest:#090406; --bg-channels:#110609; --bg-chat:#14070b; --bg-card:rgba(26,10,15,0.92); --brand:#ff1e56; --pink:#ff7b00; --border:rgba(255,30,86,0.24); --cyan-border:rgba(255,30,86,0.5); --bg-hover:rgba(255,30,86,0.11); --bg-active:rgba(255,30,86,0.2); }
+  :root[data-theme="matrix"]     { --bg-darkest:#020a05; --bg-channels:#041209; --bg-chat:#05160b; --bg-card:rgba(6,24,13,0.92); --brand:#10b981; --pink:#00ff88; --border:rgba(16,185,129,0.24); --cyan-border:rgba(16,185,129,0.5); --bg-hover:rgba(16,185,129,0.11); --bg-active:rgba(16,185,129,0.2); }
+  :root[data-theme="arasaka"]    { --bg-darkest:#090704; --bg-channels:#120e07; --bg-chat:#161108; --bg-card:rgba(28,22,10,0.92); --brand:#f59e0b; --pink:#fde047; --border:rgba(245,158,11,0.24); --cyan-border:rgba(245,158,11,0.5); --bg-hover:rgba(245,158,11,0.11); --bg-active:rgba(245,158,11,0.2); }
+  :root[data-theme="void"]       { --bg-darkest:#06030d; --bg-channels:#0b0617; --bg-chat:#0e081d; --bg-card:rgba(18,11,34,0.92); --brand:#b829ff; --pink:#00f0ff; --border:rgba(184,41,255,0.24); --cyan-border:rgba(184,41,255,0.5); --bg-hover:rgba(184,41,255,0.11); --bg-active:rgba(184,41,255,0.2); }
+
   @keyframes eqPulse { 0%,100%{transform:scaleY(0.25);opacity:0.45;} 50%{transform:scaleY(1);opacity:1;} }
   @keyframes badgeFlow { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
   @keyframes speakWave { 0%,100%{transform:scaleY(0.35);opacity:0.6;} 50%{transform:scaleY(1.15);opacity:1;} }
@@ -458,7 +456,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
   html, body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,sans-serif; background-color:var(--bg-darkest); background-image:var(--pcb); color:var(--text-main); width:100%; height:100vh; height:100dvh; display:flex; flex-direction:column; overflow:hidden; user-select:none; overscroll-behavior:none; padding-top:env(safe-area-inset-top, 0px); }
 
-  /* РАМКИ АВАТАРА СТРОГО ПО КРАЮ */
+  .streamer-banner { display:none; background:#6d28d9; color:#fff; font-size:11px; font-weight:800; padding:4px 12px; text-align:center; letter-spacing:0.5px; flex-shrink:0; }
+  body.streamer-mode .streamer-banner { display:flex; align-items:center; justify-content:space-between; }
+  body.streamer-mode .tt-invite-btn, body.streamer-mode .link-box, body.streamer-mode #device-link-code-box { filter:blur(7px); pointer-events:none; }
+  body.streamer-mode #tt-node-label { filter:blur(5px); }
+
   .hex-wrap { position:relative; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0 !important; aspect-ratio:1 / 1 !important; overflow:visible !important; }
   .hex-border { position:relative; width:100%; height:100%; clip-path:var(--hex-regular); background:rgba(0,240,255,0.35); display:flex; align-items:center; justify-content:center; padding:2px; overflow:hidden; z-index:1; }
   .hex-wrap.has-custom-frame .hex-border { width:82% !important; height:82% !important; margin:0 !important; clip-path:var(--hex-regular) !important; padding:0; background:transparent; }
@@ -479,7 +481,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .cyber-badge.b-set2 { background-image:linear-gradient(90deg,#ff6a00,#fcee09,#00f0ff); color:#04120c; box-shadow:0 0 8px rgba(255,106,0,0.65); }
   .cyber-badge.b-set3 { background-image:linear-gradient(90deg,#ff003c,#ff5500,#ff003c); color:#fff; box-shadow:0 0 8px rgba(255,0,60,0.7); }
 
-  /* РАМКА ПРОФИЛЯ СТРОГО ПО ВНЕШНЕМУ КРАЮ */
   .profile-surface { position:relative; background:#060a12; border:1px solid var(--border); border-radius:14px !important; overflow:hidden; transition:0.25s; background-size:cover; background-position:center; }
   #preview-surface, .profile-slide-drawer .profile-surface { width:100% !important; max-width:360px !important; aspect-ratio:360 / 515 !important; height:auto !important; max-height:525px !important; margin:0 auto !important; flex:0 0 auto !important; display:flex !important; flex-direction:column !important; }
   .profile-custom-bg { position:absolute; inset:0; width:100%; height:100%; background-size:cover; background-position:center; opacity:0.45; pointer-events:none; z-index:1; }
@@ -505,9 +506,18 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .status-pill.on { background:rgba(16,185,129,0.18); color:var(--green); }
   .status-pill.off { background:rgba(255,255,255,0.06); color:var(--text-muted); }
 
-  .ch-edit-btn { opacity:0; background:transparent; border:none; color:var(--brand); font-size:12px; cursor:pointer; padding:2px 4px; margin-left:4px; transition:opacity 0.15s; z-index:4; }
+  .ch-edit-btn { opacity:0; background:transparent; border:none; color:var(--brand); font-size:12px; cursor:pointer; padding:2px 4px; margin-left:2px; transition:opacity 0.15s; z-index:4; }
   .ch-btn:hover .ch-edit-btn, .voice-ch-box:hover .ch-edit-btn { opacity:1; }
   .role-pill { display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:800; padding:1.5px 6px; border-radius:4px; border:1px solid currentColor; background:rgba(0,0,0,0.45); }
+
+  .theme-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .theme-card { padding:10px; border-radius:8px; border:1.5px solid var(--border); cursor:pointer; display:flex; flex-direction:column; gap:5px; background:#040810; transition:0.15s; }
+  .theme-card.active { border-color:var(--brand); box-shadow:0 0 12px rgba(0,240,255,0.35); }
+  .theme-dots { display:flex; gap:5px; }
+  .theme-dot { width:14px; height:14px; border-radius:50%; }
+  .icon-picker-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+  .app-icon-opt { height:44px; border-radius:8px; border:1.5px solid var(--border); background:#040810; font-size:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .app-icon-opt.active { border-color:var(--brand); background:var(--bg-active); }
 
   .photo-upload-bar { display:grid; grid-template-columns:1fr 1fr; gap:10px; background:rgba(0,240,255,0.06); border:1.5px dashed var(--cyan-border); border-radius:10px; padding:12px; }
   .pub-col { display:flex; flex-direction:column; gap:6px; }
@@ -614,6 +624,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .svd-channel-name { font-size:12px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .svd-hangup-btn { background:rgba(255,42,133,0.22); border:1px solid var(--pink); color:#ff80a0; padding:5px 9px; border-radius:5px; font-size:11px; font-weight:800; cursor:pointer; }
   .svd-connect-btn { background:var(--brand); border:none; color:#031518; padding:5px 10px; border-radius:5px; font-size:10.5px; font-weight:800; cursor:pointer; }
+  .return-call-btn { display:none; width:100%; background:linear-gradient(90deg,#10b981,#00f0ff); color:#031518; border:none; padding:6px 8px; border-radius:6px; font-size:11px; font-weight:900; cursor:pointer; text-transform:uppercase; }
+  .return-call-btn.show { display:block; }
   .svd-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
   .svd-btn { background:#0d1829; border:1px solid var(--border); color:var(--text-normal); padding:6px 4px; border-radius:5px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; }
   .svd-btn.active-cam { background:rgba(16,185,129,0.25); border-color:var(--green); color:#6ee7b7; }
@@ -633,10 +645,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .ash-left { display:flex; align-items:center; gap:8px; min-width:0; }
   .ash-label { font-size:9.5px; font-weight:800; color:var(--brand); text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .ash-channel { font-size:14px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .ash-wave { flex:1; height:24px; display:flex; align-items:center; justify-content:center; gap:3px; overflow:hidden; max-width:340px; }
+  .ash-wave { flex:1; height:24px; display:flex; align-items:center; justify-content:center; gap:3px; overflow:hidden; max-width:260px; }
   .ash-bar { width:3px; height:100%; background:var(--brand); border-radius:2px; opacity:0.35; transform:scaleY(0.25); }
   body.voice-live .ash-bar { animation:eqPulse 0.9s ease-in-out infinite; }
   .ash-right { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+
+  .chat-search-wrap { display:flex; align-items:center; background:#050a12; border:1px solid var(--border); border-radius:6px; padding:0 8px; height:30px; }
+  body.hide-search-bar .chat-search-wrap { display:none !important; }
+  .chat-search-inp { background:transparent; border:none; color:#fff; font-size:12px; width:130px; outline:none; }
 
   .media-stage-dock { position:relative; margin:4px 12px; background:rgba(5,10,18,0.95); border:1px solid var(--cyan-border); border-radius:10px; padding:8px; display:none; flex-direction:column; gap:6px; height:var(--stage-height, 250px); min-height:42px; overflow:hidden; flex-shrink:0; }
   .media-stage-dock.show { display:flex; }
@@ -663,14 +679,15 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .stage-resize-handle { height:10px; width:100%; cursor:ns-resize; display:flex; align-items:center; justify-content:center; background:rgba(0,240,255,0.06); border-top:1px solid var(--border); flex-shrink:0; touch-action:none; }
   .stage-resize-handle::after { content:''; width:44px; height:4px; border-radius:4px; background:var(--brand); opacity:0.65; }
 
-  /* ЧИСТЫЙ ПОЛНОЭКРАННЫЙ РЕЖИМ БЕЗ ГОСТИНГА МЫШКИ */
   .screen-video-wrap:fullscreen, .screen-video-wrap:-webkit-full-screen { width:100vw !important; height:100vh !important; max-height:100vh !important; background:#000 !important; display:flex !important; align-items:center !important; justify-content:center !important; padding:0 !important; margin:0 !important; }
   .screen-video-wrap:fullscreen video, .screen-video-wrap:-webkit-full-screen video { width:100% !important; height:100% !important; max-height:100vh !important; object-fit:contain !important; background:#000 !important; transform:none !important; filter:none !important; }
 
   .chat-scroll-area { flex:1; overflow-y:auto; padding:8px 12px; display:flex; flex-direction:column; gap:6px; min-height:0; }
-  .messages-container { display:flex; flex-direction:column; gap:8px; }
+  .messages-container { display:flex; flex-direction:column; gap:var(--msg-gap, 8px); }
   .msg-item { display:flex; gap:14px; padding:10px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; overflow:visible; }
   body.compact-chat .msg-item { padding:6px 10px; }
+  body.hide-timestamps .msg-time { display:none !important; }
+  body.hide-inline-media .chat-inline-media, body.hide-inline-media .chat-inline-video { display:none !important; }
   .msg-head-line { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .msg-author { font-size:13.5px; font-weight:800; color:var(--brand); cursor:pointer; }
   .msg-time { font-size:10.5px; color:var(--text-muted); font-family:monospace; }
@@ -795,6 +812,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     body.mob-right-open .right-panel { transform:translateX(0); }
     body.mob-left-open .mob-drawer-backdrop, body.mob-right-open .mob-drawer-backdrop { display:block; }
     .audio-stream-header-card { margin:6px 10px 2px; padding:8px 10px; }
+    .chat-search-inp { width:90px; }
     .chat-scroll-area { padding:6px 10px; }
     .chat-bottom { padding:4px 10px 6px; }
     .chat-inp { font-size:16px; padding:8px 10px; }
@@ -806,12 +824,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     .settings-nav-btn { border-left:none; border-bottom:2px solid transparent; padding:7px 10px; }
     .settings-nav-btn.active { border-left:none; border-bottom:2px solid var(--brand); }
     .settings-content { padding:14px; }
-    .settings-grid-2,.photo-upload-bar,.fx-bundle-card,.fxb-left { grid-template-columns:1fr; flex-direction:column; align-items:flex-start; }
+    .settings-grid-2,.photo-upload-bar,.fx-bundle-card,.fxb-left,.theme-grid { grid-template-columns:1fr; flex-direction:column; align-items:flex-start; }
     .fx-bundle-card button { width:100%; }
   }
 </style>
 </head>
 <body>
+  <div class="streamer-banner" id="streamer-banner">
+    <span>🟣 РЕЖИМ СТРИМЕРА АКТИВЕН — ССЫЛКИ, КОДЫ И ЗВУКИ УВЕДОМЛЕНИЙ СКРЫТЫ</span>
+    <button class="btn-login-mini" style="padding:2px 8px;font-size:10px;" onclick="toggleStreamerMode(false)">ОТКЛЮЧИТЬ</button>
+  </div>
+
   <div class="top-telemetry-bar">
     <div class="tt-left">
       <button class="mob-top-btn" onclick="toggleMobileLeft()">☰</button>
@@ -880,6 +903,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             </div>
             <button class="svd-connect-btn" id="connect-voice-btn" onclick="toggleVoiceCall()">ВОЙТИ</button>
           </div>
+          <button class="return-call-btn" id="btn-return-dm-call" onclick="returnToDirectCall()">📞 ВЕРНУТЬСЯ В ЛИЧНЫЙ ЗВОНОК</button>
           <div class="svd-actions">
             <button class="svd-btn" id="cam-btn" onclick="toggleWebcam()">📷 Камера</button>
             <button class="svd-btn" id="screen-btn" onclick="toggleScreenShare()">🖥️ Экран</button>
@@ -914,9 +938,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
             <div style="min-width:0;"><div class="ash-label" id="top-ch-desc">АКТИВНЫЙ АУДИО ПОТОК // КАНАЛ</div><div class="ash-channel" id="top-ch-name">общий</div></div>
           </div>
           <div class="ash-wave">
-            <div class="ash-bar" style="animation-delay:0s"></div><div class="ash-bar" style="animation-delay:.2s"></div><div class="ash-bar" style="animation-delay:.4s"></div><div class="ash-bar" style="animation-delay:.1s"></div><div class="ash-bar" style="animation-delay:.3s"></div><div class="ash-bar" style="animation-delay:.5s"></div><div class="ash-bar" style="animation-delay:.15s"></div><div class="ash-bar" style="animation-delay:.35s"></div><div class="ash-bar" style="animation-delay:.05s"></div><div class="ash-bar" style="animation-delay:.25s"></div><div class="ash-bar" style="animation-delay:.45s"></div><div class="ash-bar" style="animation-delay:.12s"></div>
+            <div class="ash-bar" style="animation-delay:0s"></div><div class="ash-bar" style="animation-delay:.2s"></div><div class="ash-bar" style="animation-delay:.4s"></div><div class="ash-bar" style="animation-delay:.1s"></div><div class="ash-bar" style="animation-delay:.3s"></div><div class="ash-bar" style="animation-delay:.5s"></div><div class="ash-bar" style="animation-delay:.15s"></div><div class="ash-bar" style="animation-delay:.35s"></div>
           </div>
           <div class="ash-right">
+            <div class="chat-search-wrap">
+              <span style="font-size:11px;color:var(--text-muted);margin-right:4px;">🔍</span>
+              <input type="text" id="chat-search-inp" class="chat-search-inp" placeholder="Поиск в чате..." oninput="rerenderChatMessages()">
+            </div>
             <button class="btn-login-mini" onclick="openSettingsModal('profile')">⚙️ Настройки</button>
           </div>
         </div>
@@ -1147,10 +1175,16 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div class="settings-pane" id="pane-voice">
           <div class="settings-head"><h3>🎙️ Голос и видео</h3><button class="btn-login-mini" onclick="refreshMediaDevices()">🔄 ОБНОВИТЬ</button></div>
           <div class="settings-card">
-            <div class="settings-grid-2"><div><label class="field-label">Микрофон</label><select id="set-mic-select" onchange="onMediaDeviceSelectChange()"></select></div><div><label class="field-label">Аудиовыход</label><select id="set-spk-select" onchange="onMediaDeviceSelectChange()"></select></div></div>
+            <div class="settings-grid-2">
+              <div><label class="field-label">Микрофон</label><select id="set-mic-select" onchange="onMediaDeviceSelectChange()"><option value="">Системный микрофон по умолчанию</option></select></div>
+              <div><label class="field-label">Аудиовыход</label><select id="set-spk-select" onchange="onMediaDeviceSelectChange()"><option value="">Системный динамик по умолчанию</option></select></div>
+            </div>
             <div class="settings-grid-2"><div><label class="field-label">Усиление микр.: <span id="lbl-mic-vol">100%</span></label><input type="range" class="cyber-range" id="set-mic-vol" min="0" max="200" value="100" oninput="onAudioSlidersChange()"></div><div><label class="field-label">Громкость: <span id="lbl-out-vol">100%</span></label><input type="range" class="cyber-range" id="set-out-vol" min="0" max="200" value="100" oninput="onAudioSlidersChange()"></div></div>
             <div><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><label class="field-label">Тест микрофона</label><button class="btn-login-mini" id="btn-mic-test" onclick="toggleMicTest()">🎙️ ПРОВЕРИТЬ</button></div><div class="mic-meter-wrap"><div class="mic-meter-bar" id="mic-test-bar"></div></div></div>
-            <div class="settings-grid-2"><div><label class="field-label">Камера</label><select id="set-cam-select" onchange="onMediaDeviceSelectChange()"></select></div><div><label class="field-label">Разрешение</label><select id="set-cam-res" onchange="saveAudioVideoSettings()"><option value="720">HD 720p</option><option value="480">SD 480p</option></select></div></div>
+            <div class="settings-grid-2">
+              <div><label class="field-label">Камера</label><select id="set-cam-select" onchange="onMediaDeviceSelectChange()"><option value="">Системная камера по умолчанию</option></select></div>
+              <div><label class="field-label">Разрешение</label><select id="set-cam-res" onchange="saveAudioVideoSettings()"><option value="720">HD 720p</option><option value="480">SD 480p</option></select></div>
+            </div>
             <div class="toggle-row"><div class="toggle-title">Шумоподавление</div><label class="cyber-switch"><input type="checkbox" id="chk-noise" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
             <div class="toggle-row"><div class="toggle-title">Эхоподавление</div><label class="cyber-switch"><input type="checkbox" id="chk-echo" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
             <div class="toggle-row"><div class="toggle-title">Автоусиление</div><label class="cyber-switch"><input type="checkbox" id="chk-agc" checked onchange="saveAudioVideoSettings()"><span class="cyber-slider"></span></label></div>
@@ -1158,10 +1192,46 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         </div>
 
         <div class="settings-pane" id="pane-appearance">
-          <div class="settings-head"><h3>🎨 Внешний вид</h3></div>
+          <div class="settings-head"><h3>🎨 Внешний вид (Темы, Значки, Чат, Стример)</h3></div>
           <div class="settings-card">
-            <div class="toggle-row"><div class="toggle-title">Компактный чат</div><label class="cyber-switch"><input type="checkbox" id="chk-compact" onchange="applyAppearanceSettings()"><span class="cyber-slider"></span></label></div>
-            <div><label class="field-label">Размер шрифта</label><select id="sel-font-size" onchange="applyAppearanceSettings()"><option value="13px">13px</option><option value="14px" selected>14px</option><option value="16px">16px</option></select></div>
+            <label class="field-label">Темы оформления (6 кибер-стилей)</label>
+            <div class="theme-grid" id="theme-picker-grid">
+              <div class="theme-card" data-th="cyber-cyan" onclick="selectAppTheme('cyber-cyan')"><div class="theme-dots"><span class="theme-dot" style="background:#00f0ff"></span><span class="theme-dot" style="background:#ff2a85"></span></div><span style="font-size:11px;font-weight:800;">Кибер-Неон</span></div>
+              <div class="theme-card" data-th="edgerunner" onclick="selectAppTheme('edgerunner')"><div class="theme-dots"><span class="theme-dot" style="background:#fcee09"></span><span class="theme-dot" style="background:#ff2a85"></span></div><span style="font-size:11px;font-weight:800;">Edgerunners</span></div>
+              <div class="theme-card" data-th="samurai" onclick="selectAppTheme('samurai')"><div class="theme-dots"><span class="theme-dot" style="background:#ff1e56"></span><span class="theme-dot" style="background:#ff7b00"></span></div><span style="font-size:11px;font-weight:800;">SAMURAI</span></div>
+              <div class="theme-card" data-th="matrix" onclick="selectAppTheme('matrix')"><div class="theme-dots"><span class="theme-dot" style="background:#10b981"></span><span class="theme-dot" style="background:#00ff88"></span></div><span style="font-size:11px;font-weight:800;">Матрица</span></div>
+              <div class="theme-card" data-th="arasaka" onclick="selectAppTheme('arasaka')"><div class="theme-dots"><span class="theme-dot" style="background:#f59e0b"></span><span class="theme-dot" style="background:#fde047"></span></div><span style="font-size:11px;font-weight:800;">Арасака Голд</span></div>
+              <div class="theme-card" data-th="void" onclick="selectAppTheme('void')"><div class="theme-dots"><span class="theme-dot" style="background:#b829ff"></span><span class="theme-dot" style="background:#00f0ff"></span></div><span style="font-size:11px;font-weight:800;">Кибер-Войд</span></div>
+            </div>
+          </div>
+          <div class="settings-card">
+            <label class="field-label">Значок приложения (логотип и вкладка браузера)</label>
+            <div class="icon-picker-grid" id="icon-picker-grid">
+              <div class="app-icon-opt" data-ico="⚡" onclick="selectAppIcon('⚡')">⚡</div>
+              <div class="app-icon-opt" data-ico="⬢" onclick="selectAppIcon('⬢')">⬢</div>
+              <div class="app-icon-opt" data-ico="☠️" onclick="selectAppIcon('☠️')">☠️</div>
+              <div class="app-icon-opt" data-ico="👁️" onclick="selectAppIcon('👁️')">👁️</div>
+              <div class="app-icon-opt" data-ico="🔥" onclick="selectAppIcon('🔥')">🔥</div>
+              <div class="app-icon-opt" data-ico="💠" onclick="selectAppIcon('💠')">💠</div>
+            </div>
+          </div>
+          <div class="settings-card">
+            <label class="field-label">Поле чата и сообщения</label>
+            <div class="toggle-row"><div class="toggle-title">Компактный режим чата</div><label class="cyber-switch"><input type="checkbox" id="chk-compact" onchange="applyAppearanceSettings()"><span class="cyber-slider"></span></label></div>
+            <div class="toggle-row"><div class="toggle-title">Показывать время сообщений</div><label class="cyber-switch"><input type="checkbox" id="chk-show-time" checked onchange="applyAppearanceSettings()"><span class="cyber-slider"></span></label></div>
+            <div class="toggle-row"><div class="toggle-title">Показывать фото и видео в чате</div><label class="cyber-switch"><input type="checkbox" id="chk-show-media" checked onchange="applyAppearanceSettings()"><span class="cyber-slider"></span></label></div>
+            <div class="toggle-row"><div class="toggle-title">Показывать строку поиска в шапке</div><label class="cyber-switch"><input type="checkbox" id="chk-show-search" checked onchange="applyAppearanceSettings()"><span class="cyber-slider"></span></label></div>
+            <div class="settings-grid-2">
+              <div><label class="field-label">Размер шрифта</label><select id="sel-font-size" onchange="applyAppearanceSettings()"><option value="12px">12px</option><option value="13px">13px</option><option value="14px" selected>14px</option><option value="16px">16px</option><option value="18px">18px</option></select></div>
+              <div><label class="field-label">Отступ между сообщениями</label><select id="sel-msg-gap" onchange="applyAppearanceSettings()"><option value="4px">Плотный (4px)</option><option value="8px" selected>Обычный (8px)</option><option value="14px">Свободный (14px)</option></select></div>
+            </div>
+          </div>
+          <div class="settings-card" style="border-color:#7c3aed;">
+            <label class="field-label" style="color:#a78bfa;">🟣 Режим стримера</label>
+            <div class="toggle-row">
+              <div><div class="toggle-title">Включить режим стримера</div><div style="font-size:11px;color:var(--text-muted);">Скрывает инвайт-ссылки, ID узла, коды входа и отключает звуки уведомлений</div></div>
+              <label class="cyber-switch"><input type="checkbox" id="chk-streamer-mode" onchange="toggleStreamerMode(this.checked)"><span class="cyber-slider"></span></label>
+            </div>
           </div>
         </div>
 
@@ -1323,8 +1393,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function handleCustomImageUpload(ev, kind) {
-    const file = ev.target && ev.target.files && ev.target.files[0];
-    if (!file) return;
+    const file = ev.target && ev.target.files && ev.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = function (e) {
       const img = new Image();
@@ -1347,8 +1416,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       };
       img.src = e.target.result;
     };
-    reader.readAsDataURL(file);
-    ev.target.value = '';
+    reader.readAsDataURL(file); ev.target.value = '';
   }
 
   function clearCustomImage(kind) {
@@ -1357,26 +1425,20 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     applyNickUI(); updateProfilePreview(true); syncProfileToServer(); renderUsers(lastMembers); rerenderChatMessages();
   }
 
-  function buildAvatarInnerContent(letters, avaImg) {
-    return avaImg ? '<img class="ava-custom-img" src="' + escapeHtml(avaImg) + '" alt="">' : escapeHtml(letters);
-  }
+  function buildAvatarInnerContent(letters, avaImg) { return avaImg ? '<img class="ava-custom-img" src="' + escapeHtml(avaImg) + '" alt="">' : escapeHtml(letters); }
 
   function buildMiniHexAvatarHTML(letters, avaColor, setKey, sizePx, statusCls, avaImg) {
     const m = FX_SETS_META[setKey], sz = sizePx || 36, fSize = Math.max(9, Math.round(sz * 0.3));
     const innerHTML = buildAvatarInnerContent(letters, avaImg);
     const bgStyle = 'font-size:' + (m ? Math.max(8, fSize - 1) : fSize) + 'px;background:' + escapeHtml(avaColor || '#3b82f6') + ';';
-    if (!m) {
-      return '<div class="hex-wrap" style="width:' + sz + 'px;height:' + sz + 'px;"><div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div>' + (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') + '</div>';
-    }
+    if (!m) return '<div class="hex-wrap" style="width:' + sz + 'px;height:' + sz + 'px;"><div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div>' + (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') + '</div>';
     return '<div class="hex-wrap has-custom-frame ' + m.avaClass + '" style="width:' + sz + 'px;height:' + sz + 'px;"><div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div><img class="mini-frame-overlay" src="' + m.frameImgUrl + '" alt="">' + (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') + '</div>';
   }
 
   function buildHeroHexMedallionHTML(letters, avaColor, setKey, statusCls, avaImg) {
     const m = FX_SETS_META[setKey], innerHTML = buildAvatarInnerContent(letters, avaImg);
     const bgStyle = 'font-size:18px;background:' + escapeHtml(avaColor || '#3b82f6') + ';';
-    if (!m) {
-      return '<div class="hex-wrap" style="width:84px;height:84px;"><div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div>' + (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') + '</div>';
-    }
+    if (!m) return '<div class="hex-wrap" style="width:84px;height:84px;"><div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div>' + (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') + '</div>';
     return '<div class="cds-user-core" style="' + bgStyle + '">' + innerHTML + '</div><img class="cds-frame-img" src="' + m.frameImgUrl + '" alt="Frame">' + (statusCls ? '<span class="hex-status-dot ' + statusCls + '" style="right:18px;bottom:10px;"></span>' : '');
   }
 
@@ -1389,11 +1451,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
   if (!myProfile.fxSet) myProfile.fxSet = detectFxSetFromInterests(myProfile.interests);
 
-  function getUserFxSet(u) {
-    if (!u) return '';
-    if (isMeUser(u)) return myProfile.fxSet || detectFxSetFromInterests(myProfile.interests);
-    return u.fxSet || detectFxSetFromInterests(u.interests);
-  }
+  function getUserFxSet(u) { if (!u) return ''; if (isMeUser(u)) return myProfile.fxSet || detectFxSetFromInterests(myProfile.interests); return u.fxSet || detectFxSetFromInterests(u.interests); }
   function getBadgeHTML(setKey) { const m = FX_SETS_META[setKey]; return m ? '<span class="cyber-badge ' + m.badgeClass + '">' + m.badgeText + '</span>' : ''; }
   function cleanInterestsForDisplay(raw) { return String(raw || '').split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x && !x.startsWith('⚡FX:'); }); }
 
@@ -1444,7 +1502,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     return p.join('+');
   }
 
-  let appSettings = Object.assign({ micDeviceId: '', spkDeviceId: '', camDeviceId: '', micVolume: 100, outVolume: 100, camRes: '720', noiseSuppression: true, echoCancellation: true, autoGainControl: true, compactChat: false, fontSize: '14px', soundMsg: true, soundVoice: true, filterSexual: true, filterGore: true, filterOutgoing: true, filterAction: 'block', customBlockedWords: '' }, JSON.parse(localStorage.getItem('cyber_settings') || '{}'));
+  let appSettings = Object.assign({ theme: 'cyber-cyan', appIcon: '⚡', streamerMode: false, showTime: true, showMedia: true, showSearch: true, msgGap: '8px', micDeviceId: '', spkDeviceId: '', camDeviceId: '', micVolume: 100, outVolume: 100, camRes: '720', noiseSuppression: true, echoCancellation: true, autoGainControl: true, compactChat: false, fontSize: '14px', soundMsg: true, soundVoice: true, filterSexual: true, filterGore: true, filterOutgoing: true, filterAction: 'block', customBlockedWords: '' }, JSON.parse(localStorage.getItem('cyber_settings') || '{}'));
   let localVault = Object.assign({ knownUsers: {}, friends: [], incoming: [], outgoing: [], servers: [], messages: {} }, JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}'));
 
   function saveLocalVault() {
@@ -1500,28 +1558,29 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
-  function playUiBeep(freq, dur) { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(), o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = freq || 580; g.gain.value = 0.05; o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + (dur || 0.06)); } catch (e) {} }
+  function playUiBeep(freq, dur) { if (appSettings.streamerMode) return; try { const ctx = new (window.AudioContext || window.webkitAudioContext)(), o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = freq || 580; g.gain.value = 0.05; o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + (dur || 0.06)); } catch (e) {} }
   function formatCallTime(sec) { return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'); }
+
+  function returnToDirectCall() { if (inDirectCall && directCallPartner) openDirectChatWithUser(directCallPartner); }
+  function updateReturnCallBtn() {
+    const btn = document.getElementById('btn-return-dm-call'); if (!btn) return;
+    const away = inDirectCall && directCallPartner && (!isFriendsHubMode || !activeDmPartner || activeDmPartner.pid !== directCallPartner.pid);
+    btn.classList.toggle('show', !!away);
+    if (away) btn.textContent = '📞 ВЕРНУТЬСЯ К ' + String(directCallPartner.nick || '').toUpperCase();
+  }
 
   function iHavePerm(perm) {
     if (!currentServerMeta) return false;
     if (!currentServerMeta.ownerUid) return true;
     const roles = currentServerMeta.roles || [];
     const myRoles = (currentServerMeta.memberRoles && myPid && currentServerMeta.memberRoles[myPid]) || [];
-    return myRoles.some(function (rid) {
-      const r = roles.find(function (x) { return x.id === rid; });
-      return r && r.perms && (r.perms.admin || r.perms[perm]);
-    });
+    return myRoles.some(function (rid) { const r = roles.find(function (x) { return x.id === rid; }); return r && r.perms && (r.perms.admin || r.perms[perm]); });
   }
 
   function getUserPrimaryRole(pid) {
     if (!currentServerMeta || !pid) return null;
-    const rIds = (currentServerMeta.memberRoles && currentServerMeta.memberRoles[pid]) || [];
-    const roles = currentServerMeta.roles || [];
-    for (let i = 0; i < rIds.length; i++) {
-      const found = roles.find(function (r) { return r.id === rIds[i]; });
-      if (found) return found;
-    }
+    const rIds = (currentServerMeta.memberRoles && currentServerMeta.memberRoles[pid]) || [], roles = currentServerMeta.roles || [];
+    for (let i = 0; i < rIds.length; i++) { const f = roles.find(function (r) { return r.id === rIds[i]; }); if (f) return f; }
     return null;
   }
 
@@ -1531,9 +1590,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('ss-srv-name').value = currentServerMeta.name || '';
     document.getElementById('ss-srv-icon').value = currentServerMeta.icon || '';
     document.getElementById('ss-srv-desc').value = currentServerMeta.desc || '';
-    renderServerRolesEditor();
-    renderServerMembersRoles();
-    switchServerSettingsPane('overview');
+    renderServerRolesEditor(); renderServerMembersRoles(); switchServerSettingsPane('overview');
     document.getElementById('server-settings-modal').classList.add('open');
   }
   function closeServerSettingsModal() { document.getElementById('server-settings-modal').classList.remove('open'); }
@@ -1543,93 +1600,42 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   async function saveServerOverview() {
-    const res = await fetch('/api/server/update', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        uid: myUid, room: currentRoom,
-        name: document.getElementById('ss-srv-name').value.trim(),
-        icon: document.getElementById('ss-srv-icon').value.trim(),
-        desc: document.getElementById('ss-srv-desc').value.trim()
-      })
-    });
-    const d = await res.json();
-    if (d.error) return alert(d.error);
-    alert('Настройки сервера сохранены!');
+    const res = await fetch('/api/server/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, room: currentRoom, name: document.getElementById('ss-srv-name').value.trim(), icon: document.getElementById('ss-srv-icon').value.trim(), desc: document.getElementById('ss-srv-desc').value.trim() }) });
+    const d = await res.json(); if (d.error) return alert(d.error); alert('Настройки сервера сохранены!');
   }
 
   function renderServerRolesEditor() {
-    const box = document.getElementById('ss-roles-list'); if (!box) return;
-    box.innerHTML = '';
+    const box = document.getElementById('ss-roles-list'); if (!box) return; box.innerHTML = '';
     (currentServerMeta.roles || []).forEach(function (role) {
       const card = el('div', 'settings-card');
-      card.innerHTML =
-        '<div style="display:flex;gap:8px;align-items:center;">' +
-          '<input type="text" value="' + escapeHtml(role.name) + '" class="r-name-inp" style="flex:1;margin:0;">' +
-          '<input type="color" value="' + escapeHtml(role.color || '#00f0ff') + '" class="r-col-inp" style="width:42px;height:36px;background:none;border:none;cursor:pointer;">' +
-          '<button class="btn-cyan r-save-btn">СОХРАНИТЬ</button>' +
-        '</div>' +
-        '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text-normal);">' +
-          '<label><input type="checkbox" class="rp-srv" ' + (role.perms && role.perms.manageServer ? 'checked' : '') + '> Настройка сервера</label>' +
-          '<label><input type="checkbox" class="rp-ch" ' + (role.perms && role.perms.manageChannels ? 'checked' : '') + '> Менять каналы</label>' +
-          '<label><input type="checkbox" class="rp-rl" ' + (role.perms && role.perms.manageRoles ? 'checked' : '') + '> Управлять ролями</label>' +
-        '</div>';
+      card.innerHTML = '<div style="display:flex;gap:8px;align-items:center;"><input type="text" value="' + escapeHtml(role.name) + '" class="r-name-inp" style="flex:1;margin:0;"><input type="color" value="' + escapeHtml(role.color || '#00f0ff') + '" class="r-col-inp" style="width:42px;height:36px;background:none;border:none;cursor:pointer;"><button class="btn-cyan r-save-btn">СОХРАНИТЬ</button></div><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text-normal);"><label><input type="checkbox" class="rp-srv" ' + (role.perms && role.perms.manageServer ? 'checked' : '') + '> Настройка сервера</label><label><input type="checkbox" class="rp-ch" ' + (role.perms && role.perms.manageChannels ? 'checked' : '') + '> Менять каналы</label><label><input type="checkbox" class="rp-rl" ' + (role.perms && role.perms.manageRoles ? 'checked' : '') + '> Управлять ролями</label></div>';
       card.querySelector('.r-save-btn').onclick = async function () {
-        const res = await fetch('/api/server/role-save', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            uid: myUid, room: currentRoom, roleId: role.id,
-            name: card.querySelector('.r-name-inp').value.trim(),
-            color: card.querySelector('.r-col-inp').value,
-            perms: {
-              admin: role.id === 'admin',
-              manageServer: card.querySelector('.rp-srv').checked,
-              manageChannels: card.querySelector('.rp-ch').checked,
-              manageRoles: card.querySelector('.rp-rl').checked
-            }
-          })
-        });
-        const d = await res.json();
-        if (d.error) return alert(d.error);
-        alert('Роль «' + card.querySelector('.r-name-inp').value.trim() + '» сохранена!');
+        const res = await fetch('/api/server/role-save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, room: currentRoom, roleId: role.id, name: card.querySelector('.r-name-inp').value.trim(), color: card.querySelector('.r-col-inp').value, perms: { admin: role.id === 'admin', manageServer: card.querySelector('.rp-srv').checked, manageChannels: card.querySelector('.rp-ch').checked, manageRoles: card.querySelector('.rp-rl').checked } }) });
+        const d = await res.json(); if (d.error) return alert(d.error); alert('Роль сохранена!');
       };
       box.appendChild(card);
     });
   }
 
   async function createNewRoleUI() {
-    const name = prompt('Название новой роли (например: Стример):');
-    if (!name) return;
-    const res = await fetch('/api/server/role-save', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid: myUid, room: currentRoom, name: name, color: '#10b981', perms: { manageChannels: true } })
-    });
-    const d = await res.json();
-    if (d.error) return alert(d.error);
+    const name = prompt('Название новой роли (например: Стример):'); if (!name) return;
+    const res = await fetch('/api/server/role-save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, room: currentRoom, name: name, color: '#10b981', perms: { manageChannels: true } }) });
+    const d = await res.json(); if (d.error) return alert(d.error);
     if (d.roles) { currentServerMeta.roles = d.roles; renderServerRolesEditor(); renderServerMembersRoles(); }
   }
 
   function renderServerMembersRoles() {
-    const box = document.getElementById('ss-members-roles-list'); if (!box) return;
-    box.innerHTML = '';
-    const roles = currentServerMeta.roles || [];
-    const mRoles = currentServerMeta.memberRoles || {};
+    const box = document.getElementById('ss-members-roles-list'); if (!box) return; box.innerHTML = '';
+    const roles = currentServerMeta.roles || [], mRoles = currentServerMeta.memberRoles || {};
     (lastMembers || []).forEach(function (u) {
-      const row = el('div', 'settings-card');
-      const uRoles = mRoles[u.pid] || [];
+      const row = el('div', 'settings-card'), uRoles = mRoles[u.pid] || [];
       let html = '<div style="font-weight:800;color:#fff;margin-bottom:4px;">' + escapeHtml(u.nick) + '</div><div style="display:flex;gap:8px;flex-wrap:wrap;">';
-      roles.forEach(function (r) {
-        const has = uRoles.includes(r.id);
-        html += '<label style="font-size:12px;color:' + escapeHtml(r.color) + ';cursor:pointer;"><input type="checkbox" data-pid="' + u.pid + '" data-rid="' + r.id + '" ' + (has ? 'checked' : '') + '> ' + escapeHtml(r.name) + '</label>';
-      });
+      roles.forEach(function (r) { html += '<label style="font-size:12px;color:' + escapeHtml(r.color) + ';cursor:pointer;"><input type="checkbox" data-pid="' + u.pid + '" data-rid="' + r.id + '" ' + (uRoles.includes(r.id) ? 'checked' : '') + '> ' + escapeHtml(r.name) + '</label>'; });
       row.innerHTML = html + '</div>';
       row.querySelectorAll('input[type="checkbox"]').forEach(function (chk) {
         chk.onchange = async function () {
-          const res = await fetch('/api/server/role-assign', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uid: myUid, room: currentRoom, targetPid: chk.getAttribute('data-pid'), roleId: chk.getAttribute('data-rid'), assign: chk.checked })
-          });
-          const d = await res.json();
-          if (d.error) { alert(d.error); chk.checked = !chk.checked; }
+          const res = await fetch('/api/server/role-assign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, room: currentRoom, targetPid: chk.getAttribute('data-pid'), roleId: chk.getAttribute('data-rid'), assign: chk.checked }) });
+          const d = await res.json(); if (d.error) { alert(d.error); chk.checked = !chk.checked; }
         };
       });
       box.appendChild(row);
@@ -1639,14 +1645,16 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   async function promptRenameChannel(type, oldName) {
     const newName = prompt('Новое название канала «' + oldName + '»:', oldName);
     if (!newName || newName.trim() === oldName) return;
-    const res = await fetch('/api/channel/rename', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid: myUid, room: currentRoom, type: type, oldName: oldName, newName: newName.trim() })
-    });
-    const d = await res.json();
-    if (d.error) return alert(d.error);
+    const res = await fetch('/api/channel/rename', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, room: currentRoom, type: type, oldName: oldName, newName: newName.trim() }) });
+    const d = await res.json(); if (d.error) return alert(d.error);
     if (type === 'text' && currentChannel === oldName && d.newName) currentChannel = d.newName;
     if (type === 'voice' && currentVoiceChannel === oldName && d.newName) currentVoiceChannel = d.newName;
+  }
+
+  async function promptDeleteChannel(type, name) {
+    if (!confirm('Удалить ' + (type === 'voice' ? 'голосовой' : 'текстовый') + ' канал «' + name + '»?')) return;
+    const res = await fetch('/api/channel/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, room: currentRoom, type: type, name: name }) });
+    const d = await res.json(); if (d.error) alert(d.error);
   }
 
   function getSubsonicWavUrl() {
@@ -1674,11 +1682,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (bgWorker) try { bgWorker.terminate(); } catch (e) {}
     try {
       bgWorker = new Worker(URL.createObjectURL(new Blob(['setInterval(function(){postMessage(1);},1000);'], { type: 'application/javascript' })));
-      bgWorker.onmessage = function () {
-        if (!inVoice) return;
-        const stEl = document.getElementById('svd-state-text');
-        if (stEl) stEl.textContent = '🟢 В ЭФИРЕ • ' + formatCallTime(Math.floor((Date.now() - callStartTime) / 1000));
-      };
+      bgWorker.onmessage = function () { if (!inVoice) return; const stEl = document.getElementById('svd-state-text'); if (stEl) stEl.textContent = '🟢 В ЭФИРЕ • ' + formatCallTime(Math.floor((Date.now() - callStartTime) / 1000)); };
     } catch (e) {}
     updateVoiceControlsUI();
   }
@@ -1701,13 +1705,11 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const actx = audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)());
       if (actx.state === 'suspended') actx.resume().catch(function () {});
       const src = actx.createMediaStreamSource(stream), analyser = actx.createAnalyser();
-      analyser.fftSize = 256; analyser.smoothingTimeConstant = 0.5;
-      src.connect(analyser);
+      analyser.fftSize = 256; analyser.smoothingTimeConstant = 0.5; src.connect(analyser);
       const data = new Uint8Array(analyser.frequencyBinCount);
       const timer = setInterval(function () {
         if (!inVoice || (key === 'local' && isMuted)) { markUserSpeaking(getNickFn(), false); return; }
-        analyser.getByteFrequencyData(data);
-        let sum = 0; for (let i = 2; i < 36; i++) sum += data[i];
+        analyser.getByteFrequencyData(data); let sum = 0; for (let i = 2; i < 36; i++) sum += data[i];
         markUserSpeaking(getNickFn(), (sum / 34) > 15);
       }, 90);
       speakingAnalysers[key] = { timer: timer, nickFn: getNickFn };
@@ -1721,9 +1723,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function markUserSpeaking(nick, speaking) {
     if (!nick) return;
-    document.querySelectorAll('.voice-ch-peers .vc-user-row').forEach(function (row) {
-      if (row.getAttribute('data-nick') === nick) row.classList.toggle('is-speaking', !!speaking);
-    });
+    document.querySelectorAll('.voice-ch-peers .vc-user-row').forEach(function (row) { if (row.getAttribute('data-nick') === nick) row.classList.toggle('is-speaking', !!speaking); });
   }
 
   function getMembersForSpecificVoiceChannel(vch) {
@@ -1745,20 +1745,15 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const prevSpeaking = new Set();
     document.querySelectorAll('.vc-user-row.is-speaking').forEach(function (r) { prevSpeaking.add(r.getAttribute('data-nick')); });
     document.querySelectorAll('[data-vch-peers]').forEach(function (peersBox) {
-      const vch = peersBox.getAttribute('data-vch-peers');
-      peersBox.innerHTML = '';
+      const vch = peersBox.getAttribute('data-vch-peers'); peersBox.innerHTML = '';
       getMembersForSpecificVoiceChannel(vch).forEach(function (u) {
-        const setKey = getUserFxSet(u);
-        const r = el('div', 'vc-user-row' + (prevSpeaking.has(u.nick) ? ' is-speaking' : ''));
+        const setKey = getUserFxSet(u), r = el('div', 'vc-user-row' + (prevSpeaking.has(u.nick) ? ' is-speaking' : ''));
         r.setAttribute('data-nick', u.nick);
-        const avaHolder = document.createElement('div');
-        const aImg = (isMeUser(u) ? myProfile.avatarImg : u.avatarImg) || '';
+        const avaHolder = document.createElement('div'), aImg = (isMeUser(u) ? myProfile.avatarImg : u.avatarImg) || '';
         avaHolder.innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 28, '', aImg);
         r.appendChild(avaHolder.firstChild);
         r.appendChild(el('span', '', u.nick + (u.inCam ? ' 📷' : '') + (u.inScreen ? ' 🖥️' : '')));
-        const ind = el('span', 'vc-speak-indicator');
-        ind.innerHTML = '<span class="vc-speak-bar"></span><span class="vc-speak-bar"></span><span class="vc-speak-bar"></span>';
-        r.appendChild(ind);
+        const ind = el('span', 'vc-speak-indicator'); ind.innerHTML = '<span class="vc-speak-bar"></span><span class="vc-speak-bar"></span><span class="vc-speak-bar"></span>'; r.appendChild(ind);
         r.onclick = function (ev) { ev.stopPropagation(); openVoiceParticipantPopover(u, r); };
         peersBox.appendChild(r);
       });
@@ -1766,58 +1761,42 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function openVoiceParticipantPopover(u, anchorEl) {
-    const pop = document.getElementById('vc-user-popover');
-    if (!pop || !u) return;
-    const isSelf = isMeUser(u);
-    const setKey = getUserFxSet(u), aImg = (isSelf ? myProfile.avatarImg : u.avatarImg) || '';
+    const pop = document.getElementById('vc-user-popover'); if (!pop || !u) return;
+    const isSelf = isMeUser(u), setKey = getUserFxSet(u), aImg = (isSelf ? myProfile.avatarImg : u.avatarImg) || '';
     document.getElementById('vup-ava').innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 38, 'online', aImg);
     document.getElementById('vup-nick').textContent = u.nick || 'Участник';
-
     const volWrap = document.getElementById('vup-vol-wrap'), volRange = document.getElementById('vup-vol-range'), volLbl = document.getElementById('vup-vol-lbl');
-    if (isSelf) {
-      volWrap.style.display = 'none';
-    } else {
+    if (isSelf) { volWrap.style.display = 'none'; }
+    else {
       volWrap.style.display = 'block';
       const curV = peerVolumes[u.pid] !== undefined ? Number(peerVolumes[u.pid]) : 100;
       volRange.value = curV; volLbl.textContent = curV + '%';
       volRange.oninput = function () {
-        const val = Number(volRange.value);
-        peerVolumes[u.pid] = val; volLbl.textContent = val + '%';
+        const val = Number(volRange.value); peerVolumes[u.pid] = val; volLbl.textContent = val + '%';
         try { localStorage.setItem('geek_peer_volumes', JSON.stringify(peerVolumes)); } catch (e) {}
         if (u.peerId) applyIndividualPeerVolume(u.peerId, u.pid);
         Object.keys(activeAudioCalls).forEach(function (pid) { if (resolveNickByPeerId(pid) === u.nick) applyIndividualPeerVolume(pid, u.pid); });
       };
     }
-
     document.getElementById('vup-btn-dm').style.display = isSelf ? 'none' : 'flex';
     document.getElementById('vup-btn-dm').onclick = function () { pop.classList.remove('open'); openDirectChatWithUser(u); };
     document.getElementById('vup-btn-call').style.display = isSelf ? 'none' : 'flex';
     document.getElementById('vup-btn-call').onclick = function () { pop.classList.remove('open'); startDirectCallToUser(u); };
     document.getElementById('vup-btn-prof').onclick = function () { pop.classList.remove('open'); openUserProfileCard(u); };
-
     const fBtn = document.getElementById('vup-btn-friend'), isFriend = (social.friends || []).some(function (f) { return f.pid === u.pid; });
-    if (isSelf) { fBtn.style.display = 'none'; }
-    else {
-      fBtn.style.display = 'flex';
-      fBtn.textContent = isFriend ? '✕ Удалить из друзей' : '➕ Добавить в друзья';
-      fBtn.onclick = function () { pop.classList.remove('open'); friendAction(isFriend ? 'remove' : 'request', u.pid); };
-    }
-
+    if (isSelf) fBtn.style.display = 'none';
+    else { fBtn.style.display = 'flex'; fBtn.textContent = isFriend ? '✕ Удалить из друзей' : '➕ Добавить в друзья'; fBtn.onclick = function () { pop.classList.remove('open'); friendAction(isFriend ? 'remove' : 'request', u.pid); }; }
     pop.classList.add('open');
     const rect = anchorEl ? anchorEl.getBoundingClientRect() : { left: 80, top: 200, right: 220 };
     pop.style.left = (window.innerWidth <= 640 ? 68 : Math.min(window.innerWidth - 265, Math.max(10, rect.right + 8))) + 'px';
     pop.style.top = Math.min(window.innerHeight - 270, Math.max(10, rect.top - 20)) + 'px';
   }
 
-  document.addEventListener('pointerdown', function (ev) {
-    const pop = document.getElementById('vc-user-popover');
-    if (pop && pop.classList.contains('open') && !pop.contains(ev.target) && !ev.target.closest('.vc-user-row')) pop.classList.remove('open');
-  });
+  document.addEventListener('pointerdown', function (ev) { const pop = document.getElementById('vc-user-popover'); if (pop && pop.classList.contains('open') && !pop.contains(ev.target) && !ev.target.closest('.vc-user-row')) pop.classList.remove('open'); });
 
   function applyIndividualPeerVolume(peerId, userPid) {
     const volPercent = (userPid && peerVolumes[userPid] !== undefined) ? Number(peerVolumes[userPid]) : 100;
-    const masterOut = isDeafened ? 0 : ((appSettings.outVolume || 100) / 100);
-    const effective = (volPercent / 100) * masterOut;
+    const masterOut = isDeafened ? 0 : ((appSettings.outVolume || 100) / 100), effective = (volPercent / 100) * masterOut;
     const aud = document.getElementById('aud-' + peerId);
     if (aud) { aud.muted = isDeafened || volPercent === 0; aud.volume = peerGainNodes[peerId] ? 0.001 : Math.min(1, Math.max(0, effective)); }
     if (peerGainNodes[peerId]) peerGainNodes[peerId].gainNode.gain.value = isDeafened ? 0 : Math.max(0, effective);
@@ -1841,16 +1820,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function openFriendsAndDmHub() {
-    isFriendsHubMode = true;
-    document.body.classList.add('friends-hub-active');
+    isFriendsHubMode = true; document.body.classList.add('friends-hub-active');
     document.querySelectorAll('#servers-list-box .srv-pill-wrap').forEach(function (e) { e.classList.remove('active'); });
     const hubPill = document.getElementById('friends-hub-pill'); if (hubPill) hubPill.classList.add('active');
     const subLbl = document.getElementById('srv-sub-label'); if (subLbl) subLbl.textContent = 'ЛИЧНЫЕ КАНАЛЫ';
     document.getElementById('srv-title-label').textContent = 'Друзья и ЛС';
     renderDmLeftList();
     if (window.innerWidth <= 900 && !document.body.classList.contains('mob-left-open')) toggleMobileLeft();
-    renderFriendsCenterDashboard();
-    updateMediaStageVisibility();
+    renderFriendsCenterDashboard(); updateMediaStageVisibility();
   }
 
   function renderFriendsCenterDashboard() {
@@ -1859,7 +1836,6 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('top-ch-name').textContent = '👥 Друзья и Личные сообщения';
     document.getElementById('top-ch-desc').textContent = 'ЛИЧНЫЕ КАНАЛЫ СВЯЗИ // GEEK';
     const box = document.getElementById('messages-list'); box.innerHTML = '';
-
     const friends = (social.friends || []).filter(function (u) { return u && !isMeUser(u); });
     const others = (lastMembers || []).filter(function (u) { return u && !isMeUser(u) && !friends.some(function (f) { return f.pid === u.pid; }); });
 
@@ -1867,14 +1843,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     card.innerHTML = '<div style="font-size:13px;font-weight:800;color:var(--brand);">◈ МОИ ДРУЗЬЯ (' + friends.length + ')</div>';
     if (!friends.length) card.innerHTML += '<div style="font-size:12px;color:var(--text-muted);">Список друзей пока пуст. Добавьте участников ниже!</div>';
     friends.forEach(function (u) {
-      const live = (lastMembers || []).find(function (x) { return x.pid === u.pid; }) || u;
-      const row = el('div', 'dm-item-btn'), setKey = getUserFxSet(live);
+      const live = (lastMembers || []).find(function (x) { return x.pid === u.pid; }) || u, row = el('div', 'dm-item-btn'), setKey = getUserFxSet(live);
       row.innerHTML = '<div class="dm-item-left">' + buildMiniHexAvatarHTML(String(live.nick || '?').slice(0, 2).toUpperCase(), live.avatarColor || '#3b82f6', setKey, 36, live.online ? 'online' : 'off', live.avatarImg) + '<div><div class="dm-item-nick">' + escapeHtml(live.nick) + '</div><div class="dm-item-sub">' + (live.online ? '🟢 В сети' : '⚪ Не в сети') + '</div></div></div><div style="display:flex;gap:6px;"><button class="btn-cyan" style="padding:5px 10px;font-size:10.5px;">💬 Чат</button><button class="btn-login-mini" style="padding:5px 9px;">📞 Звонок</button></div>';
-      const btns = row.querySelectorAll('button');
-      btns[0].onclick = function (ev) { ev.stopPropagation(); openDirectChatWithUser(live); };
-      btns[1].onclick = function (ev) { ev.stopPropagation(); startDirectCallToUser(live); };
-      row.onclick = function () { openDirectChatWithUser(live); };
-      card.appendChild(row);
+      const btns = row.querySelectorAll('button'); btns[0].onclick = function (ev) { ev.stopPropagation(); openDirectChatWithUser(live); }; btns[1].onclick = function (ev) { ev.stopPropagation(); startDirectCallToUser(live); };
+      row.onclick = function () { openDirectChatWithUser(live); }; card.appendChild(row);
     });
     box.appendChild(card);
 
@@ -1884,10 +1856,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       others.forEach(function (u) {
         const row = el('div', 'dm-item-btn'), setKey = getUserFxSet(u);
         row.innerHTML = '<div class="dm-item-left">' + buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 34, u.online ? 'online' : 'off', u.avatarImg) + '<div><div class="dm-item-nick">' + escapeHtml(u.nick) + '</div><div class="dm-item-sub">' + (u.online ? '🟢 В сети' : '⚪ Не в сети') + '</div></div></div><div style="display:flex;gap:6px;"><button class="btn-login-mini" style="padding:5px 9px;">💬 ЛС</button><button class="btn-login-mini" style="padding:5px 9px;">📞</button><button class="btn-cyan" style="padding:5px 9px;font-size:10.5px;">+ Друг</button></div>';
-        const btns = row.querySelectorAll('button');
-        btns[0].onclick = function (ev) { ev.stopPropagation(); openDirectChatWithUser(u); };
-        btns[1].onclick = function (ev) { ev.stopPropagation(); startDirectCallToUser(u); };
-        btns[2].onclick = function (ev) { ev.stopPropagation(); friendAction('request', u.pid); };
+        const btns = row.querySelectorAll('button'); btns[0].onclick = function (ev) { ev.stopPropagation(); openDirectChatWithUser(u); }; btns[1].onclick = function (ev) { ev.stopPropagation(); startDirectCallToUser(u); }; btns[2].onclick = function (ev) { ev.stopPropagation(); friendAction('request', u.pid); };
         otherCard.appendChild(row);
       });
       box.appendChild(otherCard);
@@ -1895,35 +1864,26 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function renderDmLeftList() {
-    const listEl = document.getElementById('dm-channels-list'); if (!listEl) return;
-    listEl.innerHTML = '';
+    const listEl = document.getElementById('dm-channels-list'); if (!listEl) return; listEl.innerHTML = '';
     const map = new Map();
     (social.friends || []).forEach(function (f) { if (f && f.pid && !isMeUser(f)) map.set(f.pid, f); });
     Object.keys(dmConversations).forEach(function (pid) { const cu = dmConversations[pid] && dmConversations[pid].user; if (cu && !isMeUser(cu)) map.set(pid, cu); });
     (lastMembers || []).forEach(function (m) { if (m && m.pid && !isMeUser(m) && !map.has(m.pid)) map.set(m.pid, m); });
-
     let totalUnread = 0;
     Array.from(map.values()).forEach(function (u) {
-      const conv = dmConversations[u.pid] || { unread: 0 };
-      totalUnread += (conv.unread || 0);
-      const isAct = activeDmPartner && activeDmPartner.pid === u.pid;
-      const item = el('div', 'dm-item-btn' + (isAct ? ' active' : ''));
-      const liveMember = (lastMembers || []).find(function (x) { return x.pid === u.pid; }) || u;
-      const setKey = getUserFxSet(liveMember), isFr = (social.friends || []).some(function (f) { return f.pid === u.pid; });
+      const conv = dmConversations[u.pid] || { unread: 0 }; totalUnread += (conv.unread || 0);
+      const isAct = activeDmPartner && activeDmPartner.pid === u.pid, item = el('div', 'dm-item-btn' + (isAct ? ' active' : ''));
+      const liveMember = (lastMembers || []).find(function (x) { return x.pid === u.pid; }) || u, setKey = getUserFxSet(liveMember), isFr = (social.friends || []).some(function (f) { return f.pid === u.pid; });
       item.innerHTML = '<div class="dm-item-left">' + buildMiniHexAvatarHTML(String(liveMember.nick || '?').slice(0, 2).toUpperCase(), liveMember.avatarColor || '#3b82f6', setKey, 32, liveMember.online ? 'online' : 'off', liveMember.avatarImg) + '<div style="min-width:0;flex:1;"><div class="dm-item-nick">' + escapeHtml(liveMember.nick) + '</div><div class="dm-item-sub">' + (isFr ? '◈ Друг • ' : '') + (liveMember.online ? 'В сети' : 'Не в сети') + '</div></div></div>' + (conv.unread > 0 ? '<span class="ch-unread-badge">' + conv.unread + '</span>' : '');
-      item.onclick = function () { openDirectChatWithUser(liveMember); };
-      listEl.appendChild(item);
+      item.onclick = function () { openDirectChatWithUser(liveMember); }; listEl.appendChild(item);
     });
     if (!map.size) listEl.innerHTML = '<div style="font-size:11.5px;color:var(--text-muted);padding:8px 6px;">Список друзей пока пуст.</div>';
-    const badge = document.getElementById('dm-total-badge');
-    if (badge) { badge.textContent = String(totalUnread); badge.style.display = totalUnread > 0 ? 'inline-block' : 'none'; }
+    const badge = document.getElementById('dm-total-badge'); if (badge) { badge.textContent = String(totalUnread); badge.style.display = totalUnread > 0 ? 'inline-block' : 'none'; }
   }
 
   async function openDirectChatWithUser(u) {
-    if (!myVerified) return openAuthModal(true);
-    if (!u || !u.pid || isMeUser(u)) return;
-    isFriendsHubMode = true;
-    document.body.classList.add('friends-hub-active');
+    if (!myVerified) return openAuthModal(true); if (!u || !u.pid || isMeUser(u)) return;
+    isFriendsHubMode = true; document.body.classList.add('friends-hub-active');
     document.querySelectorAll('#servers-list-box .srv-pill-wrap').forEach(function (e) { e.classList.remove('active'); });
     const hubPill = document.getElementById('friends-hub-pill'); if (hubPill) hubPill.classList.add('active');
     const subLbl = document.getElementById('srv-sub-label'); if (subLbl) subLbl.textContent = 'ЛИЧНЫЕ КАНАЛЫ';
@@ -1942,12 +1902,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     renderDmLeftList(); closeMobileDrawers(); closeViewProfileModal();
     try {
       const res = await fetch('/api/dm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: u.pid, action: 'history' }) });
-      const d = await res.json();
-      if (d && Array.isArray(d.messages)) dmConversations[u.pid].messages = d.messages;
+      const d = await res.json(); if (d && Array.isArray(d.messages)) dmConversations[u.pid].messages = d.messages;
     } catch (e) {}
-    cachedMessages = dmConversations[u.pid].messages || [];
-    rerenderChatMessages();
-    updateMediaStageVisibility();
+    cachedMessages = dmConversations[u.pid].messages || []; rerenderChatMessages(); updateMediaStageVisibility();
   }
 
   function switchAuthTab(m) {
@@ -1962,15 +1919,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function applyNickUI() {
     document.getElementById('user-name-label').textContent = myNick;
     const accNickEl = document.getElementById('acc-current-nick'); if (accNickEl) accNickEl.textContent = myNick;
-    const ava = document.getElementById('user-ava');
-    ava.innerHTML = buildAvatarInnerContent(myNick.slice(0, 2).toUpperCase(), myProfile.avatarImg);
-    ava.style.background = myProfile.avatarColor || '#3b82f6';
-
+    const ava = document.getElementById('user-ava'); ava.innerHTML = buildAvatarInnerContent(myNick.slice(0, 2).toUpperCase(), myProfile.avatarImg); ava.style.background = myProfile.avatarColor || '#3b82f6';
     const curSet = myProfile.fxSet || detectFxSetFromInterests(myProfile.interests), meta = FX_SETS_META[curSet];
-    const wrap = document.getElementById('user-ava-wrap');
-    if (wrap) wrap.className = 'hex-wrap' + (meta ? ' has-custom-frame ' + meta.avaClass : '');
-    const fImg = document.getElementById('user-ava-frame-img');
-    if (fImg) { if (meta && meta.frameImgUrl) { fImg.src = meta.frameImgUrl; fImg.style.display = 'block'; } else { fImg.style.display = 'none'; } }
+    const wrap = document.getElementById('user-ava-wrap'); if (wrap) wrap.className = 'hex-wrap' + (meta ? ' has-custom-frame ' + meta.avaClass : '');
+    const fImg = document.getElementById('user-ava-frame-img'); if (fImg) { if (meta && meta.frameImgUrl) { fImg.src = meta.frameImgUrl; fImg.style.display = 'block'; } else { fImg.style.display = 'none'; } }
     const badgeSlot = document.getElementById('user-bar-badge-slot'); if (badgeSlot) badgeSlot.innerHTML = getBadgeHTML(curSet);
     document.getElementById('user-presence-dot').className = 'hex-status-dot ' + (myProfile.presence || 'online');
     const sStat = checkContentViolation(myProfile.customStatus || '').length ? '' : myProfile.customStatus;
@@ -1985,8 +1937,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       wrap.appendChild(el('span', 'srv-pill-bar'));
       const b = el('div', 'srv-ico', srv.icon || srv.name.slice(0, 2)); b.title = srv.name;
       wrap.onclick = function () {
-        isFriendsHubMode = false; activeDmPartner = null;
-        document.body.classList.remove('friends-hub-active');
+        isFriendsHubMode = false; activeDmPartner = null; document.body.classList.remove('friends-hub-active');
         const subLbl = document.getElementById('srv-sub-label'); if (subLbl) subLbl.textContent = 'ОТКРЫТЫЙ УЗЕЛ';
         const hubPill = document.getElementById('friends-hub-pill'); if (hubPill) hubPill.classList.remove('active');
         if (srv.id !== currentRoom) switchServer(srv.id); else setChannel(currentChannel);
@@ -2009,9 +1960,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const left = el('div', 'ch-left'); left.appendChild(el('span', 'ch-hash', ch.startsWith('голос-') ? '🔊' : '#')); left.appendChild(el('span', 'ch-name-txt', ch)); row.appendChild(left);
       const unread = unreadByChannel[ch] || 0; if (unread > 0 && (activeDmPartner || ch !== currentChannel)) row.appendChild(el('span', 'ch-unread-badge', String(unread)));
       if (canEditCh) {
-        const ed = el('button', 'ch-edit-btn', '✏️'); ed.title = 'Переименовать канал';
-        ed.onclick = function (ev) { ev.stopPropagation(); promptRenameChannel('text', ch); };
-        row.appendChild(ed);
+        const ed = el('button', 'ch-edit-btn', '✏️'); ed.title = 'Переименовать'; ed.onclick = function (ev) { ev.stopPropagation(); promptRenameChannel('text', ch); }; row.appendChild(ed);
+        const del = el('button', 'ch-edit-btn', '🗑️'); del.title = 'Удалить'; del.onclick = function (ev) { ev.stopPropagation(); promptDeleteChannel('text', ch); }; row.appendChild(del);
       }
       row.onclick = function () { setChannel(ch); }; tBox.appendChild(row);
     });
@@ -2019,18 +1969,15 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const vBox = document.getElementById('voice-channels-list'); vBox.innerHTML = '';
     vList.forEach(function (vch) {
       const isAct = inVoice && !inDirectCall && activeVoiceRoom === currentRoom && currentVoiceChannel === vch;
-      const group = el('div', 'voice-ch-group');
-      const row = el('div', 'voice-ch-box' + (isAct ? ' active' : ''));
+      const group = el('div', 'voice-ch-group'), row = el('div', 'voice-ch-box' + (isAct ? ' active' : ''));
       const left = el('div', 'ch-left'); left.appendChild(el('span', 'ch-hash', '🔊')); left.appendChild(el('span', 'ch-name-txt', vch)); row.appendChild(left);
       const chMembers = getMembersForSpecificVoiceChannel(vch);
       row.appendChild(el('span', 'off-badge' + (isAct || chMembers.length ? ' on' : ''), isAct ? 'LIVE' : (chMembers.length ? String(chMembers.length) : '')));
       if (canEditCh) {
-        const ed = el('button', 'ch-edit-btn', '✏️'); ed.title = 'Переименовать канал';
-        ed.onclick = function (ev) { ev.stopPropagation(); promptRenameChannel('voice', vch); };
-        row.appendChild(ed);
+        const ed = el('button', 'ch-edit-btn', '✏️'); ed.title = 'Переименовать'; ed.onclick = function (ev) { ev.stopPropagation(); promptRenameChannel('voice', vch); }; row.appendChild(ed);
+        const del = el('button', 'ch-edit-btn', '🗑️'); del.title = 'Удалить'; del.onclick = function (ev) { ev.stopPropagation(); promptDeleteChannel('voice', vch); }; row.appendChild(del);
       }
-      row.onclick = function () { selectVoiceChannel(vch); };
-      group.appendChild(row);
+      row.onclick = function () { selectVoiceChannel(vch); }; group.appendChild(row);
       const peersBox = el('div', 'voice-ch-peers'); peersBox.setAttribute('data-vch-peers', vch); group.appendChild(peersBox);
       vBox.appendChild(group);
     });
@@ -2049,18 +1996,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   async function switchServer(roomId) {
     const clean = String(roomId || '').trim();
-    activeDmPartner = null; isFriendsHubMode = false;
-    document.body.classList.remove('friends-hub-active');
+    activeDmPartner = null; isFriendsHubMode = false; document.body.classList.remove('friends-hub-active');
     const subLbl = document.getElementById('srv-sub-label'); if (subLbl) subLbl.textContent = 'ОТКРЫТЫЙ УЗЕЛ';
     const hubPill = document.getElementById('friends-hub-pill'); if (hubPill) hubPill.classList.remove('active');
     if (!clean || clean === currentRoom) { renderServersRail(); renderServerChannels(); closeMobileDrawers(); updateMediaStageVisibility(); return; }
     currentRoom = clean; unreadByChannel = {}; roomMessagesCache = {};
     try { localStorage.setItem('cyber_last_room', currentRoom); } catch (e) {}
     const found = serversList.find(function (s) { return s.id === currentRoom; });
-    if (found) {
-      currentServerMeta = found; currentChannel = found.textChannels[0] || 'общий';
-      if (!inVoice) currentVoiceChannel = found.voiceChannels[0] || 'Ночной эфир';
-    }
+    if (found) { currentServerMeta = found; currentChannel = found.textChannels[0] || 'общий'; if (!inVoice) currentVoiceChannel = found.voiceChannels[0] || 'Ночной эфир'; }
     updateBrowserUrl(); renderServersRail(); renderServerChannels(); closeMobileDrawers(); updateMediaStageVisibility();
     try {
       const res = await fetch('/api/switch-room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, nick: myNick }) });
@@ -2099,9 +2042,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         else { unreadByChannel[ch] = (unreadByChannel[ch] || 0) + 1; renderServerChannels(); }
         if (appSettings.soundMsg && msg && msg.author !== myNick) playUiBeep(540, 0.06);
       } else if (data.type === 'dm-msg') {
-        const p = data.payload || {};
-        const partnerPid = (p.fromPid === myPid) ? p.toPid : p.fromPid;
-        const partnerNick = (p.fromPid === myPid) ? p.toNick : p.fromNick;
+        const p = data.payload || {}, partnerPid = (p.fromPid === myPid) ? p.toPid : p.fromPid, partnerNick = (p.fromPid === myPid) ? p.toNick : p.fromNick;
         if (!partnerPid || partnerPid === myPid) return;
         const known = (lastMembers || []).find(function (u) { return u.pid === partnerPid; }) || (social.friends || []).find(function (f) { return f.pid === partnerPid; }) || { pid: partnerPid, nick: partnerNick || 'Собеседник', online: true };
         if (!dmConversations[partnerPid]) dmConversations[partnerPid] = { user: known, messages: [], unread: 0 };
@@ -2142,8 +2083,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           if (kind === 'all') { removeAudio(pid); stopVoiceActivityDetector('peer-' + pid); }
         }
       } else if (data.type === 'direct-call') {
-        const p = data.payload || {};
-        if (p.fromPid && p.fromPid === myPid) return;
+        const p = data.payload || {}; if (p.fromPid && p.fromPid === myPid) return;
         if (p.action === 'ring') {
           incomingCallData = p;
           document.getElementById('inc-call-nick').textContent = p.fromNick || 'Собеседник';
@@ -2151,27 +2091,28 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           document.getElementById('incoming-call-toast').classList.add('show');
           stopIncomingRingtone(); playUiBeep(660, 0.14);
           ringtoneTimer = setInterval(function () { playUiBeep(660, 0.14); }, 1800);
-        } else if (p.action === 'accept' && p.peerId) {
-          connectToExistingVoicePeers([p.peerId]);
-        } else if (p.action === 'decline') {
-          stopIncomingRingtone(); document.getElementById('incoming-call-toast').classList.remove('show');
-        }
+        } else if (p.action === 'accept' && p.peerId) connectToExistingVoicePeers([p.peerId]);
+        else if (p.action === 'decline') { stopIncomingRingtone(); document.getElementById('incoming-call-toast').classList.remove('show'); }
       }
     };
   }
 
   function rerenderChatMessages() {
     const box = document.getElementById('messages-list'); box.innerHTML = '';
-    if (!cachedMessages || !cachedMessages.length) { box.innerHTML = '<div id="empty-hint" style="font-size:13px;color:var(--text-muted);padding:8px 4px;">Сообщений пока нет. Напишите в консоль ниже или прикрепите фото/видео (📎)!</div>'; return; }
-    cachedMessages.forEach(addMsgToDOM);
+    const q = (document.getElementById('chat-search-inp') ? document.getElementById('chat-search-inp').value : '').trim().toLowerCase();
+    const list = q ? (cachedMessages || []).filter(function (m) { return String(m.text || '').toLowerCase().includes(q) || String(m.author || '').toLowerCase().includes(q); }) : (cachedMessages || []);
+    if (!list.length) {
+      box.innerHTML = '<div id="empty-hint" style="font-size:13px;color:var(--text-muted);padding:8px 4px;">' + (q ? 'По запросу «' + escapeHtml(q) + '» ничего не найдено.' : 'Сообщений пока нет. Напишите в консоль ниже или прикрепите фото/видео (📎)!') + '</div>';
+      return;
+    }
+    list.forEach(addMsgToDOM);
   }
 
   function buildMessageBodyHTML(text, violations) {
     const s = String(text || '').trim();
     if (s.startsWith('data:image/')) return '<img class="chat-inline-media" src="' + escapeHtml(s) + '" alt="Фото">';
     if (s.startsWith('data:video/') || /^https?:\/\/[^\s"'<>]+\.(?:mp4|webm)(?:\?[^\s"'<>]*)?$/i.test(s)) return '<video class="chat-inline-video" src="' + escapeHtml(s) + '" controls playsinline preload="metadata"></video>';
-    const safeText = escapeHtml(s).replace(ANY_URL_RX, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-    const imgMatch = s.match(IMAGE_URL_RX);
+    const safeText = escapeHtml(s).replace(ANY_URL_RX, '<a href="$1" target="_blank" rel="noopener">$1</a>'), imgMatch = s.match(IMAGE_URL_RX);
     let inner = '<div>' + safeText + '</div>';
     if (imgMatch) inner += '<img class="chat-inline-media" src="' + escapeHtml(imgMatch[0]) + '" alt="media" loading="lazy">';
     if (!violations || !violations.length) return inner;
@@ -2232,10 +2173,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function renderMemberRow(u, friendPids) {
     const d = el('div', 'online-user-item' + (u.online ? ' is-online' : '')); if (!u.online) d.style.opacity = '0.55';
-    const isSelf = isMeUser(u), setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
-    const role = getUserPrimaryRole(u.pid);
-    const avaHolder = document.createElement('div');
-    const aImg = (isSelf ? myProfile.avatarImg : u.avatarImg) || '';
+    const isSelf = isMeUser(u), setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey], role = getUserPrimaryRole(u.pid);
+    const avaHolder = document.createElement('div'), aImg = (isSelf ? myProfile.avatarImg : u.avatarImg) || '';
     avaHolder.innerHTML = buildMiniHexAvatarHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, 36, u.online ? (u.presence || 'online') : 'off', aImg);
     d.appendChild(avaHolder.firstChild);
 
@@ -2263,8 +2202,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function renderUsers(list) {
     lastMembers = list || [];
     const online = lastMembers.filter(function (u) { return u.online; }), offline = lastMembers.filter(function (u) { return !u.online; });
-    document.getElementById('online-count').textContent = online.length;
-    document.getElementById('total-members-count').textContent = offline.length;
+    document.getElementById('online-count').textContent = online.length; document.getElementById('total-members-count').textContent = offline.length;
     const onBox = document.getElementById('online-users-box'), offBox = document.getElementById('offline-users-box');
     onBox.innerHTML = ''; offBox.innerHTML = '';
     const friendPids = (social.friends || []).map(function (f) { return f.pid; });
@@ -2274,8 +2212,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function renderSocial() {
-    const friends = (social.friends || []).filter(function (f) { return !isMeUser(f); });
-    const incoming = (social.incoming || []).filter(function (r) { return !isMeUser(r); });
+    const friends = (social.friends || []).filter(function (f) { return !isMeUser(f); }), incoming = (social.incoming || []).filter(function (r) { return !isMeUser(r); });
     document.getElementById('friends-count').textContent = friends.length;
     const rq = document.getElementById('requests-box'); rq.innerHTML = '';
     incoming.forEach(function (r) {
@@ -2289,12 +2226,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function openUserProfileCard(u) {
-    if (!u) return;
-    closeMobileDrawers();
+    if (!u) return; closeMobileDrawers();
     const isSelf = isMeUser(u), setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
     document.getElementById('vp-surface').className = 'profile-surface' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
-    const customBgEl = document.getElementById('vp-custom-bg');
-    if (customBgEl) { const bImg = (isSelf ? myProfile.bannerImg : u.bannerImg) || ''; customBgEl.style.backgroundImage = bImg ? 'url(\'' + bImg + '\')' : 'none'; }
+    const customBgEl = document.getElementById('vp-custom-bg'); if (customBgEl) { const bImg = (isSelf ? myProfile.bannerImg : u.bannerImg) || ''; customBgEl.style.backgroundImage = bImg ? 'url(\'' + bImg + '\')' : 'none'; }
     const aImg = (isSelf ? myProfile.avatarImg : u.avatarImg) || '';
     document.getElementById('vp-hero-stage').innerHTML = buildHeroHexMedallionHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, u.online ? (u.presence || 'online') : 'off', aImg);
     document.getElementById('vp-nick').textContent = u.nick || 'Участник';
@@ -2309,18 +2244,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
     const commRow = document.getElementById('vp-comm-btns-row'), mBtn = document.getElementById('vp-mention-btn'), cBtn = document.getElementById('vp-call-btn');
     if (isSelf) { if (commRow) commRow.style.display = 'none'; }
-    else {
-      if (commRow) commRow.style.display = 'grid';
-      if (mBtn) mBtn.onclick = function () { openDirectChatWithUser(u); };
-      if (cBtn) cBtn.onclick = function () { startDirectCallToUser(u); };
-    }
+    else { if (commRow) commRow.style.display = 'grid'; if (mBtn) mBtn.onclick = function () { openDirectChatWithUser(u); }; if (cBtn) cBtn.onclick = function () { startDirectCallToUser(u); }; }
 
     const fBtn = document.getElementById('vp-friend-btn'), friendPids = (social.friends || []).map(function (f) { return f.pid; });
     if (isSelf) { fBtn.textContent = '📷 Настроить мой профиль и фото'; fBtn.className = 'btn-cyan'; fBtn.onclick = function () { closeViewProfileModal(); openSettingsModal('profile'); }; }
     else if (friendPids.includes(u.pid)) { fBtn.textContent = '✕ Удалить из друзей'; fBtn.className = 'btn-danger'; fBtn.onclick = function () { friendAction('remove', u.pid); closeViewProfileModal(); }; }
     else { fBtn.textContent = '+ Добавить в друзья'; fBtn.className = 'btn-cyan'; fBtn.onclick = function () { friendAction('request', u.pid); closeViewProfileModal(); }; }
-    document.getElementById('view-profile-backdrop').classList.add('open');
-    document.getElementById('view-profile-drawer').classList.add('open');
+    document.getElementById('view-profile-backdrop').classList.add('open'); document.getElementById('view-profile-drawer').classList.add('open');
   }
   function closeViewProfileModal() { document.getElementById('view-profile-backdrop').classList.remove('open'); document.getElementById('view-profile-drawer').classList.remove('open'); }
 
@@ -2332,7 +2262,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     document.getElementById('prof-status-inp').value = myProfile.customStatus || '';
     document.getElementById('prof-bio-inp').value = myProfile.bio || '';
     document.getElementById('prof-interests-inp').value = cleanInterestsForDisplay(myProfile.interests).join(', ');
-    updateProfilePreview(true); updateFxButtonsUI(); renderKeybindsUI();
+    updateProfilePreview(true); updateFxButtonsUI(); renderKeybindsUI(); applyAppearanceFromStorage();
     refreshMediaDevices(); switchSettingsPane(pane || 'profile');
     document.getElementById('settings-modal').classList.add('open');
   }
@@ -2341,7 +2271,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     recordingAction = null; renderKeybindsUI();
     document.querySelectorAll('#settings-modal .settings-nav-btn').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-pane') === pId); });
     document.querySelectorAll('#settings-modal .settings-pane').forEach(function (p) { p.classList.toggle('active', p.id === 'pane-' + pId); });
-    if (pId !== 'voice') stopMicTest();
+    if (pId === 'voice') refreshMediaDevices();
+    else stopMicTest();
   }
 
   function saveSafetySettings() {
@@ -2357,12 +2288,10 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function selectAvatarColor(c) { myProfile.avatarColor = c; updateProfilePreview(false); }
 
   function updateProfilePreview(skipSync) {
-    const n = document.getElementById('prof-nick-inp').value.trim().slice(0, 24) || myNick;
-    const pr = document.getElementById('prof-presence-sel').value || 'online';
-    const st = document.getElementById('prof-status-inp').value.trim().slice(0, 60);
-    const bio = document.getElementById('prof-bio-inp').value.trim().slice(0, 220);
-    const rawIntr = document.getElementById('prof-interests-inp').value.trim().slice(0, 130);
-    const cleanTags = cleanInterestsForDisplay(rawIntr), curSet = myProfile.fxSet || detectFxSetFromInterests(myProfile.interests), fxMeta = FX_SETS_META[curSet];
+    const n = document.getElementById('prof-nick-inp').value.trim().slice(0, 24) || myNick, pr = document.getElementById('prof-presence-sel').value || 'online';
+    const st = document.getElementById('prof-status-inp').value.trim().slice(0, 60), bio = document.getElementById('prof-bio-inp').value.trim().slice(0, 220);
+    const cleanTags = cleanInterestsForDisplay(document.getElementById('prof-interests-inp').value.trim().slice(0, 130));
+    const curSet = myProfile.fxSet || detectFxSetFromInterests(myProfile.interests), fxMeta = FX_SETS_META[curSet];
     if (fxMeta) cleanTags.push(fxMeta.code);
     const finalIntr = cleanTags.join(', ');
 
@@ -2390,76 +2319,63 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function syncProfileToServer() {
     if (!myVerified) return Promise.resolve();
-    return fetch('/api/profile', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid: myUid, nick: myNick, presence: myProfile.presence, customStatus: myProfile.customStatus, bio: myProfile.bio, interests: myProfile.interests, bannerColor: myProfile.bannerColor, avatarColor: myProfile.avatarColor, avatarImg: myProfile.avatarImg || '', bannerImg: myProfile.bannerImg || '' })
-    }).catch(function () {});
+    return fetch('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, nick: myNick, presence: myProfile.presence, customStatus: myProfile.customStatus, bio: myProfile.bio, interests: myProfile.interests, bannerColor: myProfile.bannerColor, avatarColor: myProfile.avatarColor, avatarImg: myProfile.avatarImg || '', bannerImg: myProfile.bannerImg || '' }) }).catch(function () {});
   }
   async function saveProfileSettings() { updateProfilePreview(false); await syncProfileToServer(); closeSettingsModal(); }
 
   async function generateDeviceLinkCode() {
-    try {
-      const res = await fetch('/api/device-link-init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid }) });
-      const d = await res.json(); if (d.error) return alert(d.error);
-      document.getElementById('device-link-code-box').textContent = d.code;
-    } catch (e) {}
+    try { const res = await fetch('/api/device-link-init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid }) }); const d = await res.json(); if (d.error) return alert(d.error); document.getElementById('device-link-code-box').textContent = d.code; } catch (e) {}
   }
-
   async function loginWithDeviceCode() {
     const code = document.getElementById('device-link-inp').value.trim(); if (!code) return alert('Введите 4-значный код!');
     const res = await fetch('/api/device-link-verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, room: currentRoom, code: code }) });
     const d = await res.json(); if (d.error) return alert(d.error); completeClientAuth(d);
   }
-
   async function saveAccountPassword() {
-    const pw = document.getElementById('acc-new-pass-inp').value;
-    if (!pw || pw.length < 4) return alert('Пароль должен быть не менее 4 символов!');
+    const pw = document.getElementById('acc-new-pass-inp').value; if (!pw || pw.length < 4) return alert('Пароль должен быть не менее 4 символов!');
     const res = await fetch('/api/set-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, password: pw }) });
-    const d = await res.json(); if (d.error) return alert(d.error);
-    document.getElementById('acc-new-pass-inp').value = '';
-    alert('Пароль сохранён!');
+    const d = await res.json(); if (d.error) return alert(d.error); document.getElementById('acc-new-pass-inp').value = ''; alert('Пароль сохранён!');
   }
 
   async function refreshMediaDevices() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    const mSel = document.getElementById('set-mic-select'), sSel = document.getElementById('set-spk-select'), cSel = document.getElementById('set-cam-select');
+    if (!mSel || !sSel || !cSel) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+      mSel.innerHTML = '<option value="">Системный микрофон по умолчанию</option>';
+      sSel.innerHTML = '<option value="">Системный динамик по умолчанию</option>';
+      cSel.innerHTML = '<option value="">Системная камера по умолчанию</option>';
+      return;
+    }
     try {
       let devs = await navigator.mediaDevices.enumerateDevices();
       if (!devs.some(function (d) { return d.label; })) {
         try { const tmp = await navigator.mediaDevices.getUserMedia({ audio: true }); tmp.getTracks().forEach(function (t) { t.stop(); }); devs = await navigator.mediaDevices.enumerateDevices(); } catch (e) {}
       }
-      const mSel = document.getElementById('set-mic-select'), sSel = document.getElementById('set-spk-select'), cSel = document.getElementById('set-cam-select');
-      if (!mSel || !sSel || !cSel) return;
-      mSel.innerHTML = ''; sSel.innerHTML = ''; cSel.innerHTML = '';
+      mSel.innerHTML = '<option value="">По умолчанию (системный)</option>';
+      sSel.innerHTML = '<option value="">По умолчанию (системный)</option>';
+      cSel.innerHTML = '<option value="">По умолчанию (системная)</option>';
       let mi = 1, si = 1, ci = 1;
       devs.forEach(function (d) {
         if (d.kind === 'audioinput') { const o = el('option', '', d.label || ('Микрофон #' + (mi++))); o.value = d.deviceId; if (appSettings.micDeviceId === d.deviceId) o.selected = true; mSel.appendChild(o); }
         else if (d.kind === 'audiooutput') { const o = el('option', '', d.label || ('Аудиовыход #' + (si++))); o.value = d.deviceId; if (appSettings.spkDeviceId === d.deviceId) o.selected = true; sSel.appendChild(o); }
         else if (d.kind === 'videoinput') { const o = el('option', '', d.label || ('Камера #' + (ci++))); o.value = d.deviceId; if (appSettings.camDeviceId === d.deviceId) o.selected = true; cSel.appendChild(o); }
       });
-      if (!sSel.children.length) sSel.appendChild(el('option', '', 'Системный динамик по умолчанию'));
     } catch (e) {}
   }
 
   async function onMediaDeviceSelectChange() {
     const mSel = document.getElementById('set-mic-select'), sSel = document.getElementById('set-spk-select'), cSel = document.getElementById('set-cam-select');
-    if (mSel) appSettings.micDeviceId = mSel.value;
-    if (sSel) appSettings.spkDeviceId = sSel.value;
-    if (cSel) appSettings.camDeviceId = cSel.value;
+    if (mSel) appSettings.micDeviceId = mSel.value; if (sSel) appSettings.spkDeviceId = sSel.value; if (cSel) appSettings.camDeviceId = cSel.value;
     saveAudioVideoSettings();
     if (sSel && sSel.value) document.querySelectorAll('#audio-box audio').forEach(function (a) { if (typeof a.setSinkId === 'function') a.setSinkId(sSel.value).catch(function () {}); });
     if (inVoice && mSel && mSel.value) {
       try {
-        const newSt = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: mSel.value } } });
-        const newTrack = newSt.getAudioTracks()[0];
+        const newSt = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: mSel.value } } }), newTrack = newSt.getAudioTracks()[0];
         if (localStream && newTrack) {
-          localStream.getAudioTracks().forEach(function (t) { t.stop(); localStream.removeTrack(t); });
-          localStream.addTrack(newTrack);
+          localStream.getAudioTracks().forEach(function (t) { t.stop(); localStream.removeTrack(t); }); localStream.addTrack(newTrack);
           attachVoiceActivityDetector('local', localStream, function () { return myNick; });
           Object.values(activeAudioCalls).forEach(function (call) {
-            if (call && call.peerConnection) {
-              const sender = call.peerConnection.getSenders().find(function (s) { return s.track && s.track.kind === 'audio'; });
-              if (sender) sender.replaceTrack(newTrack);
-            }
+            if (call && call.peerConnection) { const sender = call.peerConnection.getSenders().find(function (s) { return s.track && s.track.kind === 'audio'; }); if (sender) sender.replaceTrack(newTrack); }
           });
         }
       } catch (e) {}
@@ -2469,8 +2385,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function onAudioSlidersChange() {
     const mv = Number(document.getElementById('set-mic-vol').value || 100), ov = Number(document.getElementById('set-out-vol').value || 100);
     document.getElementById('lbl-mic-vol').textContent = mv + '%'; document.getElementById('lbl-out-vol').textContent = ov + '%';
-    appSettings.micVolume = mv; appSettings.outVolume = ov;
-    if (micGainNode) micGainNode.gain.value = mv / 100;
+    appSettings.micVolume = mv; appSettings.outVolume = ov; if (micGainNode) micGainNode.gain.value = mv / 100;
     applyOutputVolumeToAll(); saveAudioVideoSettings();
   }
   function applyOutputVolumeToAll() {
@@ -2499,14 +2414,46 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const bar = document.getElementById('mic-test-bar'); if (bar) bar.style.width = '0%';
   }
 
+  function selectAppTheme(th) { appSettings.theme = th || 'cyber-cyan'; try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {} applyAppearanceFromStorage(); }
+  function selectAppIcon(ico) { appSettings.appIcon = ico || '⚡'; try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {} applyAppearanceFromStorage(); }
+  function toggleStreamerMode(val) { appSettings.streamerMode = !!val; try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {} applyAppearanceFromStorage(); }
+
   function applyAppearanceSettings() {
-    appSettings.compactChat = document.getElementById('chk-compact').checked; appSettings.fontSize = document.getElementById('sel-font-size').value || '14px';
-    try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {} applyAppearanceFromStorage();
+    appSettings.compactChat = document.getElementById('chk-compact').checked;
+    appSettings.showTime = document.getElementById('chk-show-time').checked;
+    appSettings.showMedia = document.getElementById('chk-show-media').checked;
+    appSettings.showSearch = document.getElementById('chk-show-search').checked;
+    appSettings.fontSize = document.getElementById('sel-font-size').value || '14px';
+    appSettings.msgGap = document.getElementById('sel-msg-gap').value || '8px';
+    try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
+    applyAppearanceFromStorage();
   }
+
   function applyAppearanceFromStorage() {
+    const th = appSettings.theme || 'cyber-cyan';
+    document.documentElement.setAttribute('data-theme', th);
+    document.querySelectorAll('#theme-picker-grid .theme-card').forEach(function (c) { c.classList.toggle('active', c.getAttribute('data-th') === th); });
+
+    const ico = appSettings.appIcon || '⚡', logoSpan = document.querySelector('.tt-logo span:first-child');
+    if (logoSpan) logoSpan.textContent = ico;
+    document.querySelectorAll('#icon-picker-grid .app-icon-opt').forEach(function (c) { c.classList.toggle('active', c.getAttribute('data-ico') === ico); });
+    const fav = document.querySelector('link[rel="icon"]');
+    if (fav) fav.href = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>' + encodeURIComponent(ico) + '</text></svg>';
+
     document.body.classList.toggle('compact-chat', !!appSettings.compactChat);
+    document.body.classList.toggle('hide-timestamps', appSettings.showTime === false);
+    document.body.classList.toggle('hide-inline-media', appSettings.showMedia === false);
+    document.body.classList.toggle('hide-search-bar', appSettings.showSearch === false);
+    document.body.classList.toggle('streamer-mode', !!appSettings.streamerMode);
     document.documentElement.style.setProperty('--chat-font-size', appSettings.fontSize || '14px');
+    document.documentElement.style.setProperty('--msg-gap', appSettings.msgGap || '8px');
+
+    const mapChk = { 'chk-compact': !!appSettings.compactChat, 'chk-show-time': appSettings.showTime !== false, 'chk-show-media': appSettings.showMedia !== false, 'chk-show-search': appSettings.showSearch !== false, 'chk-streamer-mode': !!appSettings.streamerMode };
+    Object.keys(mapChk).forEach(function (id) { const e = document.getElementById(id); if (e) e.checked = mapChk[id]; });
+    const sf = document.getElementById('sel-font-size'); if (sf) sf.value = appSettings.fontSize || '14px';
+    const sg = document.getElementById('sel-msg-gap'); if (sg) sg.value = appSettings.msgGap || '8px';
   }
+
   function saveNotificationSettings() {
     appSettings.soundMsg = document.getElementById('chk-snd-msg').checked; appSettings.soundVoice = document.getElementById('chk-snd-voice').checked;
     try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
@@ -2532,31 +2479,26 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function setChannel(ch) {
-    activeDmPartner = null; isFriendsHubMode = false;
-    document.body.classList.remove('friends-hub-active');
+    activeDmPartner = null; isFriendsHubMode = false; document.body.classList.remove('friends-hub-active');
     const subLbl = document.getElementById('srv-sub-label'); if (subLbl) subLbl.textContent = 'ОТКРЫТЫЙ УЗЕЛ';
     const hubPill = document.getElementById('friends-hub-pill'); if (hubPill) hubPill.classList.remove('active');
     currentChannel = ch; unreadByChannel[ch] = 0;
     updateBrowserUrl(); renderServersRail(); applyChannelUI(ch); renderServerChannels();
-    cachedMessages = roomMessagesCache[ch] || []; rerenderChatMessages(); closeMobileDrawers();
-    updateMediaStageVisibility();
+    cachedMessages = roomMessagesCache[ch] || []; rerenderChatMessages(); closeMobileDrawers(); updateMediaStageVisibility();
   }
 
   function jumpToActiveVoiceChannel() { closeMobileDrawers(); setMobActiveTab('mob-tab-voice'); selectVoiceChannel(currentVoiceChannel || 'Ночной эфир'); }
 
   async function selectVoiceChannel(vch) {
     if (!myVerified) { openAuthModal(true); return; }
-    inDirectCall = false; directCallPartner = null;
-    currentVoiceChannel = vch; activeVoiceRoom = currentRoom;
+    inDirectCall = false; directCallPartner = null; currentVoiceChannel = vch; activeVoiceRoom = currentRoom;
     updateVoicePanelUI(); renderServerChannels(); closeMobileDrawers();
-
     const vChat = 'голос-' + String(vch || 'эфир').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, 20);
     if (!currentServerMeta.textChannels.includes(vChat)) {
       try { await fetch('/api/channel/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, room: currentRoom, type: 'text', name: vChat }) }); } catch (e) {}
       if (!currentServerMeta.textChannels.includes(vChat)) currentServerMeta.textChannels.push(vChat);
     }
     setChannel(vChat);
-
     if (!inVoice) await ensureVoiceConnected();
     else {
       const d = await postVoiceState({ inVoice: true, inScreen: inScreen, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel, voiceRoom: activeVoiceRoom });
@@ -2566,42 +2508,28 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   async function startDirectCallToUser(u) {
-    if (!myVerified) return openAuthModal(true);
-    if (!u || !u.pid || isMeUser(u)) return;
-    closeViewProfileModal();
-
-    inDirectCall = true; directCallPartner = u;
+    if (!myVerified) return openAuthModal(true); if (!u || !u.pid || isMeUser(u)) return;
+    closeViewProfileModal(); inDirectCall = true; directCallPartner = u;
     const dmVoiceKey = '__dm__' + [myPid || myNick, u.pid].sort().join('_');
     currentVoiceChannel = dmVoiceKey; activeVoiceRoom = DEFAULT_ROOM;
-
-    openDirectChatWithUser(u);
-    await ensureVoiceConnected();
-    updateVoicePanelUI(); renderServerChannels(); updateMediaStageVisibility();
-
+    openDirectChatWithUser(u); await ensureVoiceConnected(); updateVoicePanelUI(); renderServerChannels(); updateMediaStageVisibility();
     await fetch('/api/direct-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: u.pid, action: 'ring', peerId: myPeerId, callRoom: DEFAULT_ROOM, callChannel: dmVoiceKey }) }).catch(function () {});
   }
 
   async function acceptDirectCall() {
     if (!incomingCallData) return;
-    const d = incomingCallData;
-    stopIncomingRingtone(); document.getElementById('incoming-call-toast').classList.remove('show');
-
+    const d = incomingCallData; stopIncomingRingtone(); document.getElementById('incoming-call-toast').classList.remove('show');
     const callerObj = (lastMembers || []).find(function (u) { return u.pid === d.fromPid; }) || { pid: d.fromPid, nick: d.fromNick, avatarColor: d.fromColor, avatarImg: d.fromAva, online: true };
     inDirectCall = true; directCallPartner = callerObj;
-    currentVoiceChannel = d.callChannel || ('__dm__' + [myPid || myNick, d.fromPid].sort().join('_'));
-    activeVoiceRoom = DEFAULT_ROOM;
-
-    openDirectChatWithUser(callerObj);
-    await ensureVoiceConnected();
-    updateVoicePanelUI(); renderServerChannels(); updateMediaStageVisibility();
-
+    currentVoiceChannel = d.callChannel || ('__dm__' + [myPid || myNick, d.fromPid].sort().join('_')); activeVoiceRoom = DEFAULT_ROOM;
+    openDirectChatWithUser(callerObj); await ensureVoiceConnected(); updateVoicePanelUI(); renderServerChannels(); updateMediaStageVisibility();
     if (d.peerId) connectToExistingVoicePeers([d.peerId]);
     fetch('/api/direct-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: d.fromPid, action: 'accept', peerId: myPeerId, callRoom: DEFAULT_ROOM, callChannel: currentVoiceChannel }) }).catch(function () {});
     incomingCallData = null;
   }
 
   function declineDirectCall() {
-    if (incomingCallData) { fetch('/api/direct-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: incomingCallData.fromPid, action: 'decline' }) }).catch(function () {}); }
+    if (incomingCallData) fetch('/api/direct-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, targetPid: incomingCallData.fromPid, action: 'decline' }) }).catch(function () {});
     stopIncomingRingtone(); document.getElementById('incoming-call-toast').classList.remove('show'); incomingCallData = null;
   }
   function stopIncomingRingtone() { if (ringtoneTimer) { clearInterval(ringtoneTimer); ringtoneTimer = null; } }
@@ -2609,11 +2537,9 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   function openCreateServerModal() { if (!myVerified) return openAuthModal(true); closeMobileDrawers(); document.getElementById('create-server-modal').classList.add('open'); }
   function closeCreateServerModal() { document.getElementById('create-server-modal').classList.remove('open'); }
   async function submitCreateServer() {
-    const name = document.getElementById('new-srv-name').value.trim(), desc = document.getElementById('new-srv-desc').value.trim();
-    if (!name) return alert('Введите название!');
+    const name = document.getElementById('new-srv-name').value.trim(), desc = document.getElementById('new-srv-desc').value.trim(); if (!name) return alert('Введите название!');
     const res = await fetch('/api/server/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: myUid, nick: myNick, name: name, desc: desc }) });
-    const d = await res.json(); if (d.error) return alert(d.error);
-    closeCreateServerModal(); await switchServer(d.serverId);
+    const d = await res.json(); if (d.error) return alert(d.error); closeCreateServerModal(); await switchServer(d.serverId);
   }
 
   function openCreateChannelModal(type) {
@@ -2684,10 +2610,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function bindAudioCallEvents(pid, call, fallbackNick) {
     activeAudioCalls[pid] = call;
-    call.on('stream', function (st) {
-      playStream(pid, st);
-      attachVoiceActivityDetector('peer-' + pid, st, function () { return (call.metadata && call.metadata.nick) || resolveNickByPeerId(pid) || fallbackNick; });
-    });
+    call.on('stream', function (st) { playStream(pid, st); attachVoiceActivityDetector('peer-' + pid, st, function () { return (call.metadata && call.metadata.nick) || resolveNickByPeerId(pid) || fallbackNick; }); });
     const cleanUp = function () { removeAudio(pid); stopVoiceActivityDetector('peer-' + pid); removeMediaTile('cam-' + pid); removeMediaTile('screen-' + pid); delete activeAudioCalls[pid]; };
     call.on('close', cleanUp); call.on('error', cleanUp);
   }
@@ -2696,22 +2619,14 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (!peer || !localStream) return;
     (peerIds || []).forEach(function (pid) {
       if (!pid || pid === myPeerId) return;
-      if (!activeAudioCalls[pid]) {
-        const call = peer.call(pid, localStream, { metadata: { kind: 'audio', nick: myNick } });
-        if (call) bindAudioCallEvents(pid, call, 'Собеседник');
-      }
+      if (!activeAudioCalls[pid]) { const call = peer.call(pid, localStream, { metadata: { kind: 'audio', nick: myNick } }); if (call) bindAudioCallEvents(pid, call, 'Собеседник'); }
       if (inWebcam && webcamStream) callPeerWithWebcam(pid);
       if (inScreen && screenStream) callPeerWithScreen(pid);
     });
   }
 
   function createSilentAudioTrack() {
-    try {
-      const ctx = audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)());
-      const dst = ctx.createMediaStreamDestination(), track = dst.stream.getAudioTracks()[0];
-      if (track) track.enabled = false;
-      return track;
-    } catch (e) { return null; }
+    try { const ctx = audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)()), dst = ctx.createMediaStreamDestination(), track = dst.stream.getAudioTracks()[0]; if (track) track.enabled = false; return track; } catch (e) { return null; }
   }
 
   async function ensureVoiceConnected() {
@@ -2746,10 +2661,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
           call.on('stream', function (st) { renderMediaTile(kind + '-' + call.peer, st, n + (kind === 'cam' ? ' (Камера)' : ' (Экран)'), false, kind); });
           call.on('close', function () { removeMediaTile(kind + '-' + call.peer); });
           call.on('error', function () { removeMediaTile(kind + '-' + call.peer); });
-        } else {
-          call.answer(localStream || undefined);
-          bindAudioCallEvents(call.peer, call, n);
-        }
+        } else { call.answer(localStream || undefined); bindAudioCallEvents(call.peer, call, n); }
       });
       peer.on('error', function () { resolve(false); });
     });
@@ -2767,26 +2679,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       document.getElementById('audio-box').innerHTML = ''; document.getElementById('screen-grid').innerHTML = '';
       updateMediaStageVisibility(); stopBackgroundCallPersistence(); renderServerChannels(); return;
     }
-    activeVoiceRoom = currentRoom;
-    await ensureVoiceConnected();
+    activeVoiceRoom = currentRoom; await ensureVoiceConnected();
   }
 
   function callPeerWithWebcam(pid) {
     if (!peer || !webcamStream || !pid || pid === myPeerId) return;
-    try {
-      if (camCalls[pid]) { try { camCalls[pid].close(); } catch (e) {} }
-      const tracks = webcamStream.getVideoTracks().slice(), dummy = createSilentAudioTrack();
-      if (dummy) tracks.push(dummy);
-      camCalls[pid] = peer.call(pid, new MediaStream(tracks), { metadata: { kind: 'cam', nick: myNick } });
-    } catch (e) {}
+    try { if (camCalls[pid]) { try { camCalls[pid].close(); } catch (e) {} } const tracks = webcamStream.getVideoTracks().slice(), dummy = createSilentAudioTrack(); if (dummy) tracks.push(dummy); camCalls[pid] = peer.call(pid, new MediaStream(tracks), { metadata: { kind: 'cam', nick: myNick } }); } catch (e) {}
   }
 
   async function toggleWebcam() {
     if (!myVerified) return openAuthModal(true); if (inWebcam) { stopWebcam(false); return; }
-    try {
-      const camId = appSettings.camDeviceId || '';
-      webcamStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: camId ? { exact: camId } : undefined, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
-    } catch (e) { alert('Разрешите доступ к камере!'); return; }
+    try { const camId = appSettings.camDeviceId || ''; webcamStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: camId ? { exact: camId } : undefined, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }); } catch (e) { alert('Разрешите доступ к камере!'); return; }
     if (!(await ensureVoiceConnected())) { webcamStream.getTracks().forEach(function (t) { t.stop(); }); return; }
     inWebcam = true; document.getElementById('cam-btn').textContent = '🛑 Камера'; document.getElementById('cam-btn').classList.add('active-cam');
     webcamStream.getVideoTracks()[0].onended = function () { stopWebcam(false); };
@@ -2806,12 +2709,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function callPeerWithScreen(pid) {
     if (!peer || !screenStream || !pid || pid === myPeerId) return;
-    try {
-      if (screenCalls[pid]) { try { screenCalls[pid].close(); } catch (e) {} }
-      const tracks = screenStream.getTracks().slice();
-      if (!tracks.some(function (t) { return t.kind === 'audio'; })) { const dummy = createSilentAudioTrack(); if (dummy) tracks.push(dummy); }
-      screenCalls[pid] = peer.call(pid, new MediaStream(tracks), { metadata: { kind: 'screen', nick: myNick } });
-    } catch (e) {}
+    try { if (screenCalls[pid]) { try { screenCalls[pid].close(); } catch (e) {} } const tracks = screenStream.getTracks().slice(); if (!tracks.some(function (t) { return t.kind === 'audio'; })) { const dummy = createSilentAudioTrack(); if (dummy) tracks.push(dummy); } screenCalls[pid] = peer.call(pid, new MediaStream(tracks), { metadata: { kind: 'screen', nick: myNick } }); } catch (e) {}
   }
 
   async function toggleScreenShare() {
@@ -2836,10 +2734,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function toggleStageCollapse() {
-    const dock = document.getElementById('media-stage-dock'), btn = document.getElementById('btn-stage-collapse');
-    if (!dock) return;
-    const isCol = dock.classList.toggle('collapsed');
-    if (btn) btn.textContent = isCol ? '▼ Развернуть' : '▲ Свернуть';
+    const dock = document.getElementById('media-stage-dock'), btn = document.getElementById('btn-stage-collapse'); if (!dock) return;
+    const isCol = dock.classList.toggle('collapsed'); if (btn) btn.textContent = isCol ? '▼ Развернуть' : '▲ Свернуть';
   }
 
   (function initStageResizerAndSwipes() {
@@ -2864,14 +2760,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
       if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
       const lOpen = document.body.classList.contains('mob-left-open'), rOpen = document.body.classList.contains('mob-right-open'), pOpen = document.getElementById('view-profile-drawer').classList.contains('open');
-      if (dx < -60) {
-        if (lOpen) closeMobileDrawers();
-        else if (!rOpen && !pOpen && tx > window.innerWidth * 0.65) toggleMobileRight();
-      } else if (dx > 60) {
-        if (pOpen) closeViewProfileModal();
-        else if (rOpen) closeMobileDrawers();
-        else if (!lOpen && tx < window.innerWidth * 0.35) toggleMobileLeft();
-      }
+      if (dx < -60) { if (lOpen) closeMobileDrawers(); else if (!rOpen && !pOpen && tx > window.innerWidth * 0.65) toggleMobileRight(); }
+      else if (dx > 60) { if (pOpen) closeViewProfileModal(); else if (rOpen) closeMobileDrawers(); else if (!lOpen && tx < window.innerWidth * 0.35) toggleMobileLeft(); }
     }, { passive: true });
   })();
 
@@ -2886,14 +2776,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
 
   function updateMediaStageVisibility() {
     const grid = document.getElementById('screen-grid'), dock = document.getElementById('media-stage-dock');
+    updateReturnCallBtn();
     if (!grid || !dock) return;
     if (!grid.children.length) { dock.classList.remove('show'); return; }
     let shouldShow = false;
-    if (inDirectCall && directCallPartner) {
-      shouldShow = !!(isFriendsHubMode && activeDmPartner && activeDmPartner.pid === directCallPartner.pid);
-    } else if (inVoice) {
-      shouldShow = !isFriendsHubMode && !activeDmPartner && (activeVoiceRoom === currentRoom);
-    }
+    if (inDirectCall && directCallPartner) shouldShow = !!(isFriendsHubMode && activeDmPartner && activeDmPartner.pid === directCallPartner.pid);
+    else if (inVoice) shouldShow = !isFriendsHubMode && !activeDmPartner && (activeVoiceRoom === currentRoom);
     dock.classList.toggle('show', shouldShow);
   }
 
@@ -2904,28 +2792,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const icon = kind === 'cam' ? '📷 ' : '🖥️ ';
     if (!card) {
       card = el('div', 'screen-card'); card.id = 'media-tile-' + id;
-      card.onclick = function (ev) {
-        if (ev.target.tagName === 'BUTTON') return;
-        grid.querySelectorAll('.screen-card').forEach(function (c) { c.classList.remove('featured-tile'); });
-        card.classList.add('featured-tile'); setStageLayout('spotlight');
-      };
+      card.onclick = function (ev) { if (ev.target.tagName === 'BUTTON') return; grid.querySelectorAll('.screen-card').forEach(function (c) { c.classList.remove('featured-tile'); }); card.classList.add('featured-tile'); setStageLayout('spotlight'); };
       const head = el('div', 'screen-card-head'), left = el('div', ''), right = el('div', ''); right.style.cssText = 'display:flex;gap:5px;align-items:center;';
       left.appendChild(el('span', '', icon + title)); left.appendChild(el('span', 'screen-live-pill' + (kind === 'cam' ? ' cam' : ''), kind === 'cam' ? 'КАМЕРА' : 'СТРИМ'));
       const sBtn = el('button', 'btn-fs', '🛡️ 18+'); sBtn.onclick = function (ev) { ev.stopPropagation(); toggleMediaNsfwShield(card, sBtn); }; right.appendChild(sBtn);
       const fsBtn = el('button', 'btn-fs', '⛶');
       fsBtn.onclick = function (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        const wrapEl = card.querySelector('.screen-video-wrap');
-        if (!wrapEl) return;
+        ev.preventDefault(); ev.stopPropagation();
+        const wrapEl = card.querySelector('.screen-video-wrap'); if (!wrapEl) return;
         const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-        if (fsEl) {
-          if (document.exitFullscreen) document.exitFullscreen().catch(function () {});
-          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-        } else {
-          if (wrapEl.requestFullscreen) wrapEl.requestFullscreen().catch(function () {});
-          else if (wrapEl.webkitRequestFullscreen) wrapEl.webkitRequestFullscreen();
-        }
+        if (fsEl) { if (document.exitFullscreen) document.exitFullscreen().catch(function () {}); else if (document.webkitExitFullscreen) document.webkitExitFullscreen(); }
+        else { if (wrapEl.requestFullscreen) wrapEl.requestFullscreen().catch(function () {}); else if (wrapEl.webkitRequestFullscreen) wrapEl.webkitRequestFullscreen(); }
       };
       right.appendChild(fsBtn);
       if (isLocal) { const stBtn = el('button', 'btn-fs', '✕'); stBtn.style.background = '#ff1e56'; stBtn.style.color = '#fff'; stBtn.onclick = function (ev) { ev.stopPropagation(); if (kind === 'cam') stopWebcam(false); else stopScreenShare(false); }; right.appendChild(stBtn); }
@@ -2940,30 +2817,18 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   }
   function removeMediaTile(id) { const c = document.getElementById('media-tile-' + id); if (c) c.remove(); updateMediaStageVisibility(); }
 
-  function toggleMute() {
-    if (!localStream) return; isMuted = !isMuted;
-    localStream.getAudioTracks().forEach(function (t) { t.enabled = !isMuted; });
-    playUiBeep(isMuted ? 380 : 640, 0.05); updateVoiceControlsUI();
-  }
+  function toggleMute() { if (!localStream) return; isMuted = !isMuted; localStream.getAudioTracks().forEach(function (t) { t.enabled = !isMuted; }); playUiBeep(isMuted ? 380 : 640, 0.05); updateVoiceControlsUI(); }
   function toggleDeafen() { isDeafened = !isDeafened; playUiBeep(isDeafened ? 320 : 680, 0.05); applyOutputVolumeToAll(); updateVoiceControlsUI(); }
 
   function playStream(id, stream) {
     let a = document.getElementById('aud-' + id);
-    if (!a) {
-      a = document.createElement('audio'); a.id = 'aud-' + id; a.autoplay = true; a.playsInline = true;
-      document.getElementById('audio-box').appendChild(a);
-    }
+    if (!a) { a = document.createElement('audio'); a.id = 'aud-' + id; a.autoplay = true; a.playsInline = true; document.getElementById('audio-box').appendChild(a); }
     if (a.srcObject !== stream) a.srcObject = stream;
     if (appSettings.spkDeviceId && typeof a.setSinkId === 'function') a.setSinkId(appSettings.spkDeviceId).catch(function () {});
     try {
       const actx = audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)());
       if (actx.state === 'suspended') actx.resume().catch(function () {});
-      if (!peerGainNodes[id]) {
-        const src = actx.createMediaStreamSource(stream), gain = actx.createGain();
-        src.connect(gain); gain.connect(actx.destination);
-        peerGainNodes[id] = { gainNode: gain };
-        a.volume = 0.001;
-      }
+      if (!peerGainNodes[id]) { const src = actx.createMediaStreamSource(stream), gain = actx.createGain(); src.connect(gain); gain.connect(actx.destination); peerGainNodes[id] = { gainNode: gain }; a.volume = 0.001; }
     } catch (e) {}
     const member = (lastMembers || []).find(function (u) { return u.peerId === id; });
     applyIndividualPeerVolume(id, member ? member.pid : null);
@@ -2976,18 +2841,13 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
       e.preventDefault(); e.stopPropagation();
       if (e.key === 'Escape') { recordingAction = null; renderKeybindsUI(); return; }
       const combo = eventToComboString(e);
-      if (combo && !['Ctrl', 'Alt', 'Shift'].includes(combo)) {
-        userKeybinds[recordingAction] = combo;
-        try { localStorage.setItem('cyber_keybinds', JSON.stringify(userKeybinds)); } catch (err) {}
-        recordingAction = null; renderKeybindsUI();
-      }
+      if (combo && !['Ctrl', 'Alt', 'Shift'].includes(combo)) { userKeybinds[recordingAction] = combo; try { localStorage.setItem('cyber_keybinds', JSON.stringify(userKeybinds)); } catch (err) {} recordingAction = null; renderKeybindsUI(); }
       return;
     }
     if (e.key === 'Escape') { closeSettingsModal(); closeServerSettingsModal(); closeViewProfileModal(); closeInviteModal(); closeMobileDrawers(); return; }
     const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    const pressed = eventToComboString(e);
-    if (!pressed) return;
+    const pressed = eventToComboString(e); if (!pressed) return;
     if (pressed === userKeybinds.mute) { e.preventDefault(); if (inVoice) toggleMute(); else toggleVoiceCall(); }
     else if (pressed === userKeybinds.deafen) { e.preventDefault(); if (inVoice) toggleDeafen(); }
     else if (pressed === userKeybinds.cam) { e.preventDefault(); toggleWebcam(); }
@@ -2998,10 +2858,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (!evtSource || evtSource.readyState === 2) connectEventStream();
     if (!myVerified || !myUid) return;
     try {
-      const res = await fetch('/api/ping', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, inVoice: inVoice, inScreen: inScreen, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel, voiceRoom: activeVoiceRoom })
-      });
+      const res = await fetch('/api/ping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId, uid: myUid, room: currentRoom, inVoice: inVoice, inScreen: inScreen, inCam: inWebcam, peerId: myPeerId, voiceChannel: currentVoiceChannel, voiceRoom: activeVoiceRoom }) });
       const d = await res.json();
       if (d && Array.isArray(d.users)) {
         renderUsers(d.users); renderDmLeftList();
@@ -3009,11 +2866,8 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         const activeScreenPeers = new Set(d.users.filter(function (u) { return u.online && u.inScreen && u.peerId; }).map(function (u) { return u.peerId; }));
         document.querySelectorAll('#screen-grid .screen-card').forEach(function (card) {
           const cid = card.id || '';
-          if (cid.startsWith('media-tile-cam-') && cid !== 'media-tile-cam-local') {
-            const pid = cid.replace('media-tile-cam-', ''); if (!activeCamPeers.has(pid)) removeMediaTile('cam-' + pid);
-          } else if (cid.startsWith('media-tile-screen-') && cid !== 'media-tile-screen-local') {
-            const pid = cid.replace('media-tile-screen-', ''); if (!activeScreenPeers.has(pid)) removeMediaTile('screen-' + pid);
-          }
+          if (cid.startsWith('media-tile-cam-') && cid !== 'media-tile-cam-local') { const pid = cid.replace('media-tile-cam-', ''); if (!activeCamPeers.has(pid)) removeMediaTile('cam-' + pid); }
+          else if (cid.startsWith('media-tile-screen-') && cid !== 'media-tile-screen-local') { const pid = cid.replace('media-tile-screen-', ''); if (!activeScreenPeers.has(pid)) removeMediaTile('screen-' + pid); }
         });
         if (inVoice && peer && myPeerId) {
           const peersInMyVoice = d.users.filter(function (u) { return u.online && u.inVoice && u.peerId && u.peerId !== myPeerId && u.voiceChannel === currentVoiceChannel; }).map(function (u) { return u.peerId; });
@@ -3102,10 +2956,7 @@ const server = http.createServer(async (req, res) => {
       return res.end("self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',()=>{});");
     }
 
-    if (req.method === 'GET' && url.pathname === '/healthz') {
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      return res.end('ok');
-    }
+    if (req.method === 'GET' && url.pathname === '/healthz') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end('ok'); }
 
     if (req.method === 'POST' && url.pathname === '/api/ping') {
       const body = await readBody(req), uid = body.uid, room = safeRoom(body.room);
@@ -3142,24 +2993,35 @@ const server = http.createServer(async (req, res) => {
       if (type === 'text') {
         const newName = cleanChannelName(body.newName).toLowerCase();
         if (!newName) return sendJson(res, 400, { error: 'Некорректное имя канала' });
-        const idx = meta.textChannels.indexOf(oldName);
-        if (idx === -1) return sendJson(res, 404, { error: 'Канал не найден' });
+        const idx = meta.textChannels.indexOf(oldName); if (idx === -1) return sendJson(res, 404, { error: 'Канал не найден' });
         if (meta.textChannels.includes(newName)) return sendJson(res, 400, { error: 'Такое имя уже занято' });
-        meta.textChannels[idx] = newName;
-        rooms[room][newName] = rooms[room][oldName] || [];
-        delete rooms[room][oldName];
-        scheduleSave(room); broadcastServers();
-        return sendJson(res, 200, { ok: true, newName });
+        meta.textChannels[idx] = newName; rooms[room][newName] = rooms[room][oldName] || []; delete rooms[room][oldName];
+        scheduleSave(room); broadcastServers(); return sendJson(res, 200, { ok: true, newName });
       } else {
-        const newName = String(body.newName || '').trim().slice(0, 28);
-        if (!newName) return sendJson(res, 400, { error: 'Введите новое имя' });
-        const idx = meta.voiceChannels.indexOf(oldName);
-        if (idx === -1) return sendJson(res, 404, { error: 'Канал не найден' });
+        const newName = String(body.newName || '').trim().slice(0, 28); if (!newName) return sendJson(res, 400, { error: 'Введите новое имя' });
+        const idx = meta.voiceChannels.indexOf(oldName); if (idx === -1) return sendJson(res, 404, { error: 'Канал не найден' });
         meta.voiceChannels[idx] = newName;
         clients.forEach(c => { if ((c.voiceRoom || c.room) === room && c.voiceChannel === oldName) c.voiceChannel = newName; });
-        scheduleSave(room); broadcastServers(); broadcastUsers(room);
-        return sendJson(res, 200, { ok: true, newName });
+        scheduleSave(room); broadcastServers(); broadcastUsers(room); return sendJson(res, 200, { ok: true, newName });
       }
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/channel/delete') {
+      const body = await readBody(req), uid = body.uid, room = safeRoom(body.room);
+      if (!hasServerPerm(room, uid, 'manageChannels')) return sendJson(res, 403, { error: 'Нет прав на удаление каналов!' });
+      const meta = ensureServer(room), type = body.type === 'voice' ? 'voice' : 'text', name = String(body.name || '').trim();
+      if (type === 'text') {
+        if (meta.textChannels.length <= 1) return sendJson(res, 400, { error: 'Нельзя удалить последний текстовый канал!' });
+        const idx = meta.textChannels.indexOf(name); if (idx === -1) return sendJson(res, 404, { error: 'Канал не найден' });
+        meta.textChannels.splice(idx, 1); delete rooms[room][name];
+      } else {
+        if (meta.voiceChannels.length <= 1) return sendJson(res, 400, { error: 'Нельзя удалить последний голосовой канал!' });
+        const idx = meta.voiceChannels.indexOf(name); if (idx === -1) return sendJson(res, 404, { error: 'Канал не найден' });
+        meta.voiceChannels.splice(idx, 1);
+        clients.forEach(c => { if ((c.voiceRoom || c.room) === room && c.voiceChannel === name) c.voiceChannel = meta.voiceChannels[0]; });
+      }
+      scheduleSave(room); broadcastServers(); broadcastUsers(room);
+      return sendJson(res, 200, { ok: true });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/server/role-save') {
@@ -3167,14 +3029,8 @@ const server = http.createServer(async (req, res) => {
       if (!hasServerPerm(room, uid, 'manageRoles')) return sendJson(res, 403, { error: 'Нет прав на управление ролями!' });
       const meta = ensureServer(room);
       const rId = String(body.roleId || '').trim() || ('role_' + crypto.randomBytes(3).toString('hex'));
-      const rName = String(body.name || 'Новая роль').trim().slice(0, 24);
-      const rColor = cleanColor(body.color, '#00f0ff');
-      const perms = {
-        admin: !!(body.perms && body.perms.admin),
-        manageServer: !!(body.perms && body.perms.manageServer),
-        manageChannels: !!(body.perms && body.perms.manageChannels),
-        manageRoles: !!(body.perms && body.perms.manageRoles)
-      };
+      const rName = String(body.name || 'Новая роль').trim().slice(0, 24), rColor = cleanColor(body.color, '#00f0ff');
+      const perms = { admin: !!(body.perms && body.perms.admin), manageServer: !!(body.perms && body.perms.manageServer), manageChannels: !!(body.perms && body.perms.manageChannels), manageRoles: !!(body.perms && body.perms.manageRoles) };
       const ex = meta.roles.find(x => x.id === rId);
       if (ex) { ex.name = rName; ex.color = rColor; if (ex.id !== 'admin') ex.perms = perms; }
       else { meta.roles.push({ id: rId, name: rName, color: rColor, perms }); }
@@ -3201,12 +3057,7 @@ const server = http.createServer(async (req, res) => {
       const me = users[uid], targetUid = validPid(body.targetPid) ? pidToUid[body.targetPid] : null;
       if (!targetUid || !users[targetUid]) return sendJson(res, 404, { error: 'Собеседник не найден' });
       if (targetUid === uid || body.targetPid === me.pid) return sendJson(res, 400, { error: 'Нельзя позвонить самому себе' });
-      sendToUid(targetUid, 'direct-call', {
-        action: String(body.action || 'ring'), fromPid: me.pid, fromNick: me.nick,
-        fromAva: me.avatarImg || '', fromColor: me.avatarColor || '#3b82f6',
-        peerId: String(body.peerId || '').slice(0, 64),
-        callRoom: String(body.callRoom || DEFAULT_ROOM), callChannel: String(body.callChannel || ('📞 ' + me.nick))
-      });
+      sendToUid(targetUid, 'direct-call', { action: String(body.action || 'ring'), fromPid: me.pid, fromNick: me.nick, fromAva: me.avatarImg || '', fromColor: me.avatarColor || '#3b82f6', peerId: String(body.peerId || '').slice(0, 64), callRoom: String(body.callRoom || DEFAULT_ROOM), callChannel: String(body.callChannel || ('📞 ' + me.nick)) });
       return sendJson(res, 200, { ok: true });
     }
 
@@ -3217,23 +3068,18 @@ const server = http.createServer(async (req, res) => {
       if (!targetUid || !users[targetUid]) return sendJson(res, 404, { error: 'Собеседник не найден' });
       if (targetUid === uid || targetPid === me.pid) return sendJson(res, 400, { error: 'Нельзя писать самому себе' });
 
-      const dmKey = 'dm_' + [me.pid, targetPid].sort().join('_');
-      const rm = getRoom(DEFAULT_ROOM);
+      const dmKey = 'dm_' + [me.pid, targetPid].sort().join('_'), rm = getRoom(DEFAULT_ROOM);
       if (!rm[dmKey]) rm[dmKey] = [];
       if (body.action === 'history') return sendJson(res, 200, { ok: true, dmKey, messages: rm[dmKey] });
 
-      const text = String(body.text || '').trim().slice(0, 600000);
-      if (!text) return sendJson(res, 400, { error: 'Пусто' });
+      const text = String(body.text || '').trim().slice(0, 600000); if (!text) return sendJson(res, 400, { error: 'Пусто' });
       touchUser(uid, DEFAULT_ROOM);
       const now = new Date(), time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
       const msg = { author: me.nick, fromPid: me.pid, toPid: targetPid, time, text, flags: detectFlags(text.length < 2000 ? text : '') };
-      rm[dmKey].push(msg);
-      if (rm[dmKey].length > MAX_HISTORY) rm[dmKey].shift();
+      rm[dmKey].push(msg); if (rm[dmKey].length > MAX_HISTORY) rm[dmKey].shift();
       scheduleSave(DEFAULT_ROOM);
-
       const payload = { dmKey, fromPid: me.pid, fromNick: me.nick, toPid: targetPid, toNick: users[targetUid].nick, msg };
-      sendToUid(uid, 'dm-msg', payload);
-      if (targetUid !== uid) sendToUid(targetUid, 'dm-msg', payload);
+      sendToUid(uid, 'dm-msg', payload); if (targetUid !== uid) sendToUid(targetUid, 'dm-msg', payload);
       return sendJson(res, 200, { ok: true, dmKey });
     }
 
@@ -3281,8 +3127,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req), token = String(body.token || '').trim(), entry = pendingTgTokens[token];
       if (!entry || entry.expires < Date.now() || !entry.completed) return sendJson(res, 200, { ok: true, verified: false });
       const tgInfo = entry.completed; delete pendingTgTokens[token];
-      const room = safeRoom(body.room), prevUid = validUid(body.uid) ? body.uid : null;
-      const finalUid = tgIdToUid[tgInfo.tgId] || uidFromTgId(tgInfo.tgId);
+      const room = safeRoom(body.room), prevUid = validUid(body.uid) ? body.uid : null, finalUid = tgIdToUid[tgInfo.tgId] || uidFromTgId(tgInfo.tgId);
       const u = mergeAccount(prevUid, finalUid, cleanNick(body.nick || tgInfo.firstName || 'Странник'), tgInfo.tgId, tgInfo.username, '');
       touchUser(finalUid, room);
       clients.forEach(x => { if (x.id === body.id || x.uid === prevUid || x.uid === finalUid) { x.uid = finalUid; x.nick = u.nick; } });
@@ -3294,8 +3139,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req), code = String(body.code || '').trim(), entry = tgCodes[code];
       if (!entry || entry.expires < Date.now()) return sendJson(res, 400, { error: 'Неверный код!' });
       delete tgCodes[code];
-      const room = safeRoom(body.room), prevUid = validUid(body.uid) ? body.uid : null;
-      const finalUid = tgIdToUid[entry.tgId] || uidFromTgId(entry.tgId);
+      const room = safeRoom(body.room), prevUid = validUid(body.uid) ? body.uid : null, finalUid = tgIdToUid[entry.tgId] || uidFromTgId(entry.tgId);
       const u = mergeAccount(prevUid, finalUid, cleanNick(body.nick || entry.firstName || 'Странник'), entry.tgId, entry.username, '');
       touchUser(finalUid, room);
       clients.forEach(x => { if (x.id === body.id || x.uid === prevUid || x.uid === finalUid) { x.uid = finalUid; x.nick = u.nick; } });
@@ -3312,10 +3156,8 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
       res.write(': connected\n\n');
 
-      const meta = ensureServer(room);
-      let clientNick = nick;
+      const meta = ensureServer(room); let clientNick = nick;
       if (isVer) { const user = ensureUser(uid, nick, true); clientNick = user.nick; touchUser(uid, room); }
-
       const client = { id, uid, room, voiceRoom: null, nick: clientNick, inVoice: false, inScreen: false, inCam: false, peerId: null, voiceChannel: null, res };
       clients.push(client);
 
@@ -3368,24 +3210,19 @@ const server = http.createServer(async (req, res) => {
       if (pass.length < 4) return sendJson(res, 400, { error: 'Пароль от 4 символов!' });
 
       let exUid = nickToUid[nick.toLowerCase()];
-      if (!exUid) {
-        exUid = Object.keys(users).find(k => users[k] && users[k].verified && String(users[k].nick || '').toLowerCase() === nick.toLowerCase());
-        if (exUid) nickToUid[nick.toLowerCase()] = exUid;
-      }
+      if (!exUid) { exUid = Object.keys(users).find(k => users[k] && users[k].verified && String(users[k].nick || '').toLowerCase() === nick.toLowerCase()); if (exUid) nickToUid[nick.toLowerCase()] = exUid; }
 
       if (exUid && users[exUid]) {
         if (!users[exUid].passHash) users[exUid].passHash = hashPassword(pass);
         else if (!verifyPassword(pass, users[exUid].passHash)) return sendJson(res, 400, { error: 'Неверный пароль от аккаунта ' + users[exUid].nick + '!' });
-        const u = mergeAccount(prevUid, exUid, users[exUid].nick, '', '', '');
-        touchUser(exUid, room);
+        const u = mergeAccount(prevUid, exUid, users[exUid].nick, '', '', ''); touchUser(exUid, room);
         clients.forEach(x => { if (x.id === body.id) { x.uid = exUid; x.nick = u.nick; } });
         scheduleSave(room); notifyAllRoomsOfUser(exUid); notifyFriendsOf(exUid); sendSocial(exUid);
         return sendJson(res, 200, { ok: true, uid: exUid, pid: u.pid, nick: u.nick, profile: publicProfileOf(exUid) });
       }
 
       const finalUid = crypto.createHash('sha256').update('signal-acc:' + nick.toLowerCase()).digest('hex').slice(0, 32);
-      const u = mergeAccount(prevUid, finalUid, nick, '', '', hashPassword(pass));
-      touchUser(finalUid, room);
+      const u = mergeAccount(prevUid, finalUid, nick, '', '', hashPassword(pass)); touchUser(finalUid, room);
       clients.forEach(x => { if (x.id === body.id) { x.uid = finalUid; x.nick = u.nick; } });
       scheduleSave(room); notifyAllRoomsOfUser(finalUid); notifyFriendsOf(finalUid); sendSocial(finalUid);
       return sendJson(res, 200, { ok: true, uid: finalUid, pid: u.pid, nick: u.nick, profile: publicProfileOf(finalUid) });
@@ -3393,15 +3230,12 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/server/create') {
       const body = await readBody(req), uid = body.uid; if (!validUid(uid)) return sendJson(res, 400, { error: 'Сначала войдите!' });
-      const u = ensureUser(uid, body.nick || 'Участник', true);
-      const name = String(body.name || '').trim().slice(0, 28); if (!name) return sendJson(res, 400, { error: 'Введите название сервера!' });
-      const newId = 'cy-' + crypto.randomBytes(2).toString('hex');
-      const meta = ensureServer(newId, name, String(body.desc || '').trim().slice(0, 80), '', uid);
-      meta.memberRoles[u.pid] = ['admin'];
-      addMember(newId, uid);
+      const u = ensureUser(uid, body.nick || 'Участник', true), name = String(body.name || '').trim().slice(0, 28);
+      if (!name) return sendJson(res, 400, { error: 'Введите название сервера!' });
+      const newId = 'cy-' + crypto.randomBytes(2).toString('hex'), meta = ensureServer(newId, name, String(body.desc || '').trim().slice(0, 80), '', uid);
+      meta.memberRoles[u.pid] = ['admin']; addMember(newId, uid);
       rooms[newId]['игровая-комната'].push({ author: 'СИСТЕМА GEEK', time: '00:00', text: 'Сервер «' + name + '» создан!' });
-      scheduleSave(newId); broadcastServers();
-      return sendJson(res, 200, { ok: true, serverId: newId });
+      scheduleSave(newId); broadcastServers(); return sendJson(res, 200, { ok: true, serverId: newId });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/channel/create') {
@@ -3429,10 +3263,8 @@ const server = http.createServer(async (req, res) => {
       const u = users[uid]; touchUser(uid, room);
       const now = new Date(), time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
       const msg = { author: u.nick, time, text, flags: detectFlags(text.length < 2000 ? text : '') };
-      const rm = getRoom(room); if (!rm[ch]) rm[ch] = []; rm[ch].push(msg);
-      if (rm[ch].length > MAX_HISTORY) rm[ch].shift();
-      scheduleSave(room); broadcast(room, 'msg', { channel: ch, msg });
-      return sendJson(res, 200, { ok: true });
+      const rm = getRoom(room); if (!rm[ch]) rm[ch] = []; rm[ch].push(msg); if (rm[ch].length > MAX_HISTORY) rm[ch].shift();
+      scheduleSave(room); broadcast(room, 'msg', { channel: ch, msg }); return sendJson(res, 200, { ok: true });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/friend') {
@@ -3452,8 +3284,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/voice') {
       const body = await readBody(req), c = clients.find(x => x.id === body.id); let peers = [];
       if (c) {
-        const wasScreen = c.inScreen, wasCam = c.inCam, oldPeer = c.peerId;
-        const vRoom = safeRoom(body.voiceRoom || c.voiceRoom || c.room);
+        const wasScreen = c.inScreen, wasCam = c.inCam, oldPeer = c.peerId, vRoom = safeRoom(body.voiceRoom || c.voiceRoom || c.room);
         c.voiceRoom = body.inVoice ? vRoom : null;
         c.inVoice = !!body.inVoice; c.inScreen = !!(c.inVoice && body.inScreen); c.inCam = !!(c.inVoice && body.inCam);
         c.peerId = body.peerId ? String(body.peerId).slice(0, 64) : null;
@@ -3463,9 +3294,7 @@ const server = http.createServer(async (req, res) => {
         if (wasCam && !c.inCam && oldPeer) broadcast(vRoom, 'media-stop', { peerId: oldPeer, kind: 'cam' });
         if (!c.inVoice && oldPeer) broadcast(vRoom, 'media-stop', { peerId: oldPeer, kind: 'all' });
 
-        broadcastUsers(vRoom);
-        if (c.room !== vRoom) broadcastUsers(c.room);
-
+        broadcastUsers(vRoom); if (c.room !== vRoom) broadcastUsers(c.room);
         if (c.inVoice && c.peerId) {
           broadcast(vRoom, 'voice-join', { peerId: c.peerId, voiceChannel: c.voiceChannel, inCam: c.inCam, inScreen: c.inScreen });
           peers = clients.filter(x => (x.voiceRoom || x.room) === vRoom && x.inVoice && x.peerId && x.peerId !== c.peerId && x.voiceChannel === c.voiceChannel).map(x => x.peerId);
