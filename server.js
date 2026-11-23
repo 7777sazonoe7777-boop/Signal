@@ -110,7 +110,7 @@ ensureServer('ma-club', 'Мастерская', 'Музыка, творчест�
 if (!rooms[DEFAULT_ROOM]['игровая-комната'].length) {
   rooms[DEFAULT_ROOM]['игровая-комната'].push({
     author: 'СИСТЕМА GEEK', time: '00:00',
-    text: 'Добро пожаловать в GEEK // CYBER.NET! Темы, режим стримера, поиск, роли и P2P-связь активны.'
+    text: 'Добро пожаловать в GEEK // CYBER.NET! Темы, режим стримера, бинд микрофона и P2P-связь активны.'
   });
 }
 
@@ -472,39 +472,39 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
   .hex-status-dot.dnd { background:var(--red); }
   .hex-status-dot.invisible,.hex-status-dot.offline,.hex-status-dot.off { background:var(--text-dim); }
 
-  .cyber-diode-scene { position:relative; width:104px !important; height:104px !important; aspect-ratio:1 / 1 !important; margin:0 auto 4px auto; display:flex; align-items:center; justify-content:center; flex-shrink:0 !important; overflow:visible; cursor:pointer; }
-  .cds-user-core { position:absolute; left:11% !important; top:11% !important; width:78% !important; height:78% !important; clip-path:var(--hex-regular) !important; background:#070d19; background-size:cover !important; background-position:center !important; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:900; color:#fff; z-index:1; border:1px solid rgba(0,240,255,0.35); box-shadow:inset 0 0 16px rgba(0,240,255,0.3); overflow:hidden; }
-  .cds-frame-img { position:absolute; inset:0; width:100% !important; height:100% !important; aspect-ratio:1 / 1 !important; object-fit:contain !important; mix-blend-mode:screen; pointer-events:none; z-index:3; }
-
   .cyber-badge { display:inline-flex; align-items:center; gap:3px; padding:1.5px 6px; border-radius:4px; font-size:9px; font-weight:900; letter-spacing:0.5px; text-transform:uppercase; white-space:nowrap; flex-shrink:0; background-size:200% 200%; animation:badgeFlow 2.5s ease infinite; }
   .cyber-badge.b-set1 { background-image:linear-gradient(90deg,#ff2a85,#00f0ff,#ff2a85); color:#fff; box-shadow:0 0 8px rgba(0,240,255,0.6); }
   .cyber-badge.b-set2 { background-image:linear-gradient(90deg,#ff6a00,#fcee09,#00f0ff); color:#04120c; box-shadow:0 0 8px rgba(255,106,0,0.65); }
   .cyber-badge.b-set3 { background-image:linear-gradient(90deg,#ff003c,#ff5500,#ff003c); color:#fff; box-shadow:0 0 8px rgba(255,0,60,0.7); }
 
-  .profile-surface { position:relative; background:#060a12; border:1px solid var(--border); border-radius:14px !important; overflow:hidden; transition:0.25s; background-size:cover; background-position:center; }
-  #preview-surface, .profile-slide-drawer .profile-surface { width:100% !important; max-width:360px !important; aspect-ratio:360 / 515 !important; height:auto !important; max-height:525px !important; margin:0 auto !important; flex:0 0 auto !important; display:flex !important; flex-direction:column !important; }
-  .profile-custom-bg { position:absolute; inset:0; width:100%; height:100%; background-size:cover; background-position:center; opacity:0.45; pointer-events:none; z-index:1; }
-  .profile-frame-overlay { position:absolute; inset:0 !important; width:100%; height:100%; border-radius:14px !important; background-image:url('/profile_frames_3sets.jpg'); background-repeat:no-repeat; background-size:300% 100% !important; mix-blend-mode:screen; pointer-events:none; z-index:2 !important; opacity:0; transition:opacity 0.2s; -webkit-mask-image:radial-gradient(circle at center, transparent 58%, black 100%); mask-image:radial-gradient(circle at center, transparent 58%, black 100%); }
+  /* === КАРТОЧКА ПРОФИЛЯ: ПРОПОРЦИИ DISCORD + КИБЕРПАНК === */
+  .profile-surface { position:relative; background:#0b0e14; border:2px solid var(--border); border-radius:16px !important; overflow:hidden; transition:0.25s; box-shadow:0 16px 40px rgba(0,0,0,0.85); }
+  #preview-surface, .profile-slide-drawer .profile-surface { width:100% !important; max-width:340px !important; min-height:485px !important; height:auto !important; margin:0 auto !important; display:flex !important; flex-direction:column !important; }
+  .profile-custom-bg { position:relative !important; width:100% !important; height:112px !important; background:linear-gradient(135deg, #101d30 0%, #070b12 100%); background-size:cover !important; background-position:center !important; opacity:1 !important; flex-shrink:0; z-index:1; border-bottom:1px solid rgba(0,240,255,0.22); }
+  .profile-frame-overlay { position:absolute; inset:0 !important; width:100% !important; height:100% !important; border-radius:14px !important; background-image:url('/profile_frames_3sets.jpg'); background-repeat:no-repeat; background-size:300% 100% !important; mix-blend-mode:screen; pointer-events:none; z-index:8 !important; opacity:0; transition:opacity 0.25s; -webkit-mask-image:radial-gradient(ellipse 68% 60% at 50% 56%, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.85) 75%, #000 100%); mask-image:radial-gradient(ellipse 68% 60% at 50% 56%, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.85) 75%, #000 100%); }
   .profile-surface.theme-set1 .profile-frame-overlay { opacity:1; background-position:0% 0%; }
   .profile-surface.theme-set2 .profile-frame-overlay { opacity:1; background-position:50% 0%; }
   .profile-surface.theme-set3 .profile-frame-overlay { opacity:1; background-position:100% 0%; }
-  .profile-surface.theme-set1 { border:1px solid rgba(184,41,255,0.55); box-shadow:0 0 26px rgba(184,41,255,0.35); background-color:#050811; }
-  .profile-surface.theme-set2 { border:1px solid rgba(255,120,0,0.55); box-shadow:0 0 26px rgba(255,120,0,0.35); background-color:#060911; }
-  .profile-surface.theme-set3 { border:1px solid rgba(255,0,60,0.6); box-shadow:0 0 26px rgba(255,0,60,0.4); background-color:#090508; }
+  .profile-surface.theme-set1 { border:2px solid #b829ff !important; box-shadow:0 0 24px rgba(184,41,255,0.45), inset 0 0 16px rgba(0,240,255,0.15); }
+  .profile-surface.theme-set2 { border:2px solid #fcee09 !important; box-shadow:0 0 24px rgba(252,238,9,0.4), inset 0 0 16px rgba(255,42,133,0.15); }
+  .profile-surface.theme-set3 { border:2px solid #ff1e56 !important; box-shadow:0 0 24px rgba(255,30,86,0.45), inset 0 0 16px rgba(255,123,0,0.15); }
 
-  .dp-body { padding:22px 22px 18px 22px !important; position:relative; z-index:6 !important; flex:1; display:flex; flex-direction:column; gap:6px; overflow:hidden; }
-  .dp-nick-line { display:flex; align-items:center; justify-content:center; gap:7px; flex-wrap:wrap; text-align:center; }
-  .dp-nick { font-size:17px; font-weight:900; color:#fff; text-shadow:0 2px 6px #000; }
-  .dp-status { font-size:11.5px; color:var(--brand); text-align:center; text-shadow:0 1px 4px #000; }
-  .dp-sec { background:rgba(4,7,14,0.9) !important; border:1px solid rgba(0,240,255,0.24) !important; border-radius:8px; padding:6px 10px !important; backdrop-filter:blur(8px); box-shadow:0 4px 14px rgba(0,0,0,0.75); }
-  .dp-sec-title { font-size:9px !important; font-weight:800; color:var(--brand); margin-bottom:2px !important; text-transform:uppercase; text-shadow:0 1px 4px #000; }
-  .dp-bio { font-size:11px !important; line-height:1.28 !important; color:#eef8ff !important; white-space:pre-wrap; max-height:42px; overflow:hidden; }
-  .dp-tags { display:flex; gap:4px; flex-wrap:wrap; margin-top:2px; max-height:24px; overflow:hidden; }
-  .dp-tag { background:rgba(0,240,255,0.12); border:1px solid var(--border); color:var(--brand); padding:1.5px 6px; border-radius:4px; font-size:10px; font-weight:700; }
-  .dp-actions-col { display:flex; flex-direction:column; gap:6px; margin-top:auto; padding-top:4px; position:relative; z-index:10 !important; }
-  .status-pill { font-size:9.5px; padding:2px 6px; border-radius:4px; font-weight:800; }
-  .status-pill.on { background:rgba(16,185,129,0.18); color:var(--green); }
-  .status-pill.off { background:rgba(255,255,255,0.06); color:var(--text-muted); }
+  .dp-body { padding:0 16px 16px 16px !important; position:relative; z-index:6 !important; flex:1; display:flex; flex-direction:column; gap:8px; background:linear-gradient(180deg, rgba(11,14,20,0.92) 0%, rgba(7,10,16,0.98) 100%); }
+  .cyber-diode-scene { position:relative; width:96px !important; height:96px !important; aspect-ratio:1 / 1 !important; margin:-48px 0 2px 0 !important; display:flex; align-items:center; justify-content:center; flex-shrink:0 !important; overflow:visible; cursor:pointer; }
+  .cds-user-core { position:absolute; left:10% !important; top:10% !important; width:80% !important; height:80% !important; clip-path:var(--hex-regular) !important; background:#070d19; background-size:cover !important; background-position:center !important; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:900; color:#fff; z-index:2; filter:drop-shadow(0 0 0 #0b0e14); box-shadow:inset 0 0 14px rgba(0,240,255,0.28); overflow:hidden; }
+  .cds-frame-img { position:absolute; inset:-8% !important; width:116% !important; height:116% !important; aspect-ratio:1 / 1 !important; object-fit:contain !important; mix-blend-mode:screen; pointer-events:none; z-index:4; }
+  .dp-nick-line { display:flex; align-items:center; justify-content:flex-start; gap:7px; flex-wrap:wrap; text-align:left; margin-top:2px; }
+  .dp-nick { font-size:19px; font-weight:900; color:#fff; letter-spacing:0.3px; }
+  .dp-status { font-size:12px; color:var(--brand); text-align:left; margin-top:-4px; margin-bottom:2px; opacity:0.9; }
+  .dp-sec { background:rgba(16, 23, 36, 0.78) !important; border:1px solid rgba(0,240,255,0.16) !important; border-left:2px solid var(--brand) !important; border-radius:8px; padding:8px 11px !important; backdrop-filter:blur(8px); }
+  .dp-sec-title { font-size:9.5px !important; font-weight:800; color:var(--brand); margin-bottom:3px !important; text-transform:uppercase; letter-spacing:0.6px; }
+  .dp-bio { font-size:12px !important; line-height:1.35 !important; color:#dcebf7 !important; white-space:pre-wrap; max-height:54px; overflow-y:auto; }
+  .dp-tags { display:flex; gap:5px; flex-wrap:wrap; margin-top:3px; }
+  .dp-tag { background:rgba(0,240,255,0.09); border:1px solid rgba(0,240,255,0.28); color:var(--brand); padding:2px 7px; border-radius:4px; font-size:10px; font-weight:700; }
+  .dp-actions-col { display:flex; flex-direction:column; gap:7px; margin-top:auto; padding-top:6px; position:relative; z-index:10 !important; }
+  .status-pill { font-size:9.5px; padding:2px 7px; border-radius:4px; font-weight:800; letter-spacing:0.4px; }
+  .status-pill.on { background:rgba(16,185,129,0.18); color:var(--green); border:1px solid rgba(16,185,129,0.35); }
+  .status-pill.off { background:rgba(255,255,255,0.06); color:var(--text-muted); border:1px solid rgba(255,255,255,0.1); }
 
   .ch-edit-btn { opacity:0; background:transparent; border:none; color:var(--brand); font-size:12px; cursor:pointer; padding:2px 4px; margin-left:2px; transition:opacity 0.15s; z-index:4; }
   .ch-btn:hover .ch-edit-btn, .voice-ch-box:hover .ch-edit-btn { opacity:1; }
@@ -1097,7 +1097,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
               </div>
             </div>
             <div class="pub-col">
-              <span class="pub-title">🖼️ Фон профиля</span>
+              <span class="pub-title">🖼️ Фон баннера</span>
               <div style="display:flex;gap:6px;">
                 <button type="button" class="btn-cyan" style="flex:1;" onclick="document.getElementById('inp-bg-file').click()">ЗАГРУЗИТЬ ФОН</button>
                 <button type="button" class="btn-login-mini" onclick="clearCustomImage('banner')">✕ Сброс</button>
@@ -1154,6 +1154,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
         <div class="settings-pane" id="pane-keybinds">
           <div class="settings-head"><h3>⌨️ Горячие клавиши</h3><button class="btn-login-mini" onclick="resetKeybindsToDefault()">Сбросить</button></div>
           <div class="settings-card">
+            <div class="keybind-row"><div class="toggle-title">🎙️ Активация микрофона (1 клавиша)</div><button class="kb-btn" id="kb-btn-micToggle-2" onclick="startKeybindRecord('micToggle')">V</button></div>
             <div class="keybind-row"><div class="toggle-title">🎤 Микрофон вкл/выкл (Mute)</div><button class="kb-btn" id="kb-btn-mute" onclick="startKeybindRecord('mute')"></button></div>
             <div class="keybind-row"><div class="toggle-title">🎧 Звук вкл/выкл (Deafen)</div><button class="kb-btn" id="kb-btn-deafen" onclick="startKeybindRecord('deafen')"></button></div>
             <div class="keybind-row"><div class="toggle-title">📷 Веб-камера</div><button class="kb-btn" id="kb-btn-cam" onclick="startKeybindRecord('cam')"></button></div>
@@ -1180,6 +1181,17 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
               <div><label class="field-label">Аудиовыход</label><select id="set-spk-select" onchange="onMediaDeviceSelectChange()"><option value="">Системный динамик по умолчанию</option></select></div>
             </div>
             <div class="settings-grid-2"><div><label class="field-label">Усиление микр.: <span id="lbl-mic-vol">100%</span></label><input type="range" class="cyber-range" id="set-mic-vol" min="0" max="200" value="100" oninput="onAudioSlidersChange()"></div><div><label class="field-label">Громкость: <span id="lbl-out-vol">100%</span></label><input type="range" class="cyber-range" id="set-out-vol" min="0" max="200" value="100" oninput="onAudioSlidersChange()"></div></div>
+            <div class="toggle-row">
+              <div>
+                <div class="toggle-title">🎙️ Активация микрофона одной клавишей (Переключатель)</div>
+                <div style="font-size:11px;color:var(--text-muted);">Нажмите 1 раз — микрофон включится, ещё раз — выключится</div>
+              </div>
+              <label class="cyber-switch"><input type="checkbox" id="chk-single-key-mic" checked onchange="toggleSingleKeyMic(this.checked)"><span class="cyber-slider"></span></label>
+            </div>
+            <div class="keybind-row" id="single-key-mic-row">
+              <div class="toggle-title" style="font-size:12px;">Клавиша переключения микрофона</div>
+              <button class="kb-btn" id="kb-btn-micToggle" onclick="startKeybindRecord('micToggle')">V</button>
+            </div>
             <div><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><label class="field-label">Тест микрофона</label><button class="btn-login-mini" id="btn-mic-test" onclick="toggleMicTest()">🎙️ ПРОВЕРИТЬ</button></div><div class="mic-meter-wrap"><div class="mic-meter-bar" id="mic-test-bar"></div></div></div>
             <div class="settings-grid-2">
               <div><label class="field-label">Камера</label><select id="set-cam-select" onchange="onMediaDeviceSelectChange()"><option value="">Системная камера по умолчанию</option></select></div>
@@ -1439,7 +1451,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const m = FX_SETS_META[setKey], innerHTML = buildAvatarInnerContent(letters, avaImg);
     const bgStyle = 'font-size:18px;background:' + escapeHtml(avaColor || '#3b82f6') + ';';
     if (!m) return '<div class="hex-wrap" style="width:84px;height:84px;"><div class="hex-border"><div class="hex-core" style="' + bgStyle + '">' + innerHTML + '</div></div>' + (statusCls ? '<span class="hex-status-dot ' + statusCls + '"></span>' : '') + '</div>';
-    return '<div class="cds-user-core" style="' + bgStyle + '">' + innerHTML + '</div><img class="cds-frame-img" src="' + m.frameImgUrl + '" alt="Frame">' + (statusCls ? '<span class="hex-status-dot ' + statusCls + '" style="right:18px;bottom:10px;"></span>' : '');
+    return '<div class="cds-user-core" style="' + bgStyle + '">' + innerHTML + '</div><img class="cds-frame-img" src="' + m.frameImgUrl + '" alt="Frame">' + (statusCls ? '<span class="hex-status-dot ' + statusCls + '" style="right:14px;bottom:8px;"></span>' : '');
   }
 
   function detectFxSetFromInterests(raw) {
@@ -1469,7 +1481,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     ['set1', 'set2', 'set3'].forEach(function (k, idx) {
       const b = document.getElementById('btn-fx-' + k); if (b) b.textContent = (cur === k) ? '✓ АКТИВЕН' : '🎁 ЗАБРАТЬ';
       const slot = document.getElementById('fx-demo-slot-' + (idx + 1));
-      if (slot) slot.innerHTML = '<div class="cyber-diode-scene" style="margin:0;width:104px;height:104px;">' + buildHeroHexMedallionHTML(myNick.slice(0, 2).toUpperCase(), myProfile.avatarColor, k, '', myProfile.avatarImg) + '</div>';
+      if (slot) slot.innerHTML = '<div class="cyber-diode-scene" style="margin:0 !important;width:96px !important;height:96px !important;">' + buildHeroHexMedallionHTML(myNick.slice(0, 2).toUpperCase(), myProfile.avatarColor, k, '', myProfile.avatarImg) + '</div>';
     });
     const dis = document.getElementById('btn-disable-fx'); if (dis) dis.style.display = cur ? 'inline-block' : 'none';
   }
@@ -1478,21 +1490,38 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     return { pid: myPid, nick: myNick, online: true, presence: myProfile.presence, customStatus: myProfile.customStatus, bio: myProfile.bio, interests: myProfile.interests, bannerColor: myProfile.bannerColor, avatarColor: myProfile.avatarColor, avatarImg: myProfile.avatarImg, bannerImg: myProfile.bannerImg, fxSet: myProfile.fxSet };
   }
 
-  const DEFAULT_KEYBINDS = { mute: 'Alt+KeyM', deafen: 'Alt+KeyD', cam: 'Alt+KeyC', screen: 'Alt+KeyS' };
+  const DEFAULT_KEYBINDS = { mute: 'Alt+KeyM', deafen: 'Alt+KeyD', cam: 'Alt+KeyC', screen: 'Alt+KeyS', micToggle: 'KeyV' };
   let userKeybinds = Object.assign({}, DEFAULT_KEYBINDS);
   try { userKeybinds = Object.assign(userKeybinds, JSON.parse(localStorage.getItem('cyber_keybinds') || '{}')); } catch (e) {}
   let recordingAction = null;
 
   function formatKeybindCode(c) { return c ? String(c).replace('Key', '').replace('Digit', '').replace('Control', 'Ctrl') : 'Не назначено'; }
-  function renderKeybindsUI() {
-    ['mute', 'deafen', 'cam', 'screen'].forEach(function (act) {
-      const btn = document.getElementById('kb-btn-' + act); if (!btn) return;
-      btn.textContent = (recordingAction === act) ? 'Нажмите клавишу...' : formatKeybindCode(userKeybinds[act]);
-      btn.classList.toggle('recording', recordingAction === act);
-    });
-    const hint = document.getElementById('footer-keybind-hint');
-    if (hint) hint.textContent = 'БИНДЫ: МИКР [' + formatKeybindCode(userKeybinds.mute) + '] • ЗВУК [' + formatKeybindCode(userKeybinds.deafen) + '] • КАМЕРА [' + formatKeybindCode(userKeybinds.cam) + ']';
+
+  function toggleSingleKeyMic(val) {
+    appSettings.singleKeyMic = !!val;
+    try { localStorage.setItem('cyber_settings', JSON.stringify(appSettings)); } catch (e) {}
+    const row = document.getElementById('single-key-mic-row');
+    if (row) row.style.opacity = appSettings.singleKeyMic ? '1' : '0.45';
   }
+
+  function renderKeybindsUI() {
+    ['mute', 'deafen', 'cam', 'screen', 'micToggle'].forEach(function (act) {
+      const label = (recordingAction === act) ? 'Нажмите клавишу...' : formatKeybindCode(userKeybinds[act]);
+      const btn = document.getElementById('kb-btn-' + act);
+      if (btn) { btn.textContent = label; btn.classList.toggle('recording', recordingAction === act); }
+      if (act === 'micToggle') {
+        const btn2 = document.getElementById('kb-btn-micToggle-2');
+        if (btn2) { btn2.textContent = label; btn2.classList.toggle('recording', recordingAction === act); }
+      }
+    });
+    const chk = document.getElementById('chk-single-key-mic');
+    if (chk) chk.checked = appSettings.singleKeyMic !== false;
+    const row = document.getElementById('single-key-mic-row');
+    if (row) row.style.opacity = (appSettings.singleKeyMic !== false) ? '1' : '0.45';
+    const hint = document.getElementById('footer-keybind-hint');
+    if (hint) hint.textContent = 'МИКР: [' + formatKeybindCode(userKeybinds.micToggle) + '] • ЗВУК: [' + formatKeybindCode(userKeybinds.deafen) + '] • КАМЕРА: [' + formatKeybindCode(userKeybinds.cam) + ']';
+  }
+
   function startKeybindRecord(act) { recordingAction = (recordingAction === act) ? null : act; renderKeybindsUI(); }
   function resetKeybindsToDefault() { userKeybinds = Object.assign({}, DEFAULT_KEYBINDS); recordingAction = null; try { localStorage.setItem('cyber_keybinds', JSON.stringify(userKeybinds)); } catch (e) {} renderKeybindsUI(); }
   function eventToComboString(e) {
@@ -1502,7 +1531,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     return p.join('+');
   }
 
-  let appSettings = Object.assign({ theme: 'cyber-cyan', appIcon: '⚡', streamerMode: false, showTime: true, showMedia: true, showSearch: true, msgGap: '8px', micDeviceId: '', spkDeviceId: '', camDeviceId: '', micVolume: 100, outVolume: 100, camRes: '720', noiseSuppression: true, echoCancellation: true, autoGainControl: true, compactChat: false, fontSize: '14px', soundMsg: true, soundVoice: true, filterSexual: true, filterGore: true, filterOutgoing: true, filterAction: 'block', customBlockedWords: '' }, JSON.parse(localStorage.getItem('cyber_settings') || '{}'));
+  let appSettings = Object.assign({ singleKeyMic: true, theme: 'cyber-cyan', appIcon: '⚡', streamerMode: false, showTime: true, showMedia: true, showSearch: true, msgGap: '8px', micDeviceId: '', spkDeviceId: '', camDeviceId: '', micVolume: 100, outVolume: 100, camRes: '720', noiseSuppression: true, echoCancellation: true, autoGainControl: true, compactChat: false, fontSize: '14px', soundMsg: true, soundVoice: true, filterSexual: true, filterGore: true, filterOutgoing: true, filterAction: 'block', customBlockedWords: '' }, JSON.parse(localStorage.getItem('cyber_settings') || '{}'));
   let localVault = Object.assign({ knownUsers: {}, friends: [], incoming: [], outgoing: [], servers: [], messages: {} }, JSON.parse(localStorage.getItem('cyber_vault_v1') || '{}'));
 
   function saveLocalVault() {
@@ -2229,7 +2258,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (!u) return; closeMobileDrawers();
     const isSelf = isMeUser(u), setKey = getUserFxSet(u), fxMeta = FX_SETS_META[setKey];
     document.getElementById('vp-surface').className = 'profile-surface' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
-    const customBgEl = document.getElementById('vp-custom-bg'); if (customBgEl) { const bImg = (isSelf ? myProfile.bannerImg : u.bannerImg) || ''; customBgEl.style.backgroundImage = bImg ? 'url(\'' + bImg + '\')' : 'none'; }
+    const customBgEl = document.getElementById('vp-custom-bg'); if (customBgEl) { const bImg = (isSelf ? myProfile.bannerImg : u.bannerImg) || ''; customBgEl.style.backgroundImage = bImg ? 'url(\'' + bImg + '\')' : ''; }
     const aImg = (isSelf ? myProfile.avatarImg : u.avatarImg) || '';
     document.getElementById('vp-hero-stage').innerHTML = buildHeroHexMedallionHTML(String(u.nick || '?').slice(0, 2).toUpperCase(), u.avatarColor || '#3b82f6', setKey, u.online ? (u.presence || 'online') : 'off', aImg);
     document.getElementById('vp-nick').textContent = u.nick || 'Участник';
@@ -2296,7 +2325,7 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     const finalIntr = cleanTags.join(', ');
 
     document.getElementById('preview-surface').className = 'profile-surface' + (fxMeta ? ' ' + fxMeta.surfaceClass : '');
-    const prevBg = document.getElementById('preview-custom-bg'); if (prevBg) prevBg.style.backgroundImage = myProfile.bannerImg ? 'url(\'' + myProfile.bannerImg + '\')' : 'none';
+    const prevBg = document.getElementById('preview-custom-bg'); if (prevBg) prevBg.style.backgroundImage = myProfile.bannerImg ? 'url(\'' + myProfile.bannerImg + '\')' : '';
     document.getElementById('preview-hero-stage').innerHTML = buildHeroHexMedallionHTML(n.slice(0, 2).toUpperCase(), myProfile.avatarColor || '#3b82f6', curSet, pr, myProfile.avatarImg);
     document.getElementById('preview-nick').textContent = n;
     document.getElementById('preview-badge-slot').innerHTML = getBadgeHTML(curSet);
@@ -2847,8 +2876,12 @@ const HTML_PAGE = String.raw`<!DOCTYPE html>
     if (e.key === 'Escape') { closeSettingsModal(); closeServerSettingsModal(); closeViewProfileModal(); closeInviteModal(); closeMobileDrawers(); return; }
     const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.repeat) return;
     const pressed = eventToComboString(e); if (!pressed) return;
-    if (pressed === userKeybinds.mute) { e.preventDefault(); if (inVoice) toggleMute(); else toggleVoiceCall(); }
+    if (appSettings.singleKeyMic !== false && pressed === userKeybinds.micToggle) {
+      e.preventDefault();
+      if (inVoice) toggleMute(); else toggleVoiceCall();
+    } else if (pressed === userKeybinds.mute) { e.preventDefault(); if (inVoice) toggleMute(); else toggleVoiceCall(); }
     else if (pressed === userKeybinds.deafen) { e.preventDefault(); if (inVoice) toggleDeafen(); }
     else if (pressed === userKeybinds.cam) { e.preventDefault(); toggleWebcam(); }
     else if (pressed === userKeybinds.screen) { e.preventDefault(); toggleScreenShare(); }
